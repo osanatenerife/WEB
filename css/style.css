@@ -407,6 +407,131 @@ footer { background: #110e0b; padding: 60px 48px 30px; }
 .footer-social a { font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(240,235,226,0.32); text-decoration: none; }
 .footer-social a:hover { color: var(--gold); }
 
+/* ══════════════════ TICKER / CINTA EN MOVIMIENTO ══════════════════ */
+.ticker { overflow: hidden; background: var(--dark); border-bottom: 1px solid var(--linew); }
+.ticker-track { display: flex; width: max-content; animation: ticker-scroll 26s linear infinite; }
+.ticker-group { display: flex; flex-shrink: 0; }
+.ticker-item {
+  display: flex; align-items: center; gap: 28px;
+  padding: 13px 28px; white-space: nowrap;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold);
+}
+.ticker-item::after { content: '✦'; color: var(--brown); font-size: 8px; }
+@keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .ticker-track { animation: none; } }
+
+/* ══════════════════ RESERVA — TIRA COMPACTA ══════════════════ */
+.reserve-strip { background: var(--dark); border-bottom: 1px solid var(--linew); }
+.reserve-strip-inner {
+  max-width: 1280px; margin: 0 auto; padding: 16px 48px;
+  display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+}
+.reserve-strip-label { font-size: 10px; font-weight: 500; letter-spacing: 0.24em; text-transform: uppercase; color: var(--gold); }
+.reserve-strip-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.reserve-strip-actions a {
+  font-size: 9px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 10px 18px; text-decoration: none; white-space: nowrap; transition: all 0.2s;
+}
+.reserve-strip-actions a.gold { background: var(--gold); color: var(--dark); }
+.reserve-strip-actions a.gold:hover { filter: brightness(1.1); }
+.reserve-strip-actions a.line { border: 1px solid var(--linew); color: rgba(240,235,226,0.7); }
+.reserve-strip-actions a.line:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ══════════════════ HERO — TIPOGRAFÍA MIXTA (italic + caps) ══════════════════ */
+.hero-title-mix { line-height: 0.98; margin-bottom: 26px; }
+.hero-title-mix .line-italic {
+  display: block; font-family: 'Playfair Display', serif; font-style: italic; font-weight: 400;
+  font-size: clamp(30px, 4.2vw, 50px); color: rgba(240,235,226,0.75);
+}
+.hero-title-mix .line-caps {
+  display: block; font-family: 'Playfair Display', serif; font-weight: 600;
+  letter-spacing: 0.015em; text-transform: uppercase;
+  font-size: clamp(36px, 7vw, 74px); color: var(--cream2);
+}
+
+/* ══════════════════ TILES DE SERVICIOS (home) — foto grande + franja info ══════════════════ */
+.tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+.tile { text-decoration: none; display: flex; flex-direction: column; background: var(--dark); }
+.tile-img-wrap { position: relative; aspect-ratio: 4/5; overflow: hidden; }
+.tile-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s ease; display: block; }
+.tile-img-wrap::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(12,11,9,0.8) 0%, rgba(12,11,9,0.1) 55%, rgba(12,11,9,0) 100%);
+}
+.tile:hover .tile-img-wrap img { transform: scale(1.08); }
+.tile-name {
+  position: absolute; left: 22px; right: 22px; bottom: 18px; z-index: 2;
+  font-family: 'Playfair Display', serif; font-size: clamp(17px, 1.7vw, 23px); font-weight: 500;
+  color: var(--cream2); text-transform: uppercase; letter-spacing: 0.02em; line-height: 1.2;
+}
+.tile-n-badge {
+  position: absolute; top: 18px; left: 22px; z-index: 2;
+  font-size: 10px; letter-spacing: 0.2em; color: var(--gold);
+}
+.tile-info { background: var(--brown); padding: 22px 24px; flex: 1; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid rgba(240,235,226,0.12); }
+.tile:nth-child(3n) .tile-info { border-right: none; }
+.tile-desc { font-size: 11px; font-weight: 300; line-height: 1.7; color: rgba(240,235,226,0.75); flex: 1; }
+.tile-btn {
+  align-self: flex-start; font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--cream2); background: var(--dark); padding: 11px 20px; transition: background 0.2s;
+}
+.tile:hover .tile-btn { background: #000; }
+
+/* ══════════════════ FORMACIONES — TARJETAS DE CURSO ══════════════════ */
+.course-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; background: var(--line); max-width: 1280px; margin: 0 auto; }
+.course-card { background: var(--cream); display: flex; flex-direction: column; }
+.course-photo { position: relative; aspect-ratio: 4/3; overflow: hidden; }
+.course-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+.course-card:hover .course-photo img { transform: scale(1.06); }
+.course-photo-badge {
+  position: absolute; top: 16px; left: 16px; font-size: 9px; font-weight: 500; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--dark); background: var(--gold); padding: 6px 12px; z-index: 2;
+}
+.course-body { padding: 26px 26px 28px; display: flex; flex-direction: column; gap: 12px; flex: 1; }
+.course-n { font-size: 10px; letter-spacing: 0.2em; color: var(--txt-soft); }
+.course-name { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 500; color: var(--txt); line-height: 1.25; }
+.course-oneliner { font-size: 12px; font-weight: 300; color: var(--txt-mid); line-height: 1.7; }
+.course-meta {
+  display: flex; justify-content: space-between; align-items: baseline;
+  border-top: 1px solid var(--line); padding-top: 14px; margin-top: auto;
+}
+.course-duration { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt-soft); }
+.course-price { font-family: 'Playfair Display', serif; font-size: 19px; color: var(--brown); }
+.course-details { border-top: 1px solid var(--line); padding-top: 12px; }
+.course-details summary {
+  cursor: pointer; font-size: 10px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--brown); list-style: none; display: flex; align-items: center; gap: 8px;
+}
+.course-details summary::-webkit-details-marker { display: none; }
+.course-details summary::after { content: '+'; font-size: 15px; margin-left: auto; line-height: 1; }
+.course-details[open] summary::after { content: '−'; }
+.course-details-body { padding-top: 14px; font-size: 12px; color: var(--txt-mid); line-height: 1.85; }
+.course-details-body ul { padding-left: 18px; margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.course-cta { margin-top: 4px; }
+
+/* ══════════════════ PROMOCIONES — DESTACADA + FOTOS ══════════════════ */
+.promo-featured { display: grid; grid-template-columns: 1.1fr 1fr; background: var(--dark); margin: 0 auto 2px; max-width: 1280px; }
+.promo-featured-img { position: relative; aspect-ratio: 16/11; overflow: hidden; }
+.promo-featured-img img { width: 100%; height: 100%; object-fit: cover; }
+.promo-featured-body { padding: 52px 48px; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+.promo-featured-title { font-family: 'Playfair Display', serif; font-size: clamp(26px, 3vw, 38px); font-weight: 400; color: var(--cream2); line-height: 1.15; }
+.promo-featured-desc { font-size: 13px; font-weight: 300; color: rgba(240,235,226,0.55); line-height: 1.85; max-width: 440px; }
+.promo-featured .promo-prices .promo-price-old { color: rgba(240,235,226,0.4); }
+.promo-featured .promo-prices .promo-price-new { color: var(--gold); }
+.promo-featured-valid { font-size: 10px; color: rgba(240,235,226,0.35); letter-spacing: 0.06em; margin-top: 6px; }
+
+.promo-photo-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; background: var(--line); max-width: 1280px; margin: 0 auto; }
+.promo-photo-card { background: var(--cream); display: flex; flex-direction: column; }
+.promo-photo { aspect-ratio: 16/9; overflow: hidden; }
+.promo-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
+.promo-photo-card:hover .promo-photo img { transform: scale(1.06); }
+.promo-photo-card .promo-tag { margin: 24px 28px 0; }
+.promo-photo-card .promo-title { margin: 12px 28px 0; }
+.promo-photo-card .promo-desc { margin: 0 28px; }
+.promo-photo-card .promo-prices { margin: 0 28px; }
+.promo-photo-card .btn-outline-dark { margin: 0 28px; align-self: flex-start; }
+.promo-photo-card .promo-valid { margin: 16px 28px 26px; }
+
 /* ══════════════════ WHATSAPP FLOTANTE ══════════════════ */
 .wa-float {
   position: fixed; right: 20px; bottom: 20px; z-index: 400;
@@ -492,6 +617,22 @@ footer { background: #110e0b; padding: 60px 48px 30px; }
 
   .svc-cta { flex-direction: column; align-items: stretch; gap: 12px; }
   .svc-btn { text-align: center; }
+
+  /* RESERVA — tira */
+  .reserve-strip-inner { padding: 14px 20px; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .reserve-strip-actions { width: 100%; }
+  .reserve-strip-actions a { flex: 1; text-align: center; }
+
+  /* TILES SERVICIOS */
+  .tile-grid { grid-template-columns: 1fr; }
+  .tile:nth-child(3n) .tile-info { border-right: none; }
+
+  /* CURSOS */
+  .course-grid { grid-template-columns: 1fr; }
+
+  /* PROMOCIONES */
+  .promo-featured { grid-template-columns: 1fr; }
+  .promo-photo-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 480px) {

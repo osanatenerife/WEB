@@ -117,103 +117,138 @@
 </section>
 
 <!-- CURSOS -->
-<div class="services" id="cursos">
+<div style="max-width:1280px; margin:0 auto; padding:0 48px 20px;" id="cursos">
+  <div class="course-grid">
 
-  <!-- 01 AUTOMAQUILLAJE -->
-  <div class="svc" id="curso-automaquillaje">
-    <button class="svc-head" id="h1" onclick="toggleSvc(1)">
-      <span class="svc-n">01</span>
-      <div><h2 class="svc-name">Curso de automaquillaje</h2><div class="svc-sub">Iniciación · Uso diario y eventos · Sin experiencia previa</div></div>
-      <div class="svc-right"><div class="svc-desde"><span class="svc-desde-label">Desde</span><span class="svc-desde-price">90 €</span></div><div class="svc-icon"></div></div>
-    </button>
-    <div class="svc-body" id="b1"><div class="svc-inner">
-      <p class="svc-desc">Aprende a maquillarte tú misma como una profesional: preparación y corrección de la piel, contouring e iluminación natural, técnicas de ojos día/noche y trucos de larga duración para looks de diario o de evento. Curso pensado para quienes no tienen experiencia previa y quieren dominar su propio maquillaje, o dar sus primeros pasos en el mundo de la estética.</p>
-      <div class="sub-title">Temario</div>
-      <div class="sub-block"><div class="sub-block-name">Análisis de piel y corrección</div><div class="sub-block-desc">Identificación de tono, tipo de piel e imperfecciones a corregir</div></div>
-      <div class="sub-block"><div class="sub-block-name">Contouring e iluminación</div><div class="sub-block-desc">Técnicas de perfilado natural adaptadas a cada rostro</div></div>
-      <div class="sub-block"><div class="sub-block-name">Maquillaje de ojos día/noche</div><div class="sub-block-desc">Ojo ahumado, técnicas de alargamiento y apertura de mirada</div></div>
-      <div class="sub-block"><div class="sub-block-name">Fijación y larga duración</div><div class="sub-block-desc">Productos y trucos para que el maquillaje aguante todo el día o el evento</div></div>
-      <p class="svc-desc" style="border:none; margin:16px 0 0; padding:0;"><strong>Duración:</strong> 4 horas (formato intensivo) · <strong>Plazas:</strong> reducidas · Precio orientativo, consulta fechas disponibles.</p>
-      <div class="svc-cta"><span class="svc-cta-note">Plazas limitadas</span><a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20automaquillaje" class="svc-btn">Pedir información</a></div>
-    </div></div>
+    <!-- 01 AUTOMAQUILLAJE -->
+    <div class="course-card reveal" id="curso-automaquillaje">
+      <div class="course-photo">
+        <span class="course-photo-badge">Iniciación</span>
+        <img src="images/faciales.jpg" alt="Curso de automaquillaje" loading="lazy">
+      </div>
+      <div class="course-body">
+        <span class="course-n">01</span>
+        <h2 class="course-name">Curso de automaquillaje</h2>
+        <p class="course-oneliner">Aprende a maquillarte tú misma como una profesional: corrección de piel, contouring, ojos día/noche y larga duración. Sin experiencia previa.</p>
+        <div class="course-meta"><span class="course-duration">4 horas</span><span class="course-price">90 €</span></div>
+        <details class="course-details">
+          <summary>Ver temario</summary>
+          <div class="course-details-body">
+            <ul>
+              <li>Análisis de piel y corrección de imperfecciones</li>
+              <li>Contouring e iluminación natural</li>
+              <li>Maquillaje de ojos día/noche</li>
+              <li>Fijación y larga duración</li>
+            </ul>
+          </div>
+        </details>
+        <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20automaquillaje" class="svc-btn course-cta">Pedir información</a>
+      </div>
+    </div>
+
+    <!-- 02 LIFTING DE PESTAÑAS -->
+    <div class="course-card reveal reveal-delay-1" id="curso-lifting-pestanas">
+      <div class="course-photo">
+        <span class="course-photo-badge">Más solicitado</span>
+        <img src="images/servicios-hero-1.jpg" alt="Curso de lifting de pestañas y laminado de cejas" loading="lazy">
+      </div>
+      <div class="course-body">
+        <span class="course-n">02</span>
+        <h2 class="course-name">Lifting de pestañas y laminado de cejas</h2>
+        <p class="course-oneliner">La técnica más demandada del momento: acabados naturales y de larga duración. Práctica con modelo real desde el primer día.</p>
+        <div class="course-meta"><span class="course-duration">6 horas · certificado</span><span class="course-price">180 €</span></div>
+        <details class="course-details">
+          <summary>Ver temario</summary>
+          <div class="course-details-body">
+            <ul>
+              <li>Anatomía de ceja y pestaña</li>
+              <li>Lifting coreano y tradicional</li>
+              <li>Laminado de cejas</li>
+              <li>Prácticas supervisadas con modelo real</li>
+            </ul>
+          </div>
+        </details>
+        <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20lifting%20de%20pesta%C3%B1as" class="svc-btn course-cta">Pedir información</a>
+      </div>
+    </div>
+
+    <!-- 03 DEPILACIÓN CON HILO -->
+    <div class="course-card reveal reveal-delay-2" id="curso-hilo">
+      <div class="course-photo">
+        <img src="images/hero-bg.jpg" alt="Curso de depilación con hilo" loading="lazy">
+      </div>
+      <div class="course-body">
+        <span class="course-n">03</span>
+        <h2 class="course-name">Curso de depilación con hilo</h2>
+        <p class="course-oneliner">Domina el threading, uno de los métodos de depilación facial más precisos y respetuosos con la piel: cejas, labio y mentón.</p>
+        <div class="course-meta"><span class="course-duration">4 horas</span><span class="course-price">120 €</span></div>
+        <details class="course-details">
+          <summary>Ver temario</summary>
+          <div class="course-details-body">
+            <ul>
+              <li>Fundamentos del threading</li>
+              <li>Técnica en cejas, labio y mentón</li>
+              <li>Higiene y bioseguridad</li>
+              <li>Prácticas con modelo real</li>
+            </ul>
+          </div>
+        </details>
+        <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20depilaci%C3%B3n%20con%20hilo" class="svc-btn course-cta">Pedir información</a>
+      </div>
+    </div>
+
+    <!-- 04 DIAGNÓSTICO FACIAL IA + APARATOLOGÍA -->
+    <div class="course-card reveal" id="curso-aparatologia">
+      <div class="course-photo">
+        <img src="images/laser.jpg" alt="Curso de diagnóstico facial con IA y aparatología estética" loading="lazy">
+      </div>
+      <div class="course-body">
+        <span class="course-n">04</span>
+        <h2 class="course-name">Diagnóstico facial con IA y aparatología estética</h2>
+        <p class="course-oneliner">Radiofrecuencia, dermapen e IPL con criterio clínico, más el manejo del diagnóstico facial con inteligencia artificial.</p>
+        <div class="course-meta"><span class="course-duration">8 horas · 2 sesiones</span><span class="course-price">250 €</span></div>
+        <details class="course-details">
+          <summary>Ver temario</summary>
+          <div class="course-details-body">
+            <ul>
+              <li>Diagnóstico facial con IA</li>
+              <li>Radiofrecuencia facial</li>
+              <li>Dermapen y mesoterapia virtual</li>
+              <li>IPL y fotorejuvenecimiento</li>
+            </ul>
+          </div>
+        </details>
+        <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20aparatolog%C3%ADa%20est%C3%A9tica" class="svc-btn course-cta">Pedir información</a>
+      </div>
+    </div>
+
+    <!-- 05 MICROPIGMENTACIÓN INICIACIÓN -->
+    <div class="course-card reveal reveal-delay-1" id="curso-micropigmentacion">
+      <div class="course-photo">
+        <span class="course-photo-badge">Plazas limitadas</span>
+        <img src="images/statement.jpg" alt="Curso de micropigmentación de cejas" loading="lazy">
+      </div>
+      <div class="course-body">
+        <span class="course-n">05</span>
+        <h2 class="course-name">Micropigmentación de cejas — iniciación</h2>
+        <p class="course-oneliner">Diseño y proporción facial, colorimetría y técnica pelo a pelo, de la mano de especialistas con experiencia real en centro.</p>
+        <div class="course-meta"><span class="course-duration">2 días · 16 horas</span><span class="course-price">Consultar</span></div>
+        <details class="course-details">
+          <summary>Ver temario</summary>
+          <div class="course-details-body">
+            <ul>
+              <li>Diseño y proporción facial</li>
+              <li>Colorimetría</li>
+              <li>Técnica pelo a pelo</li>
+              <li>Bioseguridad y cuidados posteriores</li>
+            </ul>
+          </div>
+        </details>
+        <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20micropigmentaci%C3%B3n" class="svc-btn course-cta">Pedir información</a>
+      </div>
+    </div>
+
   </div>
-
-  <!-- 02 LIFTING DE PESTAÑAS -->
-  <div class="svc" id="curso-lifting-pestanas">
-    <button class="svc-head" id="h2" onclick="toggleSvc(2)">
-      <span class="svc-n">02</span>
-      <div><div class="svc-badge">Curso más solicitado</div><h2 class="svc-name">Curso de lifting de pestañas y laminado de cejas</h2><div class="svc-sub">Práctica con modelo real · Incluye kit de iniciación</div></div>
-      <div class="svc-right"><div class="svc-desde"><span class="svc-desde-label">Desde</span><span class="svc-desde-price">180 €</span></div><div class="svc-icon"></div></div>
-    </button>
-    <div class="svc-body" id="b2"><div class="svc-inner">
-      <p class="svc-desc">Fórmate en una de las técnicas más demandadas en los centros de estética: el lifting de pestañas y el laminado de cejas, con acabados naturales y de larga duración. Trabajarás con modelo real desde la primera sesión, bajo la supervisión directa de la formadora, hasta dominar el protocolo completo.</p>
-      <div class="sub-title">Temario</div>
-      <div class="sub-block"><div class="sub-block-name">Anatomía de ceja y pestaña</div><div class="sub-block-desc">Estructura del folículo y criterios para elegir la curvatura adecuada</div></div>
-      <div class="sub-block"><div class="sub-block-name">Lifting coreano y tradicional</div><div class="sub-block-desc">Protocolo completo paso a paso de ambas técnicas</div></div>
-      <div class="sub-block"><div class="sub-block-name">Laminado de cejas</div><div class="sub-block-desc">Fijación, nutrición y diseño de la ceja laminada</div></div>
-      <div class="sub-block"><div class="sub-block-name">Prácticas supervisadas</div><div class="sub-block-desc">Sesión completa con modelo real y corrección en directo</div></div>
-      <p class="svc-desc" style="border:none; margin:16px 0 0; padding:0;"><strong>Duración:</strong> 6 horas · <strong>Incluye:</strong> certificado y kit básico de iniciación · Precio orientativo, consulta fechas disponibles.</p>
-      <div class="svc-cta"><span class="svc-cta-note">Certificado incluido</span><a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20lifting%20de%20pesta%C3%B1as" class="svc-btn">Pedir información</a></div>
-    </div></div>
-  </div>
-
-  <!-- 03 DEPILACIÓN CON HILO -->
-  <div class="svc" id="curso-hilo">
-    <button class="svc-head" id="h3" onclick="toggleSvc(3)">
-      <span class="svc-n">03</span>
-      <div><h2 class="svc-name">Curso de depilación con hilo</h2><div class="svc-sub">Threading · Cejas, labio y mentón</div></div>
-      <div class="svc-right"><div class="svc-desde"><span class="svc-desde-label">Desde</span><span class="svc-desde-price">120 €</span></div><div class="svc-icon"></div></div>
-    </button>
-    <div class="svc-body" id="b3"><div class="svc-inner">
-      <p class="svc-desc">Domina la técnica del hilo (threading), uno de los métodos de depilación facial más precisos y respetuosos con la piel, cada vez más solicitado en centros de estética. Un curso muy práctico centrado en la ejecución correcta del hilo en cejas, labio y mentón.</p>
-      <div class="sub-title">Temario</div>
-      <div class="sub-block"><div class="sub-block-name">Fundamentos del threading</div><div class="sub-block-desc">Origen de la técnica, materiales y postura de trabajo</div></div>
-      <div class="sub-block"><div class="sub-block-name">Técnica en cejas, labio y mentón</div><div class="sub-block-desc">Ejecución correcta zona a zona</div></div>
-      <div class="sub-block"><div class="sub-block-name">Higiene y bioseguridad</div><div class="sub-block-desc">Protocolo de desinfección y prevención de irritaciones</div></div>
-      <div class="sub-block"><div class="sub-block-name">Prácticas con modelo real</div><div class="sub-block-desc">Sesión guiada de principio a fin</div></div>
-      <p class="svc-desc" style="border:none; margin:16px 0 0; padding:0;"><strong>Duración:</strong> 4 horas · Precio orientativo, consulta fechas disponibles.</p>
-      <div class="svc-cta"><span class="svc-cta-note"></span><a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20depilaci%C3%B3n%20con%20hilo" class="svc-btn">Pedir información</a></div>
-    </div></div>
-  </div>
-
-  <!-- 04 DIAGNÓSTICO FACIAL IA + APARATOLOGÍA -->
-  <div class="svc" id="curso-aparatologia">
-    <button class="svc-head" id="h4" onclick="toggleSvc(4)">
-      <span class="svc-n">04</span>
-      <div><h2 class="svc-name">Curso de diagnóstico facial con IA y aparatología estética</h2><div class="svc-sub">Radiofrecuencia · Dermapen · IPL</div></div>
-      <div class="svc-right"><div class="svc-desde"><span class="svc-desde-label">Desde</span><span class="svc-desde-price">250 €</span></div><div class="svc-icon"></div></div>
-    </button>
-    <div class="svc-body" id="b4"><div class="svc-inner">
-      <p class="svc-desc">Aprende a interpretar el diagnóstico facial con inteligencia artificial y a manejar con criterio clínico los principales equipos de aparatología estética que usamos en Osana: radiofrecuencia, dermapen e IPL. Formación pensada para quienes ya trabajan en el sector y quieren sumar tecnología a su protocolo.</p>
-      <div class="sub-title">Temario</div>
-      <div class="sub-block"><div class="sub-block-name">Diagnóstico facial con IA</div><div class="sub-block-desc">Lectura del informe y diseño de protocolo personalizado</div></div>
-      <div class="sub-block"><div class="sub-block-name">Radiofrecuencia facial</div><div class="sub-block-desc">Indicaciones, contraindicaciones y protocolo de sesión</div></div>
-      <div class="sub-block"><div class="sub-block-name">Dermapen y mesoterapia virtual</div><div class="sub-block-desc">Profundidades de trabajo según objetivo</div></div>
-      <div class="sub-block"><div class="sub-block-name">IPL y fotorejuvenecimiento</div><div class="sub-block-desc">Fototipos, parámetros y pautas de seguridad</div></div>
-      <p class="svc-desc" style="border:none; margin:16px 0 0; padding:0;"><strong>Duración:</strong> 8 horas (2 sesiones) · Precio orientativo, consulta fechas disponibles.</p>
-      <div class="svc-cta"><span class="svc-cta-note"></span><a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20aparatolog%C3%ADa%20est%C3%A9tica" class="svc-btn">Pedir información</a></div>
-    </div></div>
-  </div>
-
-  <!-- 05 MICROPIGMENTACIÓN INICIACIÓN -->
-  <div class="svc" id="curso-micropigmentacion">
-    <button class="svc-head" id="h5" onclick="toggleSvc(5)">
-      <span class="svc-n">05</span>
-      <div><h2 class="svc-name">Curso de micropigmentación de cejas — iniciación</h2><div class="svc-sub">Diseño · Colorimetría · Técnica pelo a pelo · Plazas limitadas</div></div>
-      <div class="svc-right"><div class="svc-desde"><span class="svc-desde-label">Desde</span><span class="svc-desde-price">Consultar</span></div><div class="svc-icon"></div></div>
-    </button>
-    <div class="svc-body" id="b5"><div class="svc-inner">
-      <p class="svc-desc">Introducción a la micropigmentación de cejas de la mano de especialistas con experiencia real en centro: diseño y proporción facial, colorimetría y técnica pelo a pelo. Formación avanzada con plazas muy limitadas.</p>
-      <div class="sub-title">Temario</div>
-      <div class="sub-block"><div class="sub-block-name">Diseño y proporción facial</div><div class="sub-block-desc">Mapeo de ceja según morfología del rostro</div></div>
-      <div class="sub-block"><div class="sub-block-name">Colorimetría</div><div class="sub-block-desc">Selección de pigmento según subtono de piel</div></div>
-      <div class="sub-block"><div class="sub-block-name">Técnica pelo a pelo</div><div class="sub-block-desc">Ejecución paso a paso sobre modelo</div></div>
-      <div class="sub-block"><div class="sub-block-name">Bioseguridad y cuidados posteriores</div><div class="sub-block-desc">Protocolo de higiene y pauta de curación</div></div>
-      <p class="svc-desc" style="border:none; margin:16px 0 0; padding:0;"><strong>Duración:</strong> 2 días (16 horas) · Formación avanzada, plazas muy limitadas.</p>
-      <div class="svc-cta"><span class="svc-cta-note">Plazas muy limitadas</span><a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20curso%20de%20micropigmentaci%C3%B3n" class="svc-btn">Pedir información</a></div>
-    </div></div>
-  </div>
-
 </div>
 
 <!-- CTA FORMACIÓN A MEDIDA -->

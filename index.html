@@ -67,40 +67,45 @@
   </button>
 </nav>
 
-<main id="main">
-
-<!-- ══ RESERVA — LO PRIMERO, ARRIBA DEL TODO ══ -->
-<section class="page-hero" id="reservar" style="padding-top:100px; padding-bottom:0; max-width:1280px;">
-  <span class="page-hero-eyebrow">Reserva tu cita</span>
-  <h1 class="page-hero-title" style="font-size:clamp(28px,4vw,42px); margin-bottom:14px;">Pide cita <em>en menos de un minuto</em></h1>
-  <p class="page-hero-text" style="margin-bottom:32px;">Primera consulta de valoración gratuita. Elige el canal que prefieras: reserva online, WhatsApp o llamada directa.</p>
-</section>
-
-<div style="max-width:1280px; margin:0 auto 64px; padding:0 48px;">
-  <div class="booking-widget-wrap">
-    <!--
-      AQUÍ VA EL WIDGET DE BOOKSY
-      Sustituye este bloque por el código embed que te da Booksy Biz
-      (Marketing → Widget para tu web). Normalmente es un <iframe> o un <script>.
-      Ejemplo: <iframe src="https://booksy.com/widget/..." ...></iframe>
-    -->
-    <div class="booking-widget-fallback">
-      <p>El calendario de reservas online se integrará aquí en cuanto tengamos<br>el código del widget de Booksy. Mientras tanto, reserva por estos canales:</p>
-      <div class="booking-options" style="justify-content:center;">
-        <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20reservar%20una%20cita%20en%20Osana" class="btn-primary">WhatsApp directo</a>
-        <a href="tel:+34623725551" class="btn-outline-dark">Llamar · 623 725 551</a>
-        <a href="https://booksy.com/es-es/" target="_blank" rel="noopener" class="btn-outline-dark">Reservar en Booksy</a>
-      </div>
+<!-- ══ RESERVA — TIRA COMPACTA, LO PRIMERO ══ -->
+<div class="reserve-strip page-offset" id="reservar">
+  <div class="reserve-strip-inner">
+    <span class="reserve-strip-label">Reserva tu cita · consulta gratuita</span>
+    <div class="reserve-strip-actions">
+      <a href="https://wa.me/34623725551?text=Hola%2C%20quiero%20reservar%20una%20cita%20en%20Osana" class="gold">WhatsApp directo</a>
+      <a href="tel:+34623725551" class="line">Llamar · 623 725 551</a>
+      <a href="https://booksy.com/es-es/" target="_blank" rel="noopener" class="line">Reservar en Booksy</a>
     </div>
   </div>
 </div>
 
+<main id="main">
+
 <!-- ══ HERO ══ -->
-<section class="hero">
-  <div class="hero-bg" style="background-image:url('images/hero-bg.jpg');"></div>
+<section class="hero" style="min-height:88vh;">
+  <div class="hero-bg" style="background-image:url('images/hero-bg.jpg'); background-position:center 35%;"></div>
+  <div class="ticker" style="position:absolute; top:0; left:0; right:0; z-index:2; background:rgba(12,11,9,0.35); border-bottom:1px solid rgba(240,235,226,0.12);">
+    <div class="ticker-track">
+      <div class="ticker-group">
+        <span class="ticker-item">Osana · Tu lugar de mimos</span>
+        <span class="ticker-item">Depilación láser SHR</span>
+        <span class="ticker-item">Faciales & aparatología</span>
+        <span class="ticker-item">Tenerife Sur</span>
+      </div>
+      <div class="ticker-group" aria-hidden="true">
+        <span class="ticker-item">Osana · Tu lugar de mimos</span>
+        <span class="ticker-item">Depilación láser SHR</span>
+        <span class="ticker-item">Faciales & aparatología</span>
+        <span class="ticker-item">Tenerife Sur</span>
+      </div>
+    </div>
+  </div>
   <div class="hero-content">
     <span class="hero-eyebrow">Centro de depilación y estética · Tenerife Sur</span>
-    <h2 class="hero-title serif">Tu piel,<br><em>cuidada</em><br>al detalle.</h2>
+    <h1 class="hero-title-mix">
+      <span class="line-italic">Tu piel,</span>
+      <span class="line-caps">cuidada al detalle</span>
+    </h1>
     <p class="hero-sub">Tecnología médico-estética personalizada para cada persona</p>
     <div class="hero-actions">
       <a href="#reservar" class="btn-primary">Reservar cita</a>
@@ -160,46 +165,72 @@
     </div>
     <a href="servicios.html" class="section-link"><span class="section-link-line"></span>Ver todos los servicios</a>
   </div>
-  <div class="services-grid">
-    <a href="servicios.html#laser" class="svc-card reveal">
-      <div class="svc-card-img"><img src="images/laser.jpg" alt="Depilación láser SHR" loading="lazy"></div>
-      <div class="svc-card-body">
-        <span class="svc-card-n">01</span>
-        <div class="svc-card-name">Depilación<br>Láser SHR</div>
-        <p class="svc-card-desc">Médico-estético, indoloro, apto verano. Fototipos I–V.</p>
-        <div class="svc-card-desde">Desde</div><div class="svc-card-price">20 €</div>
+  <div class="tile-grid">
+    <a href="servicios.html#laser" class="tile reveal">
+      <div class="tile-img-wrap">
+        <img src="images/statement.jpg" alt="Depilación láser SHR" loading="lazy">
+        <span class="tile-n-badge">01</span>
+        <span class="tile-name">Depilación<br>Láser SHR</span>
       </div>
-      <div class="svc-card-arrow">→</div>
+      <div class="tile-info">
+        <p class="tile-desc">Médico-estético, indoloro y apto en verano. Fototipos I–V, desde 20 €.</p>
+        <span class="tile-btn">Reservar experiencia</span>
+      </div>
     </a>
-    <a href="servicios.html#faciales" class="svc-card reveal reveal-delay-1">
-      <div class="svc-card-img"><img src="images/faciales.jpg" alt="Faciales y aparatología" loading="lazy"></div>
-      <div class="svc-card-body">
-        <span class="svc-card-n">02</span>
-        <div class="svc-card-name">Faciales &<br>Aparatología</div>
-        <p class="svc-card-desc">Dermapen, Hollywood peel, radiofrecuencia, exosomas.</p>
-        <div class="svc-card-desde">Desde</div><div class="svc-card-price">25 €</div>
+    <a href="servicios.html#faciales" class="tile reveal reveal-delay-1">
+      <div class="tile-img-wrap">
+        <img src="images/faciales.jpg" alt="Faciales y aparatología" loading="lazy">
+        <span class="tile-n-badge">02</span>
+        <span class="tile-name">Faciales &<br>Programas</span>
       </div>
-      <div class="svc-card-arrow">→</div>
+      <div class="tile-info">
+        <p class="tile-desc">Dermapen, Hollywood peel, radiofrecuencia y exosomas, desde 25 €.</p>
+        <span class="tile-btn">Reservar experiencia</span>
+      </div>
     </a>
-    <a href="servicios.html#programas" class="svc-card reveal reveal-delay-2">
-      <div class="svc-card-img"><img src="images/programas.jpg" alt="Programas faciales" loading="lazy"></div>
-      <div class="svc-card-body">
-        <span class="svc-card-n">03</span>
-        <div class="svc-card-name">Programas<br>Faciales</div>
-        <p class="svc-card-desc">Anti-aging, Glow skin, Control acné, Melasma. Protocolo personalizado.</p>
-        <div class="svc-card-desde">Desde</div><div class="svc-card-price">210 €</div>
+    <a href="servicios.html#hilo" class="tile reveal reveal-delay-2">
+      <div class="tile-img-wrap">
+        <img src="images/servicios-hero-1.jpg" alt="Depilación con hilo y lifting de pestañas" loading="lazy">
+        <span class="tile-n-badge">03</span>
+        <span class="tile-name">Hilo &<br>Lifting</span>
       </div>
-      <div class="svc-card-arrow">→</div>
+      <div class="tile-info">
+        <p class="tile-desc">Depilación con hilo orgánico, lifting de pestañas y laminado de cejas, desde 4 €.</p>
+        <span class="tile-btn">Reservar experiencia</span>
+      </div>
     </a>
-    <a href="servicios.html#masajes" class="svc-card reveal reveal-delay-3">
-      <div class="svc-card-img"><img src="images/laser.jpg" alt="Masajes y rituales Essentia" loading="lazy"></div>
-      <div class="svc-card-body">
-        <span class="svc-card-n">04</span>
-        <div class="svc-card-name">Masajes &<br>Rituales Essentia</div>
-        <p class="svc-card-desc">Terapias manuales para volver al equilibrio desde el cuerpo.</p>
-        <div class="svc-card-desde">Desde</div><div class="svc-card-price">70 €</div>
+    <a href="servicios.html#tatuajes" class="tile reveal">
+      <div class="tile-img-wrap">
+        <img src="images/laser.jpg" alt="Eliminación de tatuajes" loading="lazy">
+        <span class="tile-n-badge">04</span>
+        <span class="tile-name">Eliminación<br>de tatuajes</span>
       </div>
-      <div class="svc-card-arrow">→</div>
+      <div class="tile-info">
+        <p class="tile-desc">Láser profesional por tamaños, tarificación justa y transparente, desde 45 €.</p>
+        <span class="tile-btn">Reservar experiencia</span>
+      </div>
+    </a>
+    <a href="servicios.html#micropigmentacion" class="tile reveal reveal-delay-1">
+      <div class="tile-img-wrap">
+        <img src="images/hero-bg.jpg" alt="Micropigmentación de cejas" loading="lazy">
+        <span class="tile-n-badge">05</span>
+        <span class="tile-name">Micro-<br>pigmentación</span>
+      </div>
+      <div class="tile-info">
+        <p class="tile-desc">Cejas con técnica pelo a pelo, valoración previa gratuita, desde 100 €.</p>
+        <span class="tile-btn">Reservar experiencia</span>
+      </div>
+    </a>
+    <a href="servicios.html#masajes" class="tile reveal reveal-delay-2">
+      <div class="tile-img-wrap">
+        <img src="images/programas.jpg" alt="Masajes y rituales Essentia" loading="lazy">
+        <span class="tile-n-badge">06</span>
+        <span class="tile-name">Masajes &<br>Corporales</span>
+      </div>
+      <div class="tile-info">
+        <p class="tile-desc">Terapias manuales y corporales para volver al equilibrio, desde 25 €.</p>
+        <span class="tile-btn">Reservar experiencia</span>
+      </div>
     </a>
   </div>
 </section>
