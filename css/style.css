@@ -6,11 +6,11 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --cream:   #e8e2d8;
-  --cream2:  #f0ebe2;
+  --cream:   #efe3cd;
+  --cream2:  #f6eeda;
   --dark:    #1a1612;
   --mid:     #2e2820;
-  --brown:   #7a7060;
+  --brown:   #8a7350;
   --gold:    #c9a96e;
   --sage:    #7a8a7c;
   --txt:     #2a2520;
@@ -66,6 +66,11 @@ nav#main-nav {
   overflow: visible;
 }
 .footer-brand-name .logo-icon { background-color: var(--cream2); }
+.logo-o {
+  display: inline-block; width: 0.62em; height: 0.62em;
+  border: 0.15em solid currentColor; border-radius: 50%;
+  margin-right: 0.06em; vertical-align: -0.04em;
+}
 .nav-links { display: flex; gap: 32px; list-style: none; align-items: center; }
 .nav-links a {
   font-size: 10px; font-weight: 500; letter-spacing: 0.16em;
