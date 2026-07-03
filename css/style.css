@@ -11,7 +11,7 @@
   --dark:    #1a1612;
   --mid:     #2e2820;
   --brown:   #8a7350;
-  --gold:    #ddcba8;
+  --gold:    #d3b896;
   --sage:    #7a8a7c;
   --txt:     #2a2520;
   --txt-mid: #5a5248;
@@ -585,7 +585,7 @@ footer { background: #110e0b; padding: 60px 48px 30px; }
 .osed-title { font-size: 11px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; }
 .osed-close { background: none; border: none; color: rgba(240,235,226,0.5); font-size: 18px; cursor: pointer; }
 .osed-note {
-  margin: 16px 20px; padding: 12px 14px; background: rgba(221,203,168,0.1);
+  margin: 16px 20px; padding: 12px 14px; background: rgba(211,184,150,0.1);
   border-left: 2px solid var(--gold); font-size: 11px; line-height: 1.6; color: rgba(240,235,226,0.75);
 }
 .osed-section {
@@ -614,7 +614,7 @@ footer { background: #110e0b; padding: 60px 48px 30px; }
 body.osed-editing .osed-editable {
   outline: 1px dashed var(--gold); outline-offset: 2px; cursor: text;
 }
-body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); background: rgba(221,203,168,0.08); }
+body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); background: rgba(211,184,150,0.08); }
 
 /* ══════════════════ WHATSAPP FLOTANTE ══════════════════ */
 .wa-float {
