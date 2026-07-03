@@ -1,0 +1,93 @@
+/* ============================================================
+   OSANA — Estilos del flujo de reserva (reserva.html)
+   ============================================================ */
+
+.booking-app { max-width: 640px; margin: 0 auto; padding: 20px 24px 100px; }
+
+.booking-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 40px; }
+.booking-step-dot {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--txt-soft); padding: 8px 14px; border: 1px solid var(--line);
+}
+.booking-step-dot span {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border: 1px solid var(--txt-soft); border-radius: 50%; font-size: 9px;
+}
+.booking-step-dot.active { color: var(--txt); border-color: var(--brown); }
+.booking-step-dot.active span { background: var(--brown); border-color: var(--brown); color: var(--cream2); }
+.booking-step-dot.done { color: var(--brown); }
+
+.booking-step-panel { display: none; }
+.booking-step-panel.active { display: block; }
+.booking-step-title { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 22px; margin-bottom: 24px; color: var(--txt); }
+
+.booking-error {
+  background: rgba(217,138,111,0.12); border-left: 3px solid #d98a6f;
+  color: #8a4a34; padding: 14px 18px; font-size: 13px; margin-bottom: 24px;
+}
+
+.booking-loading { font-size: 13px; color: var(--txt-soft); padding: 12px 0; }
+
+.booking-category {
+  font-size: 9px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--brown); margin: 22px 0 8px;
+}
+.booking-category:first-child { margin-top: 0; }
+
+.booking-option-list { display: flex; flex-direction: column; gap: 2px; }
+.booking-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 16px 18px; background: var(--cream2); border: 1px solid var(--line);
+  cursor: pointer; transition: border-color 0.15s;
+}
+.booking-option:hover { border-color: var(--brown); }
+.booking-option.selected { border-color: var(--brown); background: var(--cream); }
+.booking-option strong { font-size: 14px; font-weight: 500; color: var(--txt); display: block; }
+.booking-option-meta { font-size: 11px; color: var(--txt-soft); }
+.booking-option-price { font-family: 'Poppins', sans-serif; font-weight: 600; color: var(--brown); white-space: nowrap; }
+
+.booking-back { margin-top: 24px; }
+
+.booking-field { margin-bottom: 18px; }
+.booking-field label {
+  display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--txt-soft); margin-bottom: 8px;
+}
+.booking-field input {
+  width: 100%; padding: 13px 16px; border: 1px solid var(--line); background: var(--cream2);
+  font-family: 'Poppins', sans-serif; font-size: 14px; color: var(--txt);
+}
+.booking-field input:focus { outline: none; border-color: var(--brown); }
+
+.booking-slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; margin-top: 16px; }
+.booking-slot-message { grid-column: 1 / -1; font-size: 13px; color: var(--txt-soft); }
+.booking-slot {
+  padding: 11px 6px; text-align: center; border: 1px solid var(--line); background: var(--cream2);
+  cursor: pointer; font-size: 13px; font-weight: 500; color: var(--txt);
+}
+.booking-slot:hover { border-color: var(--brown); }
+.booking-slot.selected { background: var(--brown); border-color: var(--brown); color: var(--cream2); }
+
+.booking-summary {
+  background: var(--cream2); padding: 18px 20px; margin-bottom: 24px;
+  font-size: 13px; line-height: 1.8; color: var(--txt-mid); border-left: 3px solid var(--gold);
+}
+
+.booking-pay-options { margin-bottom: 20px; }
+.booking-pay-note { font-size: 13px; color: var(--txt-mid); background: var(--cream2); padding: 14px 18px; }
+.booking-pay-option {
+  display: flex; align-items: center; gap: 12px; padding: 14px 18px;
+  border: 1px solid var(--line); margin-bottom: 8px; cursor: pointer; font-size: 13px;
+}
+.booking-pay-option:has(input:checked) { border-color: var(--brown); background: var(--cream2); }
+
+.booking-confirm { text-align: center; padding: 60px 20px; }
+.booking-confirm h2 { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 26px; margin-bottom: 14px; }
+.booking-confirm p { color: var(--txt-mid); margin-bottom: 28px; }
+
+@media (max-width: 600px) {
+  .booking-steps { gap: 4px; }
+  .booking-step-dot { font-size: 9px; padding: 7px 10px; }
+  .booking-step-dot span { width: 16px; height: 16px; }
+}
