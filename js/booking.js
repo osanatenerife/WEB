@@ -11,11 +11,16 @@
   };
 
   const els = {
-    steps: document.querySelectorAll('.booking-step-dot'),
+    shell: document.getElementById('booking-shell'),
+    steps: document.querySelectorAll('.booking-progress-step'),
     panels: document.querySelectorAll('.booking-step-panel'),
+    catPills: document.getElementById('booking-cat-pills'),
     services: document.getElementById('booking-services'),
     employees: document.getElementById('booking-employees'),
-    date: document.getElementById('booking-date'),
+    calMonthLabel: document.getElementById('cal-month-label'),
+    calGrid: document.getElementById('booking-calendar-grid'),
+    calPrev: document.getElementById('cal-prev'),
+    calNext: document.getElementById('cal-next'),
     slots: document.getElementById('booking-slots'),
     summary: document.getElementById('booking-summary'),
     payOptions: document.getElementById('booking-pay-options'),
@@ -33,6 +38,7 @@
   }
 
   function goToStep(n) {
+    els.shell.dataset.activeStep = String(n);
     els.panels.forEach((p) => p.classList.toggle('active', p.dataset.stepPanel === String(n)));
     els.steps.forEach((s) => {
       const stepNum = Number(s.dataset.step);
@@ -46,55 +52,85 @@
     btn.addEventListener('click', () => goToStep(Number(btn.dataset.back)));
   });
 
-  const sidebarToggle = document.getElementById('booking-sidebar-toggle');
-  const sidebar = document.getElementById('booking-sidebar');
-  if (sidebarToggle && sidebar) {
-    sidebarToggle.addEventListener('click', () => {
-      const collapsed = sidebar.classList.toggle('collapsed');
-      sidebarToggle.querySelector('span').textContent = collapsed ? 'Expandir' : 'Contraer menú';
-    });
+  // ── Resumen persistente (panel lateral) ──
+  function renderSummary() {
+    const { service, employee, date, time } = state;
+    if (!service) {
+      els.summary.innerHTML = '<p class="booking-summary-empty">Elige un tratamiento para empezar.</p>';
+      return;
+    }
+    let html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : 'Gratis'}</span></div>`;
+    html += `<div class="booking-summary-meta">${service.durationMinutes} min</div>`;
+    if (employee) {
+      html += `<div class="booking-summary-line">Con <strong>${employee.name}</strong></div>`;
+    }
+    if (date && time) {
+      const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+      html += `<div class="booking-summary-line">${dateLabel} a las ${time}</div>`;
+    }
+    els.summary.innerHTML = html;
   }
 
   // ── PASO 1: cargar servicios ──
+  let servicesByCategory = {};
+  let activeCategory = null;
+
   async function loadServices() {
     try {
       const res = await fetch(`${BOOKING_API_BASE}/services`);
       const data = await res.json();
-      const byCategory = {};
+      servicesByCategory = {};
       data.services.forEach((s) => {
-        byCategory[s.category] = byCategory[s.category] || [];
-        byCategory[s.category].push(s);
+        servicesByCategory[s.category] = servicesByCategory[s.category] || [];
+        servicesByCategory[s.category].push(s);
       });
-      els.services.innerHTML = '';
-      Object.entries(byCategory).forEach(([category, items]) => {
-        const catTitle = document.createElement('div');
-        catTitle.className = 'booking-category';
-        catTitle.textContent = category;
-        els.services.appendChild(catTitle);
-        items.forEach((s) => {
-          const opt = document.createElement('div');
-          opt.className = 'booking-option';
-          opt.dataset.id = s.id;
-          opt.innerHTML = `
-            <span>
-              <strong>${s.name}</strong>
-              <span class="booking-option-meta">${s.durationMinutes} min</span>
-            </span>
-            <span class="booking-option-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : 'Gratis'}</span>
-          `;
-          opt.addEventListener('click', () => selectService(s, opt));
-          els.services.appendChild(opt);
-        });
-      });
+      const categories = Object.keys(servicesByCategory);
+      activeCategory = categories[0];
+      renderCatPills(categories);
+      renderServiceGrid();
     } catch (e) {
       showError('No se pudieron cargar los tratamientos. Comprueba tu conexión e inténtalo de nuevo.');
     }
   }
 
-  function selectService(service, optEl) {
+  function renderCatPills(categories) {
+    els.catPills.innerHTML = '';
+    categories.forEach((cat) => {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'booking-pill' + (cat === activeCategory ? ' active' : '');
+      pill.textContent = cat;
+      pill.addEventListener('click', () => {
+        activeCategory = cat;
+        els.catPills.querySelectorAll('.booking-pill').forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        renderServiceGrid();
+      });
+      els.catPills.appendChild(pill);
+    });
+  }
+
+  function renderServiceGrid() {
+    const items = servicesByCategory[activeCategory] || [];
+    els.services.innerHTML = '';
+    items.forEach((s) => {
+      const card = document.createElement('div');
+      card.className = 'booking-service-card' + (state.service && state.service.id === s.id ? ' selected' : '');
+      card.innerHTML = `
+        <strong>${s.name}</strong>
+        <span class="booking-service-meta">${s.durationMinutes} min</span>
+        <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : 'Gratis'}</span>
+      `;
+      card.addEventListener('click', () => selectService(s, card));
+      els.services.appendChild(card);
+    });
+  }
+
+  function selectService(service, cardEl) {
     state.service = service;
-    document.querySelectorAll('#booking-services .booking-option').forEach((o) => o.classList.remove('selected'));
-    optEl.classList.add('selected');
+    document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
+    cardEl.classList.add('selected');
+    renderSummary();
     loadEmployees();
     goToStep(2);
   }
@@ -107,17 +143,18 @@
       const data = await res.json();
       els.employees.innerHTML = '';
       data.employees.forEach((emp) => {
-        const opt = document.createElement('div');
-        opt.className = 'booking-option';
-        opt.innerHTML = `<span><strong>${emp.name}</strong></span><span>›</span>`;
-        opt.addEventListener('click', () => {
+        const card = document.createElement('div');
+        card.className = 'booking-employee-card';
+        card.textContent = emp.name;
+        card.addEventListener('click', () => {
           state.employee = emp;
-          document.querySelectorAll('#booking-employees .booking-option').forEach((o) => o.classList.remove('selected'));
-          opt.classList.add('selected');
-          setupDatePicker();
+          document.querySelectorAll('#booking-employees .booking-employee-card').forEach((c) => c.classList.remove('selected'));
+          card.classList.add('selected');
+          renderSummary();
+          setupCalendar();
           goToStep(3);
         });
-        els.employees.appendChild(opt);
+        els.employees.appendChild(card);
       });
       if (!data.employees.length) {
         els.employees.innerHTML = '<p>No hay profesionales disponibles para este tratamiento. Escríbenos por WhatsApp.</p>';
@@ -127,24 +164,94 @@
     }
   }
 
-  // ── PASO 3: fecha y hora ──
-  function setupDatePicker() {
-    const today = new Date();
-    const min = today.toISOString().slice(0, 10);
-    const max = new Date(today.getTime() + 45 * 86400000).toISOString().slice(0, 10);
-    els.date.min = min;
-    els.date.max = max;
-    els.date.value = '';
-    els.slots.innerHTML = '';
+  // ── PASO 3: calendario y hora ──
+  const MIN_DATE = new Date();
+  MIN_DATE.setHours(0, 0, 0, 0);
+  const MAX_DATE = new Date(MIN_DATE.getTime() + 45 * 86400000);
+  const calendarState = { year: MIN_DATE.getFullYear(), month: MIN_DATE.getMonth() };
+
+  function toISODate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function isSameDate(a, b) {
+    return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
   }
 
-  els.date.addEventListener('change', async () => {
-    state.date = els.date.value;
+  function setupCalendar() {
+    calendarState.year = MIN_DATE.getFullYear();
+    calendarState.month = MIN_DATE.getMonth();
+    state.date = null;
     state.time = null;
-    if (!state.date) return;
+    els.slots.innerHTML = '';
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    const { year, month } = calendarState;
+    const first = new Date(year, month, 1);
+    const startWeekday = (first.getDay() + 6) % 7; // lunes = 0
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const monthLabel = first.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    els.calMonthLabel.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+    els.calGrid.innerHTML = '';
+    for (let i = 0; i < startWeekday; i++) {
+      const empty = document.createElement('div');
+      empty.className = 'booking-cal-cell empty';
+      els.calGrid.appendChild(empty);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month, d);
+      dateObj.setHours(0, 0, 0, 0);
+      const iso = toISODate(dateObj);
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.className = 'booking-cal-cell';
+      cell.textContent = String(d);
+      const disabled = dateObj < MIN_DATE || dateObj > MAX_DATE;
+      if (disabled) {
+        cell.classList.add('disabled');
+        cell.disabled = true;
+      }
+      if (isSameDate(dateObj, new Date())) cell.classList.add('today');
+      if (state.date === iso) cell.classList.add('selected');
+      if (!disabled) {
+        cell.addEventListener('click', () => {
+          state.date = iso;
+          state.time = null;
+          document.querySelectorAll('.booking-cal-cell.selected').forEach((c) => c.classList.remove('selected'));
+          cell.classList.add('selected');
+          loadSlotsForDate(iso);
+        });
+      }
+      els.calGrid.appendChild(cell);
+    }
+
+    els.calPrev.disabled = year === MIN_DATE.getFullYear() && month === MIN_DATE.getMonth();
+    els.calNext.disabled = year === MAX_DATE.getFullYear() && month === MAX_DATE.getMonth();
+  }
+
+  els.calPrev.addEventListener('click', () => {
+    calendarState.month--;
+    if (calendarState.month < 0) {
+      calendarState.month = 11;
+      calendarState.year--;
+    }
+    renderCalendar();
+  });
+  els.calNext.addEventListener('click', () => {
+    calendarState.month++;
+    if (calendarState.month > 11) {
+      calendarState.month = 0;
+      calendarState.year++;
+    }
+    renderCalendar();
+  });
+
+  async function loadSlotsForDate(dateStr) {
     els.slots.innerHTML = '<p class="booking-slot-message">Buscando huecos libres…</p>';
     try {
-      const params = new URLSearchParams({ serviceId: state.service.id, employeeId: state.employee.id, date: state.date });
+      const params = new URLSearchParams({ serviceId: state.service.id, employeeId: state.employee.id, date: dateStr });
       const res = await fetch(`${BOOKING_API_BASE}/availability?${params}`);
       if (!res.ok) throw new Error('availability request failed');
       const data = await res.json();
@@ -161,7 +268,8 @@
           state.time = time;
           document.querySelectorAll('.booking-slot').forEach((s) => s.classList.remove('selected'));
           slot.classList.add('selected');
-          renderSummaryAndPayOptions();
+          renderSummary();
+          renderPayOptions();
           goToStep(4);
         });
         els.slots.appendChild(slot);
@@ -170,18 +278,15 @@
       els.slots.innerHTML = '';
       showError('No se pudo consultar la disponibilidad.');
     }
-  });
+  }
 
-  // ── PASO 4: resumen, pago y envío ──
-  function renderSummaryAndPayOptions() {
-    const { service, employee, date, time } = state;
-    const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-    els.summary.innerHTML = `
-      <strong>${service.name}</strong><br>
-      Con ${employee.name} · ${dateLabel} a las ${time}<br>
-      Duración aproximada: ${service.durationMinutes} min
-    `;
+  // ── PASO 4: pago y envío ──
+  function round2(n) {
+    return Math.round(n * 100) / 100;
+  }
 
+  function renderPayOptions() {
+    const { service } = state;
     const depositAmount = round2((service.price * (service.depositPercent || 0)) / 100);
     els.payOptions.innerHTML = '';
 
@@ -208,8 +313,6 @@
       });
     }
   }
-
-  function round2(n) { return Math.round(n * 100) / 100; }
 
   els.submit.addEventListener('click', async () => {
     clearError();
@@ -257,7 +360,7 @@
   // Mensaje si venimos de vuelta de Stripe
   const params = new URLSearchParams(window.location.search);
   if (params.get('estado') === 'ok') {
-    document.querySelector('.booking-app').innerHTML = `
+    document.querySelector('.booking-shell').innerHTML = `
       <div class="booking-confirm">
         <h2>¡Reserva confirmada! ✓</h2>
         <p>Te hemos enviado la confirmación. Si tienes cualquier duda, escríbenos por WhatsApp.</p>
