@@ -3,14 +3,15 @@ const services = require('../config/services');
 const employees = require('../config/employees');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
+const { parseExtraIds, resolveExtras, totalDuration, totalPrice } = require('../lib/pricing');
 const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
 
 const router = express.Router();
 
-function computeAmount(service, paymentChoice) {
-  const { price, paymentPolicy, depositPercent } = service;
+function computeAmount(service, price, paymentChoice) {
+  const { paymentPolicy, depositPercent } = service;
   if (paymentPolicy === 'full_required') return { amount: price, type: 'total' };
   if (paymentPolicy === 'deposit_required') return { amount: round2((price * depositPercent) / 100), type: 'seña' };
   // deposit_or_full: el cliente elige
@@ -23,7 +24,7 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice, extraIds } = req.body || {};
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
@@ -34,18 +35,22 @@ router.post('/checkout', async (req, res) => {
   if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
   if (!employee) return res.status(404).json({ error: 'Empleada no encontrada' });
 
+  const selectedExtras = resolveExtras(parseExtraIds(extraIds));
+  const duration = totalDuration(service, selectedExtras);
+  const price = totalPrice(service, selectedExtras);
+
   let eventId = null;
   try {
     // 1) Revalidar que el hueco sigue libre justo antes de bloquearlo
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, service.durationMinutes);
+    const freeSlots = await getAvailableSlots(date, employee.calendarId, duration);
     if (!freeSlots.includes(time)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
 
     const startISO = localToISO(date, time.length === 5 ? time : time + ':00', hours.timezone);
-    const endISO = addMinutes(startISO, service.durationMinutes);
+    const endISO = addMinutes(startISO, duration);
 
-    const { amount, type } = computeAmount(service, paymentChoice);
+    const { amount, type } = computeAmount(service, price, paymentChoice);
 
     // 2) Bloquear el hueco de inmediato con un evento "pendiente de pago"
     //    (evita que dos personas paguen por el mismo hueco a la vez)
@@ -54,14 +59,16 @@ router.post('/checkout', async (req, res) => {
       `Teléfono: ${clientPhone}`,
       clientEmail ? `Email: ${clientEmail}` : null,
       `Servicio: ${service.name} (${service.category})`,
+      selectedExtras.length ? `Extras: ${selectedExtras.map((e) => e.name).join(', ')}` : null,
       `Pago online: ${amount.toFixed(2)} € (${type})`,
-      amount < service.price ? `Resto a pagar en centro: ${(service.price - amount).toFixed(2)} €` : null,
+      amount < price ? `Resto a pagar en centro: ${(price - amount).toFixed(2)} €` : null,
       '',
       '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
     ].filter(Boolean).join('\n');
 
+    const summaryTitle = selectedExtras.length ? `${service.name} + ${selectedExtras.length} extra(s)` : service.name;
     const event = await createBookingEvent(employee.calendarId, {
-      summary: `⏳ Pendiente de pago — ${service.name} — ${clientName}`,
+      summary: `⏳ Pendiente de pago — ${summaryTitle} — ${clientName}`,
       description,
       startISO,
       endISO,
@@ -74,7 +81,7 @@ router.post('/checkout', async (req, res) => {
     const origin = req.headers.origin || process.env.FRONTEND_URL;
     const session = await createCheckoutSession({
       amountEuros: amount,
-      description: `${service.name} — seña/pago Osana`,
+      description: `${summaryTitle} — seña/pago Osana`,
       successUrl: `${origin}/reserva.html?estado=ok`,
       cancelUrl: `${origin}/reserva.html?estado=cancelado`,
       metadata: {
@@ -82,6 +89,7 @@ router.post('/checkout', async (req, res) => {
         eventId,
         serviceId,
         employeeId,
+        extraIds: selectedExtras.map((e) => e.id).join(','),
         date,
         time,
         clientName,

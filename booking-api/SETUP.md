@@ -66,6 +66,10 @@ solo respetar las comillas y comas):
   (`deposit_required`, `full_required` o `deposit_or_full`) y el
   porcentaje de seña.
 - `booking-api/src/config/hours.js` → horario real de apertura.
+- `booking-api/src/config/extras.js` → extras opcionales que el
+  cliente puede añadir a un tratamiento (por ejemplo, ampliar una
+  zona o un tiempo extra), con su precio y duración. Si un extra
+  vale para cualquier tratamiento, deja `applicableServices: []`.
 
 ## Paso 4 — Desplegar el backend en Render
 

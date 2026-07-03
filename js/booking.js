@@ -4,11 +4,17 @@
 (function () {
   const state = {
     service: null,
+    extras: [],
     employee: null,
     date: null,
     time: null,
     payChoice: 'deposit', // 'deposit' | 'full'
   };
+
+  function extrasDuration() { return state.extras.reduce((sum, e) => sum + e.durationMinutes, 0); }
+  function extrasPrice() { return state.extras.reduce((sum, e) => sum + e.price, 0); }
+  function totalDuration() { return (state.service ? state.service.durationMinutes : 0) + extrasDuration(); }
+  function totalPrice() { return (state.service ? state.service.price : 0) + extrasPrice(); }
 
   const els = {
     shell: document.getElementById('booking-shell'),
@@ -16,6 +22,9 @@
     panels: document.querySelectorAll('.booking-step-panel'),
     catPills: document.getElementById('booking-cat-pills'),
     services: document.getElementById('booking-services'),
+    extrasSection: document.getElementById('booking-extras-section'),
+    extras: document.getElementById('booking-extras'),
+    continueStep1: document.getElementById('booking-continue-step1'),
     employees: document.getElementById('booking-employees'),
     calMonthLabel: document.getElementById('cal-month-label'),
     calGrid: document.getElementById('booking-calendar-grid'),
@@ -54,13 +63,19 @@
 
   // ── Resumen persistente (panel lateral) ──
   function renderSummary() {
-    const { service, employee, date, time } = state;
+    const { service, extras, employee, date, time } = state;
     if (!service) {
       els.summary.innerHTML = '<p class="booking-summary-empty">Elige un tratamiento para empezar.</p>';
       return;
     }
     let html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : 'Gratis'}</span></div>`;
     html += `<div class="booking-summary-meta">${service.durationMinutes} min</div>`;
+    extras.forEach((ex) => {
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : 'Gratis'}</span></div>`;
+    });
+    if (extras.length) {
+      html += `<div class="booking-summary-meta">Duración total: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong></div>`;
+    }
     if (employee) {
       html += `<div class="booking-summary-line">Con <strong>${employee.name}</strong></div>`;
     }
@@ -128,12 +143,60 @@
 
   function selectService(service, cardEl) {
     state.service = service;
+    state.extras = [];
     document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
     cardEl.classList.add('selected');
     renderSummary();
+    loadExtras(service.id);
+  }
+
+  // ── Extras opcionales (antes de pasar a elegir profesional) ──
+  async function loadExtras(serviceId) {
+    els.extrasSection.style.display = 'none';
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/extras?serviceId=${encodeURIComponent(serviceId)}`);
+      const data = await res.json();
+      if (!data.extras || !data.extras.length) {
+        loadEmployees();
+        goToStep(2);
+        return;
+      }
+      els.extras.innerHTML = '';
+      data.extras.forEach((ex) => {
+        const label = document.createElement('label');
+        label.className = 'booking-extra-option';
+        label.innerHTML = `
+          <span class="booking-extra-option-label">
+            <input type="checkbox" value="${ex.id}">
+            <span>
+              <span class="booking-extra-option-name">${ex.name}</span>
+              <span class="booking-extra-option-meta"> · ${ex.durationMinutes} min</span>
+            </span>
+          </span>
+          <span class="booking-extra-option-price">${ex.price > 0 ? ex.price.toFixed(0) + ' €' : 'Gratis'}</span>
+        `;
+        label.querySelector('input').addEventListener('change', (e) => {
+          if (e.target.checked) {
+            state.extras.push(ex);
+          } else {
+            state.extras = state.extras.filter((sel) => sel.id !== ex.id);
+          }
+          renderSummary();
+        });
+        els.extras.appendChild(label);
+      });
+      els.extrasSection.style.display = 'block';
+    } catch (e) {
+      // Si fallan los extras, seguimos sin bloquear la reserva del tratamiento principal
+      loadEmployees();
+      goToStep(2);
+    }
+  }
+
+  els.continueStep1.addEventListener('click', () => {
     loadEmployees();
     goToStep(2);
-  }
+  });
 
   // ── PASO 2: empleadas ──
   async function loadEmployees() {
@@ -251,7 +314,12 @@
   async function loadSlotsForDate(dateStr) {
     els.slots.innerHTML = '<p class="booking-slot-message">Buscando huecos libres…</p>';
     try {
-      const params = new URLSearchParams({ serviceId: state.service.id, employeeId: state.employee.id, date: dateStr });
+      const params = new URLSearchParams({
+        serviceId: state.service.id,
+        employeeId: state.employee.id,
+        date: dateStr,
+        extraIds: state.extras.map((e) => e.id).join(','),
+      });
       const res = await fetch(`${BOOKING_API_BASE}/availability?${params}`);
       if (!res.ok) throw new Error('availability request failed');
       const data = await res.json();
@@ -287,14 +355,15 @@
 
   function renderPayOptions() {
     const { service } = state;
-    const depositAmount = round2((service.price * (service.depositPercent || 0)) / 100);
+    const price = totalPrice();
+    const depositAmount = round2((price * (service.depositPercent || 0)) / 100);
     els.payOptions.innerHTML = '';
 
     if (service.paymentPolicy === 'full_required') {
-      els.payOptions.innerHTML = `<p class="booking-pay-note">Este tratamiento requiere el pago completo online: <strong>${service.price.toFixed(2)} €</strong></p>`;
+      els.payOptions.innerHTML = `<p class="booking-pay-note">Este tratamiento requiere el pago completo online: <strong>${price.toFixed(2)} €</strong></p>`;
       state.payChoice = 'full';
     } else if (service.paymentPolicy === 'deposit_required') {
-      els.payOptions.innerHTML = `<p class="booking-pay-note">Este tratamiento requiere una seña obligatoria de <strong>${depositAmount.toFixed(2)} €</strong> (resto de ${(service.price - depositAmount).toFixed(2)} € en el centro).</p>`;
+      els.payOptions.innerHTML = `<p class="booking-pay-note">Este tratamiento requiere una seña obligatoria de <strong>${depositAmount.toFixed(2)} €</strong> (resto de ${(price - depositAmount).toFixed(2)} € en el centro).</p>`;
       state.payChoice = 'deposit';
     } else {
       state.payChoice = 'deposit';
@@ -305,7 +374,7 @@
         </label>
         <label class="booking-pay-option">
           <input type="radio" name="pay" value="full">
-          <span>Pagar el total ahora — <strong>${service.price.toFixed(2)} €</strong></span>
+          <span>Pagar el total ahora — <strong>${price.toFixed(2)} €</strong></span>
         </label>
       `;
       els.payOptions.querySelectorAll('input[name="pay"]').forEach((r) => {
@@ -339,6 +408,7 @@
         body: JSON.stringify({
           serviceId: state.service.id,
           employeeId: state.employee.id,
+          extraIds: state.extras.map((e) => e.id),
           date: state.date,
           time: state.time,
           clientName: name,

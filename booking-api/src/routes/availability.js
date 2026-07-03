@@ -2,13 +2,14 @@ const express = require('express');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const { getAvailableSlots } = require('../lib/availability');
+const { parseExtraIds, resolveExtras, totalDuration } = require('../lib/pricing');
 const hours = require('../config/hours');
 
 const router = express.Router();
 
 router.get('/availability', async (req, res) => {
   try {
-    const { serviceId, employeeId, date } = req.query;
+    const { serviceId, employeeId, date, extraIds } = req.query;
     if (!serviceId || !employeeId || !date) {
       return res.status(400).json({ error: 'Faltan parámetros: serviceId, employeeId, date' });
     }
@@ -25,7 +26,8 @@ router.get('/availability', async (req, res) => {
       return res.json({ slots: [] });
     }
 
-    const slots = await getAvailableSlots(date, employee.calendarId, service.durationMinutes);
+    const duration = totalDuration(service, resolveExtras(parseExtraIds(extraIds)));
+    const slots = await getAvailableSlots(date, employee.calendarId, duration);
     res.json({ slots });
   } catch (err) {
     console.error(err);

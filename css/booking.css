@@ -19,7 +19,13 @@ body.reserva-page .logo-icon { background-color: var(--cream2); }
 body.reserva-page .nav-hamburger span { background: var(--cream2); }
 body.reserva-page .page-offset { padding-top: 92px; }
 
-.booking-shell { max-width: 1180px; margin: 0 auto; padding: 8px 48px 110px; }
+.booking-shell {
+  max-width: 1180px; margin: 0 auto 80px; padding: 44px 48px 56px;
+  background: var(--cream2);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: 0 30px 60px -34px rgba(26,22,18,0.22);
+}
 
 /* ── Progreso superior ── */
 .booking-progress { display: flex; align-items: center; list-style: none; margin-bottom: 52px; }
@@ -78,10 +84,24 @@ body.reserva-page .page-offset { padding-top: 92px; }
   transition: border-color 0.15s, transform 0.15s;
 }
 .booking-service-card:hover { border-color: var(--brown); transform: translateY(-2px); }
-.booking-service-card.selected { border-color: var(--brown); background: var(--cream2); }
+.booking-service-card.selected { border-color: var(--brown); background: var(--cream); }
 .booking-service-card strong { font-size: 14.5px; font-weight: 500; color: var(--txt); }
 .booking-service-meta { font-size: 11px; color: var(--txt-soft); }
 .booking-service-price { font-family: 'Poppins', sans-serif; font-weight: 600; color: var(--brown); margin-top: 8px; font-size: 14px; }
+
+.booking-extras-section { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
+.booking-subtitle { font-size: 15px; font-weight: 600; color: var(--txt); margin-bottom: 14px; }
+.booking-extras-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+.booking-extra-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 18px; border: 1px solid var(--line); background: rgba(20,16,12,0.035);
+  cursor: pointer; font-size: 13px;
+}
+.booking-extra-option:has(input:checked) { border-color: var(--brown); background: var(--cream); }
+.booking-extra-option-label { display: flex; align-items: center; gap: 12px; }
+.booking-extra-option-name { font-weight: 500; color: var(--txt); }
+.booking-extra-option-meta { font-size: 11px; color: var(--txt-soft); }
+.booking-extra-option-price { font-family: 'Poppins', sans-serif; font-weight: 600; color: var(--brown); white-space: nowrap; }
 
 /* ── Paso 2: profesionales ── */
 .booking-employee-grid { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
@@ -91,7 +111,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
   min-width: 160px; text-align: center; transition: border-color 0.15s;
 }
 .booking-employee-card:hover { border-color: var(--brown); }
-.booking-employee-card.selected { border-color: var(--brown); background: var(--cream2); }
+.booking-employee-card.selected { border-color: var(--brown); background: var(--cream); }
 
 /* ── Paso 3: calendario ── */
 .booking-calendar { margin-bottom: 28px; max-width: 380px; }
@@ -116,7 +136,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
   font-family: 'Poppins', sans-serif; font-size: 13px; color: var(--txt);
 }
 .booking-cal-cell.empty { visibility: hidden; cursor: default; }
-.booking-cal-cell:hover:not(.disabled):not(.empty) { background: var(--cream2); }
+.booking-cal-cell:hover:not(.disabled):not(.empty) { background: var(--cream); }
 .booking-cal-cell.disabled { color: var(--txt-soft); opacity: 0.35; cursor: default; }
 .booking-cal-cell.today { font-weight: 700; color: var(--brown); }
 .booking-cal-cell.selected { background: var(--brown); color: var(--cream2); font-weight: 600; }
@@ -153,6 +173,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
 /* ── Panel de resumen (fijo) ── */
 .booking-summary-panel {
   position: sticky; top: 96px; border: 1px solid var(--line); padding: 28px 26px;
+  background: var(--cream);
 }
 .booking-summary-title {
   display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.16em;
@@ -171,7 +192,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
   display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 12.5px;
   border: 1px solid var(--line); margin-bottom: 8px; cursor: pointer;
 }
-.booking-pay-option:has(input:checked) { border-color: var(--brown); background: var(--cream2); }
+.booking-pay-option:has(input:checked) { border-color: var(--brown); background: var(--cream); }
 
 .booking-summary-cta { display: none; width: 100%; margin-top: 18px; }
 
