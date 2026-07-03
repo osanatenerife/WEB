@@ -21,7 +21,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
 
 .booking-shell {
   max-width: 1180px; margin: 0 auto 80px; padding: 44px 48px 56px;
-  background: var(--cream2);
+  background: #fdfaf5;
   border: 1px solid var(--line);
   border-radius: 22px;
   box-shadow: 0 30px 60px -34px rgba(26,22,18,0.22);
