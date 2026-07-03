@@ -13,13 +13,25 @@ module.exports = [
   {
     id: 'raquel',
     name: 'Raquel',
-    calendarId: 'CAMBIAR-POR-EMAIL-DE-RAQUEL@gmail.com',
+    calendarId: 'osanatenerife@gmail.com',
     services: [], // todos
   },
   {
-    id: 'empleada-2',
-    name: 'Empleada 2 (cambiar nombre)',
-    calendarId: 'CAMBIAR-POR-EMAIL-DE-EMPLEADA-2@gmail.com',
+    id: 'vanessa',
+    name: 'Vanessa',
+    calendarId: 'vanessacentroosana@gmail.com',
+    services: [], // todos
+  },
+  {
+    id: 'anna',
+    name: 'Anna',
+    calendarId: 'annacentroosana@gmail.com',
+    services: [], // todos
+  },
+  {
+    id: 'yuli',
+    name: 'Yuli',
+    calendarId: 'essentiacentroosana@gmail.com',
     services: [], // todos
   },
 ];
