@@ -3,11 +3,23 @@
    ============================================================ */
 
 body.reserva-page { background: #e6ded0; }
+
 body.reserva-page nav#main-nav {
-  background: rgba(250,247,240,0.94);
-  border-bottom: 1px solid rgba(42,37,32,0.16);
-  box-shadow: 0 2px 16px rgba(26,22,18,0.07);
+  top: 16px; left: 20px; right: 20px;
+  background: var(--dark);
+  border: 1px solid rgba(246,238,218,0.1);
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(20,16,12,0.22);
+  backdrop-filter: none;
 }
+body.reserva-page .nav-logo,
+body.reserva-page .nav-links a { color: var(--cream2); }
+body.reserva-page .nav-links a { opacity: 0.68; }
+body.reserva-page .nav-links a:hover,
+body.reserva-page .nav-links a.active { opacity: 1; color: var(--gold); }
+body.reserva-page .logo-icon { background-color: var(--cream2); }
+body.reserva-page .nav-hamburger span { background: var(--cream2); }
+body.reserva-page .page-offset { padding-top: 92px; }
 
 .booking-shell { max-width: 1180px; margin: 0 auto; padding: 8px 48px 110px; }
 
