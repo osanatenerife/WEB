@@ -7,11 +7,11 @@
 //
 // applicableServices: lista de "id" de services.js a los que se les
 // puede añadir este extra. Dejar vacío [] significa "cualquier tratamiento".
-//
-// Esto es un PUNTO DE PARTIDA de ejemplo — sustituye por los extras
-// reales, sus precios y sus duraciones.
 // ============================================================
 
 module.exports = [
-  { id: 'extra-ejemplo-15', name: 'Extra (ejemplo)', durationMinutes: 15, price: 10, applicableServices: [] },
+  // Tinte para lifting de pestañas (tradicional o coreano): +5 € en servicios.html
+  { id: 'tinte-pestanas', name: 'Tinte', durationMinutes: 5, price: 5, applicableServices: ['lifting-pestanas-tradicional', 'lifting-pestanas-coreano'] },
+  // Tinte para laminado de cejas: +15 € en servicios.html
+  { id: 'tinte-laminado', name: 'Tinte', durationMinutes: 5, price: 15, applicableServices: ['laminado-cejas'] },
 ];
