@@ -44,13 +44,13 @@ module.exports = [
   { id: 'hilo-labio', category: 'Hilo & Lifting', name: 'Labio (hilo)', durationMinutes: 10, price: 4, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
   { id: 'hilo-menton', category: 'Hilo & Lifting', name: 'Mentón (hilo)', durationMinutes: 10, price: 4, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
   { id: 'hilo-cejas', category: 'Hilo & Lifting', name: 'Cejas (hilo)', durationMinutes: 20, price: 10, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
-  { id: 'hilo-facial', category: 'Hilo & Lifting', name: 'Facial (hilo)', durationMinutes: 20, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 20 }, // [ESTIMADO] duración
+  { id: 'hilo-facial', category: 'Hilo & Lifting', name: 'Facial (hilo)', durationMinutes: 30, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
   { id: 'lifting-pestanas-tradicional', category: 'Hilo & Lifting', name: 'Lifting de pestañas tradicional', durationMinutes: 45, price: 35, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
   { id: 'laminado-cejas', category: 'Hilo & Lifting', name: 'Laminado de cejas', durationMinutes: 45, price: 35, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
   { id: 'lifting-pestanas-coreano', category: 'Hilo & Lifting', name: 'Lifting de pestañas coreano', durationMinutes: 45, price: 40, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
-  { id: 'brows-basic', category: 'Hilo & Lifting', name: 'Brows Basic (hilo cejas + lifting coreano)', durationMinutes: 65, price: 45, paymentPolicy: 'deposit_or_full', depositPercent: 20 }, // [ESTIMADO] duración = suma de componentes
-  { id: 'brows-glam', category: 'Hilo & Lifting', name: 'Brows Glam (hilo cejas + henna + lifting coreano)', durationMinutes: 75, price: 60, paymentPolicy: 'deposit_or_full', depositPercent: 20 }, // [ESTIMADO]
-  { id: 'brows-signature', category: 'Hilo & Lifting', name: 'Brows Signature (hilo + lifting trad. + laminado + tinte)', durationMinutes: 115, price: 75, paymentPolicy: 'deposit_required', depositPercent: 20 }, // [ESTIMADO]
+  { id: 'brows-basic', category: 'Hilo & Lifting', name: 'Brows Basic (hilo cejas + lifting coreano)', durationMinutes: 60, price: 45, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
+  { id: 'brows-glam', category: 'Hilo & Lifting', name: 'Brows Glam (hilo cejas + henna + lifting coreano)', durationMinutes: 60, price: 60, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
+  { id: 'brows-signature', category: 'Hilo & Lifting', name: 'Brows Signature (hilo + lifting trad. + laminado + tinte)', durationMinutes: 60, price: 75, paymentPolicy: 'deposit_required', depositPercent: 20 },
 
   // ── 03 · FACIALES & APARATOLOGÍA ── (todos 60 min, según indicaste)
   { id: 'diagnostico-facial-ia', category: 'Faciales & Aparatología', name: 'Diagnóstico facial con IA', durationMinutes: 60, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 20 },
@@ -62,15 +62,15 @@ module.exports = [
   { id: 'mesoterapia-virtual', category: 'Faciales & Aparatología', name: 'Mesoterapia virtual', durationMinutes: 60, price: 85, paymentPolicy: 'deposit_required', depositPercent: 20 },
   { id: 'fotorejuvenecimiento-ipl', category: 'Faciales & Aparatología', name: 'Fotorejuvenecimiento (IPL)', durationMinutes: 60, price: 100, paymentPolicy: 'deposit_required', depositPercent: 20 },
   { id: 'exosomas-dermapen', category: 'Faciales & Aparatología', name: 'Exosomas con dermapen avanzado', durationMinutes: 60, price: 120, paymentPolicy: 'deposit_required', depositPercent: 20 },
-  { id: 'ritual-basic-skin', category: 'Faciales & Aparatología', name: 'Ritual Basic Skin (limpieza + dermaplaning)', durationMinutes: 75, price: 75, paymentPolicy: 'deposit_required', depositPercent: 20 }, // [ESTIMADO] duración
-  { id: 'ritual-relaxing', category: 'Faciales & Aparatología', name: 'Ritual Relaxing (dermaplaning + hidratación + masaje)', durationMinutes: 80, price: 80, paymentPolicy: 'deposit_required', depositPercent: 20 }, // [ESTIMADO]
-  { id: 'ritual-flash-lifting', category: 'Faciales & Aparatología', name: 'Ritual Flash Lifting (limpieza + radiofrecuencia + maderoterapia)', durationMinutes: 100, price: 110, paymentPolicy: 'deposit_required', depositPercent: 20 }, // [ESTIMADO]
+  { id: 'ritual-basic-skin', category: 'Faciales & Aparatología', name: 'Ritual Basic Skin (limpieza + dermaplaning)', durationMinutes: 90, price: 75, paymentPolicy: 'deposit_required', depositPercent: 20 },
+  { id: 'ritual-relaxing', category: 'Faciales & Aparatología', name: 'Ritual Relaxing (dermaplaning + hidratación + masaje)', durationMinutes: 90, price: 80, paymentPolicy: 'deposit_required', depositPercent: 20 },
+  { id: 'ritual-flash-lifting', category: 'Faciales & Aparatología', name: 'Ritual Flash Lifting (limpieza + radiofrecuencia + maderoterapia)', durationMinutes: 100, price: 110, paymentPolicy: 'deposit_required', depositPercent: 20 },
 
-  // ── 04 · PROGRAMAS FACIALES ── (todos 90 min, según indicaste)
-  { id: 'programa-periocular', category: 'Programas Faciales', name: 'Programa Periocular', durationMinutes: 90, price: 210, paymentPolicy: 'deposit_required', depositPercent: 20 },
-  { id: 'programa-glow-skin', category: 'Programas Faciales', name: 'Programa Glow Skin', durationMinutes: 90, price: 285, paymentPolicy: 'deposit_required', depositPercent: 20 },
-  { id: 'programa-anti-aging', category: 'Programas Faciales', name: 'Programa Anti-Aging', durationMinutes: 90, price: 360, paymentPolicy: 'deposit_required', depositPercent: 20 },
-  { id: 'programa-control-acne', category: 'Programas Faciales', name: 'Programa Control Acné', durationMinutes: 90, price: 380, paymentPolicy: 'deposit_required', depositPercent: 20 },
+  // ── 04 · PROGRAMAS FACIALES ── (todos 1h40 min, según indicaste)
+  { id: 'programa-periocular', category: 'Programas Faciales', name: 'Programa Periocular', durationMinutes: 100, price: 210, paymentPolicy: 'deposit_required', depositPercent: 20 },
+  { id: 'programa-glow-skin', category: 'Programas Faciales', name: 'Programa Glow Skin', durationMinutes: 100, price: 285, paymentPolicy: 'deposit_required', depositPercent: 20 },
+  { id: 'programa-anti-aging', category: 'Programas Faciales', name: 'Programa Anti-Aging', durationMinutes: 100, price: 360, paymentPolicy: 'deposit_required', depositPercent: 20 },
+  { id: 'programa-control-acne', category: 'Programas Faciales', name: 'Programa Control Acné', durationMinutes: 100, price: 380, paymentPolicy: 'deposit_required', depositPercent: 20 },
   // "Programa Melasma Slow" y "Programa Melasma Intensive" son precio "a consultar" en la
   // web — no están aquí porque el sistema necesita un precio fijo para cobrar online.
   // Si me das un precio (aunque sea orientativo) los añado igual que los demás.
@@ -102,6 +102,6 @@ module.exports = [
 
   // ── 08 · MICROPIGMENTACIÓN ──
   { id: 'valoracion-micropigmentacion', category: 'Micropigmentación', name: 'Valoración de micropigmentación', durationMinutes: 30, price: 0, paymentPolicy: 'deposit_or_full', depositPercent: 0 },
-  { id: 'retoque-micropigmentacion', category: 'Micropigmentación', name: 'Retoque micropigmentación anual', durationMinutes: 90, price: 100, paymentPolicy: 'deposit_required', depositPercent: 20 }, // [ESTIMADO] duración
+  { id: 'retoque-micropigmentacion', category: 'Micropigmentación', name: 'Retoque micropigmentación anual', durationMinutes: 120, price: 100, paymentPolicy: 'deposit_required', depositPercent: 20 },
   { id: 'micropigmentacion-cejas-retoque', category: 'Micropigmentación', name: 'Micropigmentación cejas + retoque', durationMinutes: 210, price: 260, paymentPolicy: 'deposit_required', depositPercent: 20 },
 ];

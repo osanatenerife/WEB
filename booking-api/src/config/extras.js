@@ -11,7 +11,7 @@
 
 module.exports = [
   // Tinte para lifting de pestañas (tradicional o coreano): +5 € en servicios.html
-  { id: 'tinte-pestanas', name: 'Tinte', durationMinutes: 5, price: 5, applicableServices: ['lifting-pestanas-tradicional', 'lifting-pestanas-coreano'] },
+  { id: 'tinte-pestanas', name: 'Tinte', durationMinutes: 10, price: 5, applicableServices: ['lifting-pestanas-tradicional', 'lifting-pestanas-coreano'] },
   // Tinte para laminado de cejas: +15 € en servicios.html
-  { id: 'tinte-laminado', name: 'Tinte', durationMinutes: 5, price: 15, applicableServices: ['laminado-cejas'] },
+  { id: 'tinte-laminado', name: 'Tinte', durationMinutes: 15, price: 15, applicableServices: ['laminado-cejas'] },
 ];
