@@ -46,6 +46,15 @@
     btn.addEventListener('click', () => goToStep(Number(btn.dataset.back)));
   });
 
+  const sidebarToggle = document.getElementById('booking-sidebar-toggle');
+  const sidebar = document.getElementById('booking-sidebar');
+  if (sidebarToggle && sidebar) {
+    sidebarToggle.addEventListener('click', () => {
+      const collapsed = sidebar.classList.toggle('collapsed');
+      sidebarToggle.querySelector('span').textContent = collapsed ? 'Expandir' : 'Contraer menú';
+    });
+  }
+
   // ── PASO 1: cargar servicios ──
   async function loadServices() {
     try {
