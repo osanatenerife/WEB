@@ -494,7 +494,7 @@ footer { background: #110e0b; padding: 60px 48px 30px; }
 /* ══════════════════ TILES DE SERVICIOS (home) — foto grande + franja info ══════════════════ */
 .tile-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
 .tile { text-decoration: none; display: flex; flex-direction: column; background: var(--dark); }
-.tile-img-wrap { position: relative; aspect-ratio: 4/5; overflow: hidden; }
+.tile-img-wrap { position: relative; aspect-ratio: 4/4.4; overflow: hidden; }
 .tile-img-wrap img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.7s ease; display: block; }
 .tile-img-wrap::after {
   content: ''; position: absolute; inset: 0;
