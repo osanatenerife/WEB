@@ -24,7 +24,8 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice, extraIds } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice, extraIds, lang } = req.body || {};
+  const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
@@ -66,7 +67,10 @@ router.post('/checkout', async (req, res) => {
       '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
     ].filter(Boolean).join('\n');
 
+    // El evento de calendario es de uso interno del centro: siempre en español, independientemente del idioma del cliente
     const summaryTitle = selectedExtras.length ? `${service.name} + ${selectedExtras.length} extra(s)` : service.name;
+    // Lo que ve el cliente en Stripe sí respeta su idioma
+    const customerServiceName = lang === 'en' ? (service.nameEn || service.name) : service.name;
     const event = await createBookingEvent(employee.calendarId, {
       summary: `⏳ Pendiente de pago — ${summaryTitle} — ${clientName}`,
       description,
@@ -81,9 +85,9 @@ router.post('/checkout', async (req, res) => {
     const origin = req.headers.origin || process.env.FRONTEND_URL;
     const session = await createCheckoutSession({
       amountEuros: amount,
-      description: `${summaryTitle} — seña/pago Osana`,
-      successUrl: `${origin}/reserva.html?estado=ok`,
-      cancelUrl: `${origin}/reserva.html?estado=cancelado`,
+      description: lang === 'en' ? `${customerServiceName} — Osana deposit/payment` : `${summaryTitle} — seña/pago Osana`,
+      successUrl: `${origin}${reservaPath}?estado=ok`,
+      cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
       metadata: {
         calendarId: employee.calendarId,
         eventId,

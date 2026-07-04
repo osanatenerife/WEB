@@ -88,6 +88,14 @@ nav#main-nav {
 .nav-cta:hover { filter: brightness(1.1); }
 .nav-hamburger { display: none; background: none; border: none; cursor: pointer; padding: 8px; }
 .nav-hamburger span { display: block; width: 22px; height: 1px; background: var(--txt); margin: 5px 0; }
+.nav-lang {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  color: var(--txt); text-decoration: none; opacity: 0.72;
+  border: 1px solid var(--line); padding: 5px 11px;
+  transition: opacity 0.2s, border-color 0.2s, color 0.2s;
+}
+.nav-lang:hover { opacity: 1; border-color: var(--brown); color: var(--brown); }
+.mobile-menu .nav-lang { border-color: rgba(240,235,226,0.3); color: var(--cream2); opacity: 0.8; margin-top: 4px; }
 
 .mobile-menu {
   display: none; position: fixed; inset: 0; background: var(--dark); z-index: 600;

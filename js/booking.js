@@ -1,7 +1,42 @@
 // ============================================================
-// OSANA — Lógica del flujo de reserva (reserva.html)
+// OSANA — Lógica del flujo de reserva (reserva.html / en/reserva.html)
 // ============================================================
 (function () {
+  const LANG = (typeof window !== 'undefined' && window.BOOKING_LANG === 'en') ? 'en' : 'es';
+  const DATE_LOCALE = LANG === 'en' ? 'en-GB' : 'es-ES';
+
+  const STR = {
+    chooseToStart: { es: 'Elige un tratamiento para empezar.', en: 'Choose a treatment to get started.' },
+    free: { es: 'Gratis', en: 'Free' },
+    totalDuration: { es: 'Duración total', en: 'Total duration' },
+    withEmployee: { es: 'Con', en: 'With' },
+    at: { es: 'a las', en: 'at' },
+    loadServicesError: { es: 'No se pudieron cargar los tratamientos. Comprueba tu conexión e inténtalo de nuevo.', en: 'Could not load treatments. Check your connection and try again.' },
+    loading: { es: 'Cargando…', en: 'Loading…' },
+    loadEmployeesError: { es: 'No se pudieron cargar las profesionales.', en: 'Could not load the professionals.' },
+    noEmployees: { es: 'No hay profesionales disponibles para este tratamiento. Escríbenos por WhatsApp.', en: 'No professionals available for this treatment. Message us on WhatsApp.' },
+    searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
+    noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
+    availabilityError: { es: 'No se pudo consultar la disponibilidad.', en: 'Could not check availability.' },
+    fullRequired: { es: 'Este tratamiento requiere el pago completo online:', en: 'This treatment requires full payment online:' },
+    depositRequired: { es: 'Este tratamiento requiere una seña obligatoria de', en: 'This treatment requires a mandatory deposit of' },
+    restAtCenter: { es: 'resto de', en: 'remaining' },
+    atCenter: { es: 'en el centro', en: 'at the center' },
+    payDepositOnly: { es: 'Pagar solo la seña —', en: 'Pay deposit only —' },
+    restAtCenterParen: { es: '(resto en el centro)', en: '(remaining amount paid at the center)' },
+    payFullNow: { es: 'Pagar el total ahora —', en: 'Pay in full now —' },
+    fillNamePhone: { es: 'Rellena tu nombre y teléfono para continuar.', en: 'Fill in your name and phone number to continue.' },
+    missingBookingData: { es: 'Faltan datos de la reserva, vuelve a empezar.', en: 'Booking data is missing, please start again.' },
+    connectingPayment: { es: 'Conectando con el pago seguro…', en: 'Connecting to secure payment…' },
+    goToPayment: { es: 'Ir al pago seguro', en: 'Go to secure payment' },
+    checkoutError: { es: 'No se pudo iniciar el pago.', en: 'Could not start the payment.' },
+    confirmedTitle: { es: '¡Reserva confirmada! ✓', en: 'Booking confirmed! ✓' },
+    confirmedText: { es: 'Te hemos enviado la confirmación. Si tienes cualquier duda, escríbenos por WhatsApp.', en: "We've sent you the confirmation. If you have any questions, message us on WhatsApp." },
+    backHome: { es: 'Volver al inicio', en: 'Back to home' },
+    cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
+  };
+  function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
+
   const state = {
     service: null,
     extras: [],
@@ -65,23 +100,23 @@
   function renderSummary() {
     const { service, extras, employee, date, time } = state;
     if (!service) {
-      els.summary.innerHTML = '<p class="booking-summary-empty">Elige un tratamiento para empezar.</p>';
+      els.summary.innerHTML = `<p class="booking-summary-empty">${t('chooseToStart')}</p>`;
       return;
     }
-    let html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : 'Gratis'}</span></div>`;
+    let html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     html += `<div class="booking-summary-meta">${service.durationMinutes} min</div>`;
     extras.forEach((ex) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : 'Gratis'}</span></div>`;
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     });
     if (extras.length) {
-      html += `<div class="booking-summary-meta">Duración total: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong></div>`;
+      html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong></div>`;
     }
     if (employee) {
-      html += `<div class="booking-summary-line">Con <strong>${employee.name}</strong></div>`;
+      html += `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>`;
     }
     if (date && time) {
-      const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-      html += `<div class="booking-summary-line">${dateLabel} a las ${time}</div>`;
+      const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString(DATE_LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+      html += `<div class="booking-summary-line">${dateLabel} ${t('at')} ${time}</div>`;
     }
     els.summary.innerHTML = html;
   }
@@ -92,7 +127,7 @@
 
   async function loadServices() {
     try {
-      const res = await fetch(`${BOOKING_API_BASE}/services`);
+      const res = await fetch(`${BOOKING_API_BASE}/services?lang=${LANG}`);
       const data = await res.json();
       servicesByCategory = {};
       data.services.forEach((s) => {
@@ -104,7 +139,7 @@
       renderCatPills(categories);
       renderServiceGrid();
     } catch (e) {
-      showError('No se pudieron cargar los tratamientos. Comprueba tu conexión e inténtalo de nuevo.');
+      showError(t('loadServicesError'));
     }
   }
 
@@ -134,7 +169,7 @@
       card.innerHTML = `
         <strong>${s.name}</strong>
         <span class="booking-service-meta">${s.durationMinutes} min</span>
-        <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : 'Gratis'}</span>
+        <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
       `;
       card.addEventListener('click', () => selectService(s, card));
       els.services.appendChild(card);
@@ -154,7 +189,7 @@
   async function loadExtras(serviceId) {
     els.extrasSection.style.display = 'none';
     try {
-      const res = await fetch(`${BOOKING_API_BASE}/extras?serviceId=${encodeURIComponent(serviceId)}`);
+      const res = await fetch(`${BOOKING_API_BASE}/extras?serviceId=${encodeURIComponent(serviceId)}&lang=${LANG}`);
       const data = await res.json();
       if (!data.extras || !data.extras.length) {
         loadEmployees();
@@ -173,7 +208,7 @@
               <span class="booking-extra-option-meta"> · ${ex.durationMinutes} min</span>
             </span>
           </span>
-          <span class="booking-extra-option-price">${ex.price > 0 ? ex.price.toFixed(0) + ' €' : 'Gratis'}</span>
+          <span class="booking-extra-option-price">${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span>
         `;
         label.querySelector('input').addEventListener('change', (e) => {
           if (e.target.checked) {
@@ -200,7 +235,7 @@
 
   // ── PASO 2: empleadas ──
   async function loadEmployees() {
-    els.employees.innerHTML = '<p class="booking-loading">Cargando…</p>';
+    els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
     try {
       const res = await fetch(`${BOOKING_API_BASE}/employees?serviceId=${encodeURIComponent(state.service.id)}`);
       const data = await res.json();
@@ -220,10 +255,10 @@
         els.employees.appendChild(card);
       });
       if (!data.employees.length) {
-        els.employees.innerHTML = '<p>No hay profesionales disponibles para este tratamiento. Escríbenos por WhatsApp.</p>';
+        els.employees.innerHTML = `<p>${t('noEmployees')}</p>`;
       }
     } catch (e) {
-      showError('No se pudieron cargar las profesionales.');
+      showError(t('loadEmployeesError'));
     }
   }
 
@@ -254,7 +289,7 @@
     const first = new Date(year, month, 1);
     const startWeekday = (first.getDay() + 6) % 7; // lunes = 0
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const monthLabel = first.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const monthLabel = first.toLocaleDateString(DATE_LOCALE, { month: 'long', year: 'numeric' });
     els.calMonthLabel.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
 
     els.calGrid.innerHTML = '';
@@ -312,7 +347,7 @@
   });
 
   async function loadSlotsForDate(dateStr) {
-    els.slots.innerHTML = '<p class="booking-slot-message">Buscando huecos libres…</p>';
+    els.slots.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
     try {
       const params = new URLSearchParams({
         serviceId: state.service.id,
@@ -325,7 +360,7 @@
       const data = await res.json();
       els.slots.innerHTML = '';
       if (!data.slots || !data.slots.length) {
-        els.slots.innerHTML = '<p class="booking-slot-message">No quedan huecos libres ese día. Prueba con otra fecha.</p>';
+        els.slots.innerHTML = `<p class="booking-slot-message">${t('noSlots')}</p>`;
         return;
       }
       data.slots.forEach((time) => {
@@ -344,7 +379,7 @@
       });
     } catch (e) {
       els.slots.innerHTML = '';
-      showError('No se pudo consultar la disponibilidad.');
+      showError(t('availabilityError'));
     }
   }
 
@@ -360,21 +395,21 @@
     els.payOptions.innerHTML = '';
 
     if (service.paymentPolicy === 'full_required') {
-      els.payOptions.innerHTML = `<p class="booking-pay-note">Este tratamiento requiere el pago completo online: <strong>${price.toFixed(2)} €</strong></p>`;
+      els.payOptions.innerHTML = `<p class="booking-pay-note">${t('fullRequired')} <strong>${price.toFixed(2)} €</strong></p>`;
       state.payChoice = 'full';
     } else if (service.paymentPolicy === 'deposit_required') {
-      els.payOptions.innerHTML = `<p class="booking-pay-note">Este tratamiento requiere una seña obligatoria de <strong>${depositAmount.toFixed(2)} €</strong> (resto de ${(price - depositAmount).toFixed(2)} € en el centro).</p>`;
+      els.payOptions.innerHTML = `<p class="booking-pay-note">${t('depositRequired')} <strong>${depositAmount.toFixed(2)} €</strong> (${t('restAtCenter')} ${(price - depositAmount).toFixed(2)} € ${t('atCenter')}).</p>`;
       state.payChoice = 'deposit';
     } else {
       state.payChoice = 'deposit';
       els.payOptions.innerHTML = `
         <label class="booking-pay-option">
           <input type="radio" name="pay" value="deposit" checked>
-          <span>Pagar solo la seña — <strong>${depositAmount.toFixed(2)} €</strong> (resto en el centro)</span>
+          <span>${t('payDepositOnly')} <strong>${depositAmount.toFixed(2)} €</strong> ${t('restAtCenterParen')}</span>
         </label>
         <label class="booking-pay-option">
           <input type="radio" name="pay" value="full">
-          <span>Pagar el total ahora — <strong>${price.toFixed(2)} €</strong></span>
+          <span>${t('payFullNow')} <strong>${price.toFixed(2)} €</strong></span>
         </label>
       `;
       els.payOptions.querySelectorAll('input[name="pay"]').forEach((r) => {
@@ -390,16 +425,16 @@
     const email = document.getElementById('booking-email').value.trim();
 
     if (!name || !phone) {
-      showError('Rellena tu nombre y teléfono para continuar.');
+      showError(t('fillNamePhone'));
       return;
     }
     if (!state.service || !state.employee || !state.date || !state.time) {
-      showError('Faltan datos de la reserva, vuelve a empezar.');
+      showError(t('missingBookingData'));
       return;
     }
 
     els.submit.disabled = true;
-    els.submit.textContent = 'Conectando con el pago seguro…';
+    els.submit.textContent = t('connectingPayment');
 
     try {
       const res = await fetch(`${BOOKING_API_BASE}/checkout`, {
@@ -415,15 +450,16 @@
           clientPhone: phone,
           clientEmail: email || undefined,
           paymentChoice: state.payChoice,
+          lang: LANG,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el pago.');
+      if (!res.ok) throw new Error(data.error || t('checkoutError'));
       window.location.href = data.url;
     } catch (e) {
       showError(e.message);
       els.submit.disabled = false;
-      els.submit.textContent = 'Ir al pago seguro';
+      els.submit.textContent = t('goToPayment');
     }
   });
 
@@ -432,12 +468,12 @@
   if (params.get('estado') === 'ok') {
     document.querySelector('.booking-shell').innerHTML = `
       <div class="booking-confirm">
-        <h2>¡Reserva confirmada! ✓</h2>
-        <p>Te hemos enviado la confirmación. Si tienes cualquier duda, escríbenos por WhatsApp.</p>
-        <a href="index.html" class="btn-primary">Volver al inicio</a>
+        <h2>${t('confirmedTitle')}</h2>
+        <p>${t('confirmedText')}</p>
+        <a href="index.html" class="btn-primary">${t('backHome')}</a>
       </div>`;
   } else if (params.get('estado') === 'cancelado') {
-    showError('Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.');
+    showError(t('cancelledPayment'));
     loadServices();
   } else {
     loadServices();

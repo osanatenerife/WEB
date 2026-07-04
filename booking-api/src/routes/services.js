@@ -6,8 +6,12 @@ const extras = require('../config/extras');
 const router = express.Router();
 
 // Lista pública de servicios agrupados por categoría
+// ?lang=en devuelve nombre y categoría en inglés (con fallback al español si faltara)
 router.get('/services', (req, res) => {
-  res.json({ services });
+  const list = req.query.lang === 'en'
+    ? services.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category }))
+    : services;
+  res.json({ services: list });
 });
 
 // Lista de empleadas que pueden realizar un servicio dado
@@ -23,10 +27,13 @@ router.get('/employees', (req, res) => {
 
 // Lista de extras que se pueden añadir a un servicio dado
 router.get('/extras', (req, res) => {
-  const { serviceId } = req.query;
+  const { serviceId, lang } = req.query;
   let list = extras;
   if (serviceId) {
-    list = extras.filter((e) => e.applicableServices.length === 0 || e.applicableServices.includes(serviceId));
+    list = list.filter((e) => e.applicableServices.length === 0 || e.applicableServices.includes(serviceId));
+  }
+  if (lang === 'en') {
+    list = list.map((e) => ({ ...e, name: e.nameEn || e.name }));
   }
   res.json({ extras: list });
 });
