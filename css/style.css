@@ -124,29 +124,33 @@ nav#main-nav {
   text-transform: uppercase; color: var(--dark);
   background: var(--gold); padding: 15px 34px;
   text-decoration: none; border: none; cursor: pointer;
-  transition: filter 0.2s; white-space: nowrap;
+  transition: filter 0.25s ease, transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s ease;
+  white-space: nowrap;
 }
-.btn-primary:hover { filter: brightness(1.08); }
+.btn-primary:hover { filter: brightness(1.08); transform: translateY(-2px); box-shadow: 0 10px 24px rgba(20,16,12,0.16); }
+.btn-primary:active { transform: translateY(0); box-shadow: 0 4px 10px rgba(20,16,12,0.14); }
 .btn-outline {
   display: inline-block; font-size: 10px; font-weight: 500; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--cream2);
   border: 1px solid var(--linew); padding: 14px 32px;
-  text-decoration: none; transition: all 0.2s;
+  text-decoration: none; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
 }
-.btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+.btn-outline:hover { border-color: var(--gold); color: var(--gold); transform: translateY(-2px); }
 .btn-outline-dark {
   display: inline-block; font-size: 10px; font-weight: 500; letter-spacing: 0.2em;
   text-transform: uppercase; color: var(--txt);
   border: 1px solid var(--line); padding: 14px 32px;
-  text-decoration: none; transition: all 0.2s;
+  text-decoration: none; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
 }
-.btn-outline-dark:hover { border-color: var(--brown); color: var(--brown); }
+.btn-outline-dark:hover { border-color: var(--brown); color: var(--brown); transform: translateY(-2px); }
 .btn-ghost {
   font-size: 10px; font-weight: 500; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--txt-mid);
   text-decoration: none; display: inline-flex; align-items: center; gap: 10px;
 }
-.btn-ghost-line { width: 26px; height: 1px; background: currentColor; }
+.btn-ghost-line { width: 26px; height: 1px; background: currentColor; transition: width 0.3s cubic-bezier(0.22,1,0.36,1); }
+.btn-ghost:hover { color: var(--brown); }
+.btn-ghost:hover .btn-ghost-line { width: 40px; }
 
 /* ══════════════════ HERO (paginas con foto) ══════════════════ */
 .hero {
@@ -383,8 +387,8 @@ nav#main-nav {
 
 .svc-cta { display: flex; align-items: center; justify-content: space-between; padding-top: 22px; margin-top: 10px; border-top: 1px solid var(--line); gap: 14px; flex-wrap: wrap; }
 .svc-cta-note { font-size: 10px; font-weight: 300; letter-spacing: 0.14em; text-transform: uppercase; color: var(--txt-soft); }
-.svc-btn { font-family: 'Raleway', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cream2); background: var(--brown); border: none; padding: 12px 28px; cursor: pointer; transition: filter 0.2s; text-decoration: none; display: inline-block; }
-.svc-btn:hover { filter: brightness(1.15); }
+.svc-btn { font-family: 'Raleway', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cream2); background: var(--brown); border: none; padding: 12px 28px; cursor: pointer; transition: filter 0.25s ease, transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s ease; text-decoration: none; display: inline-block; }
+.svc-btn:hover { filter: brightness(1.15); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(20,16,12,0.14); }
 
 /* ══════════════════ PÁGINA GENÉRICA (formaciones/promociones/contacto sin foto hero) ══════════════════ */
 .page-hero { padding: 128px 48px 56px; max-width: 1100px; margin: 0 auto; }
@@ -511,9 +515,10 @@ footer { background: #110e0b; padding: 60px 48px 30px; }
 .tile-desc { font-size: 11px; font-weight: 300; line-height: 1.7; color: rgba(240,235,226,0.75); flex: 1; }
 .tile-btn {
   align-self: flex-start; font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--cream2); background: var(--dark); padding: 11px 20px; transition: background 0.2s;
+  color: var(--cream2); background: var(--dark); padding: 11px 20px;
+  transition: background 0.25s ease, transform 0.25s cubic-bezier(0.22,1,0.36,1), padding 0.25s ease;
 }
-.tile:hover .tile-btn { background: #000; }
+.tile:hover .tile-btn { background: #000; padding-left: 24px; padding-right: 24px; }
 
 /* ══════════════════ FORMACIONES — TARJETAS DE CURSO ══════════════════ */
 .course-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; background: var(--line); max-width: 1100px; margin: 0 auto; }
