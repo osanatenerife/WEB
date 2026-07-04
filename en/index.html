@@ -291,27 +291,37 @@
   <div class="reviews-header">
     <div class="reviews-meta">
       <span class="reviews-stars">★★★★★</span>
-      <span class="reviews-rating">5.0</span>
-      <span class="reviews-count">· Average rating on Google (139 reviews)</span>
+      <span class="reviews-rating" id="reviews-rating-label">5.0</span>
+      <span class="reviews-count" id="reviews-count-label">· Average rating on Google (139 reviews)</span>
     </div>
     <span class="section-eyebrow" style="margin-bottom:8px;margin-top:20px;">What our clients say</span>
     <h2 class="section-title" style="font-size:clamp(26px,3.5vw,42px); margin-bottom:40px;">Real reviews,<br>real results.</h2>
   </div>
-  <div class="reviews-grid">
-    <div class="review-card reveal">
-      <div class="review-stars">★★★★★</div>
-      <p class="review-text">"I had the chance to try laser hair removal at Osana and it was without a doubt one of the best decisions. The results are noticeable from the very first session."</p>
-      <div class="review-author">María G.</div><div class="review-date">2 weeks ago · Google</div>
+  <div class="reviews-carousel-wrap">
+    <div class="reviews-carousel" id="reviews-track">
+      <div class="review-card reveal">
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"I had the chance to try laser hair removal at Osana and it was without a doubt one of the best decisions. The results are noticeable from the very first session."</p>
+        <div class="review-author">María G.</div><div class="review-date">2 weeks ago · Google</div>
+      </div>
+      <div class="review-card reveal reveal-delay-1">
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"The service has been exceptional, always ready to advise me with great professionalism. I recommend Osana to anyone looking for quality."</p>
+        <div class="review-author">Laura M.</div><div class="review-date">1 month ago · Google</div>
+      </div>
+      <div class="review-card reveal reveal-delay-2">
+        <div class="review-stars">★★★★★</div>
+        <p class="review-text">"Amazing experience! I loved the laser treatment because it didn't hurt at all and they calmly explained the whole procedure to me."</p>
+        <div class="review-author">Sophie R.</div><div class="review-date">3 weeks ago · Google</div>
+      </div>
     </div>
-    <div class="review-card reveal reveal-delay-1">
-      <div class="review-stars">★★★★★</div>
-      <p class="review-text">"The service has been exceptional, always ready to advise me with great professionalism. I recommend Osana to anyone looking for quality."</p>
-      <div class="review-author">Laura M.</div><div class="review-date">1 month ago · Google</div>
-    </div>
-    <div class="review-card reveal reveal-delay-2">
-      <div class="review-stars">★★★★★</div>
-      <p class="review-text">"Amazing experience! I loved the laser treatment because it didn't hurt at all and they calmly explained the whole procedure to me."</p>
-      <div class="review-author">Sophie R.</div><div class="review-date">3 weeks ago · Google</div>
+    <div class="reviews-nav">
+      <button type="button" id="reviews-prev" aria-label="Previous review">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <button type="button" id="reviews-next" aria-label="Next review">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
     </div>
   </div>
 </section>
@@ -391,5 +401,7 @@
 
 <script src="../js/main.js"></script>
 <script src="../js/editor.js"></script>
+<script src="../js/booking-config.js"></script>
+<script src="../js/reviews.js"></script>
 </body>
 </html>

@@ -315,6 +315,42 @@ nav#main-nav {
 .review-author { font-size: 10px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brown); }
 .review-date { font-size: 10px; font-weight: 300; color: var(--txt-soft); margin-top: 2px; }
 
+/* ── Carrusel de reseñas reales de Google ── */
+.reviews-carousel-wrap { position: relative; }
+.reviews-carousel {
+  display: flex;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.reviews-carousel::-webkit-scrollbar { display: none; }
+.reviews-carousel .review-card {
+  scroll-snap-align: start; flex: 0 0 clamp(280px, 32vw, 360px);
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--line);
+}
+.reviews-carousel .review-card:first-child { border-left: none; }
+.review-top-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.review-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: var(--line); }
+.review-avatar-fallback {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  background: var(--brown); color: var(--cream2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 16px;
+}
+.review-name-col { display: flex; flex-direction: column; min-width: 0; }
+.review-author-name { font-size: 13px; font-weight: 600; color: var(--txt); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reviews-nav { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 28px; }
+.reviews-nav button {
+  width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line);
+  background: var(--cream); cursor: pointer; color: var(--txt);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+.reviews-nav button:hover { border-color: var(--brown); color: var(--brown); transform: translateY(-2px); }
+.reviews-nav button:disabled { opacity: 0.35; cursor: default; transform: none; }
+.reviews-nav button svg { width: 18px; height: 18px; }
+.reviews-loading { font-size: 12px; color: var(--txt-soft); padding: 32px 28px; }
+
 /* ══════════════════ CTA RESERVA (final de página) ══════════════════ */
 .booking-section { background: var(--cream2); padding: 100px 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
 .booking-img { position: relative; overflow: hidden; aspect-ratio: 4/3; }

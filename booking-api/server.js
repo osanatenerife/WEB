@@ -6,6 +6,7 @@ const webhookRouter = require('./src/routes/webhook');
 const servicesRouter = require('./src/routes/services');
 const availabilityRouter = require('./src/routes/availability');
 const checkoutRouter = require('./src/routes/checkout');
+const reviewsRouter = require('./src/routes/reviews');
 
 const app = express();
 
@@ -22,6 +23,7 @@ app.use(express.json());
 app.use('/api', servicesRouter);
 app.use('/api', availabilityRouter);
 app.use('/api', checkoutRouter);
+app.use('/api', reviewsRouter);
 
 app.get('/', (req, res) => {
   res.json({ ok: true, service: 'osana-booking-api' });
