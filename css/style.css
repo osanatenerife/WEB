@@ -418,12 +418,17 @@ nav#main-nav {
 .ptable[data-cols="3"] th:not(:first-child), .ptable[data-cols="3"] td:not(:first-child) { width: 90px; }
 .ptable[data-cols="2"] th:last-child, .ptable[data-cols="2"] td:last-child { width: 190px; }
 
-.sub-title { font-family: 'Raleway', sans-serif; font-size: 15px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt); margin: 30px 0 16px; padding-top: 26px; border-top: 1px solid var(--line); }
-.sub-block { margin-bottom: 16px; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
-.sub-block:last-of-type { border-bottom: none; }
-.sub-block-name { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt); margin-bottom: 4px; }
-.sub-block-desc { font-size: 12px; font-weight: 300; color: var(--txt-soft); line-height: 1.6; margin-bottom: 5px; }
-.sub-block-price { font-size: 13px; font-weight: 500; color: var(--txt-mid); }
+.sub-title { font-family: 'Raleway', sans-serif; font-size: 16px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt); margin: 34px 0 18px; padding-top: 28px; border-top: 1px solid var(--line); text-align: center; max-width: 720px; margin-left: auto; margin-right: auto; }
+.sub-title::before { content: '✦'; display: block; font-size: 11px; color: var(--brown); margin-bottom: 8px; letter-spacing: 0; }
+.sub-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; max-width: 720px; margin: 0 auto; }
+.sub-block {
+  margin: 0; padding: 22px 24px; background: var(--cream); border: 1px solid var(--line);
+  transition: border-color 0.25s ease, transform 0.25s ease;
+}
+.sub-block:hover { border-color: var(--brown); transform: translateY(-3px); }
+.sub-block-name { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--txt); margin-bottom: 6px; }
+.sub-block-desc { font-size: 12px; font-weight: 300; color: var(--txt-soft); line-height: 1.6; margin-bottom: 12px; }
+.sub-block-price { font-family: 'Raleway', sans-serif; font-size: 18px; font-weight: 600; color: var(--brown); }
 
 .svc-cta { display: flex; align-items: center; justify-content: space-between; padding-top: 22px; margin-top: 10px; border-top: 1px solid var(--line); gap: 14px; flex-wrap: wrap; }
 .svc-cta-note { font-size: 10px; font-weight: 300; letter-spacing: 0.14em; text-transform: uppercase; color: var(--txt-soft); }
@@ -702,6 +707,8 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
   .services-section { padding: 60px 24px; }
   .section-header { flex-direction: column; align-items: flex-start; gap: 14px; }
   .services-grid { grid-template-columns: repeat(2, 1fr); }
+
+  .sub-grid { grid-template-columns: 1fr; }
 
   .texture-break { height: 300px; }
 
