@@ -21,7 +21,7 @@ const COLUMNS = [
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
   'lang', 'reminderSent',
 ];
-const RANGE_ALL = `Sheet1!A:${String.fromCharCode(64 + COLUMNS.length)}`;
+const LAST_COL = String.fromCharCode(64 + COLUMNS.length);
 
 function getSheetsClient() {
   return google.sheets({ version: 'v4', auth: getAuth() });
@@ -33,14 +33,37 @@ function sheetId() {
   return id;
 }
 
+// Detectamos el nombre real de la primera pestaña (en vez de asumir
+// "Sheet1", que no coincide si la hoja está en español y se llama
+// "Hoja 1" o cualquier otro nombre). Se cachea en memoria del proceso.
+let cachedTabName = null;
+async function getTabName() {
+  if (cachedTabName) return cachedTabName;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId: sheetId(),
+    fields: 'sheets.properties.title',
+  });
+  const title = res.data.sheets && res.data.sheets[0] && res.data.sheets[0].properties.title;
+  if (!title) throw new Error('No se ha podido detectar el nombre de la pestaña de la Google Sheet');
+  cachedTabName = title;
+  return cachedTabName;
+}
+
+async function rangeAll() {
+  const tab = await getTabName();
+  return `'${tab}'!A:${LAST_COL}`;
+}
+
 async function ensureHeader() {
   const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: 'Sheet1!A1:A1' });
+  const tab = await getTabName();
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: `'${tab}'!A1:A1` });
   const hasHeader = res.data.values && res.data.values.length > 0;
   if (!hasHeader) {
     await sheets.spreadsheets.values.update({
       spreadsheetId: sheetId(),
-      range: 'Sheet1!A1',
+      range: `'${tab}'!A1`,
       valueInputOption: 'RAW',
       requestBody: { values: [COLUMNS] },
     });
@@ -65,7 +88,7 @@ async function appendBooking(booking) {
   const sheets = getSheetsClient();
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId(),
-    range: RANGE_ALL,
+    range: await rangeAll(),
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [objectToRow(booking)] },
@@ -78,7 +101,7 @@ async function appendBooking(booking) {
  */
 async function getAllBookings() {
   const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: RANGE_ALL });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: await rangeAll() });
   const rows = res.data.values || [];
   if (rows.length < 2) return [];
   return rows.slice(1).map((row, i) => ({ ...rowToObject(row), _sheetRow: i + 2 }));
@@ -95,10 +118,10 @@ async function findBookingById(bookingId) {
 async function updateBookingRow(sheetRow, currentBooking, updates) {
   const merged = { ...currentBooking, ...updates };
   const sheets = getSheetsClient();
-  const lastCol = String.fromCharCode(64 + COLUMNS.length);
+  const tab = await getTabName();
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId(),
-    range: `Sheet1!A${sheetRow}:${lastCol}${sheetRow}`,
+    range: `'${tab}'!A${sheetRow}:${LAST_COL}${sheetRow}`,
     valueInputOption: 'RAW',
     requestBody: { values: [objectToRow(merged)] },
   });
