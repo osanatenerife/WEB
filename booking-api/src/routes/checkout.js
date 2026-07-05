@@ -3,7 +3,7 @@ const services = require('../config/services');
 const employees = require('../config/employees');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
-const { parseExtraIds, resolveExtras, totalDuration, totalPrice } = require('../lib/pricing');
+const { parseExtraIds, resolveExtras, resolveExtraServices, totalDuration, totalPrice } = require('../lib/pricing');
 const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
@@ -25,7 +25,7 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice, extraIds, lang } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice, extraIds, extraServiceIds, lang } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone) {
@@ -38,8 +38,9 @@ router.post('/checkout', async (req, res) => {
   if (!employee) return res.status(404).json({ error: 'Empleada no encontrada' });
 
   const selectedExtras = resolveExtras(parseExtraIds(extraIds));
-  const duration = totalDuration(service, selectedExtras);
-  const price = totalPrice(service, selectedExtras);
+  const additionalServices = resolveExtraServices(parseExtraIds(extraServiceIds));
+  const duration = totalDuration(service, selectedExtras, additionalServices);
+  const price = totalPrice(service, selectedExtras, additionalServices);
   const bookingId = crypto.randomUUID();
 
   let eventId = null;
@@ -62,6 +63,7 @@ router.post('/checkout', async (req, res) => {
       `Teléfono: ${clientPhone}`,
       clientEmail ? `Email: ${clientEmail}` : null,
       `Servicio: ${service.name} (${service.category})`,
+      additionalServices.length ? `Tratamientos añadidos: ${additionalServices.map((s) => s.name).join(', ')}` : null,
       selectedExtras.length ? `Extras: ${selectedExtras.map((e) => e.name).join(', ')}` : null,
       `Pago online: ${amount.toFixed(2)} € (${type})`,
       amount < price ? `Resto a pagar en centro: ${(price - amount).toFixed(2)} €` : null,
@@ -70,9 +72,11 @@ router.post('/checkout', async (req, res) => {
     ].filter(Boolean).join('\n');
 
     // El evento de calendario es de uso interno del centro: siempre en español, independientemente del idioma del cliente
-    const summaryTitle = selectedExtras.length ? `${service.name} + ${selectedExtras.length} extra(s)` : service.name;
+    const allNames = [service.name, ...additionalServices.map((s) => s.name)];
+    const summaryTitle = allNames.join(' + ') + (selectedExtras.length ? ` + ${selectedExtras.length} extra(s)` : '');
     // Lo que ve el cliente en Stripe sí respeta su idioma
-    const customerServiceName = lang === 'en' ? (service.nameEn || service.name) : service.name;
+    const customerAllNames = [service.nameEn || service.name, ...additionalServices.map((s) => s.nameEn || s.name)];
+    const customerServiceName = lang === 'en' ? customerAllNames.join(' + ') : allNames.join(' + ');
     const event = await createBookingEvent(employee.calendarId, {
       summary: `⏳ Pendiente de pago — ${summaryTitle} — ${clientName}`,
       description,
@@ -97,6 +101,7 @@ router.post('/checkout', async (req, res) => {
         serviceId,
         employeeId,
         extraIds: selectedExtras.map((e) => e.id).join(','),
+        extraServiceIds: additionalServices.map((s) => s.id).join(','),
         date,
         time,
         durationMinutes: String(duration),

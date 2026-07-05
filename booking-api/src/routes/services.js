@@ -2,6 +2,7 @@ const express = require('express');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const extras = require('../config/extras');
+const { parseExtraIds: parseIds } = require('../lib/pricing');
 
 const router = express.Router();
 
@@ -14,23 +15,25 @@ router.get('/services', (req, res) => {
   res.json({ services: list });
 });
 
-// Lista de empleadas que pueden realizar un servicio dado
+// Lista de empleadas que pueden realizar TODOS los servicios dados
+// (si la cita combina varios tratamientos, la profesional tiene que poder con todos)
 router.get('/employees', (req, res) => {
-  const { serviceId } = req.query;
+  const ids = parseIds(req.query.serviceIds || req.query.serviceId);
   let list = employees;
-  if (serviceId) {
-    list = employees.filter((e) => e.services.length === 0 || e.services.includes(serviceId));
+  if (ids.length) {
+    list = employees.filter((e) => ids.every((id) => e.services.length === 0 || e.services.includes(id)));
   }
   // No exponemos el calendarId al frontend, no hace falta y es un dato interno
   res.json({ employees: list.map(({ id, name }) => ({ id, name })) });
 });
 
-// Lista de extras que se pueden añadir a un servicio dado
+// Lista de extras que se pueden añadir a los servicios dados (unión, sin duplicados)
 router.get('/extras', (req, res) => {
-  const { serviceId, lang } = req.query;
+  const { lang } = req.query;
+  const ids = parseIds(req.query.serviceIds || req.query.serviceId);
   let list = extras;
-  if (serviceId) {
-    list = list.filter((e) => e.applicableServices.length === 0 || e.applicableServices.includes(serviceId));
+  if (ids.length) {
+    list = list.filter((e) => e.applicableServices.length === 0 || ids.some((id) => e.applicableServices.includes(id)));
   }
   if (lang === 'en') {
     list = list.map((e) => ({ ...e, name: e.nameEn || e.name }));

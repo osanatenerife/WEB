@@ -24,6 +24,7 @@ router.post('/webhook/stripe', async (req, res) => {
       const {
         bookingId, calendarId, eventId, serviceId, employeeId, date, time,
         durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType, lang,
+        extraServiceIds,
       } = session.metadata || {};
 
       if (calendarId && eventId) {
@@ -47,6 +48,10 @@ router.post('/webhook/stripe', async (req, res) => {
         try {
           const service = services.find((s) => s.id === serviceId);
           const employee = employees.find((e) => e.id === employeeId);
+          const additionalServiceIds = (extraServiceIds || '').split(',').filter(Boolean);
+          const additionalServices = additionalServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean);
+          const combinedServiceId = [serviceId, ...additionalServiceIds].filter(Boolean).join(',');
+          const combinedServiceName = [service ? service.name : null, ...additionalServices.map((s) => s.name)].filter(Boolean).join(' + ');
           await appendBooking({
             bookingId,
             createdAt: new Date().toISOString(),
@@ -54,8 +59,8 @@ router.post('/webhook/stripe', async (req, res) => {
             name: clientName || '',
             phone: clientPhone || '',
             email: clientEmail || '',
-            serviceId: serviceId || '',
-            serviceName: service ? service.name : '',
+            serviceId: combinedServiceId,
+            serviceName: combinedServiceName,
             employeeId: employeeId || '',
             employeeName: employee ? employee.name : '',
             calendarId: calendarId || '',

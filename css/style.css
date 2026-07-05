@@ -408,11 +408,11 @@ nav#main-nav {
 .svc-inner { padding: 30px 48px 38px 100px; background: var(--cream2); }
 .svc-desc { font-size: 13px; font-weight: 300; color: var(--txt-mid); line-height: 1.85; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
 
-.ptable { width: 100%; border-collapse: collapse; }
+.ptable { width: 100%; max-width: 620px; border-collapse: collapse; table-layout: fixed; }
 .ptable thead th { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-soft); padding: 0 0 14px; border-bottom: 1px solid var(--line); text-align: left; }
-.ptable thead th:not(:first-child) { text-align: right; }
-.ptable tbody td { padding: 12px 0; font-size: 13px; font-weight: 300; border-bottom: 1px solid var(--line); color: var(--txt-mid); text-align: left; }
-.ptable tbody td:not(:first-child) { text-align: right; color: var(--txt-mid); font-weight: 400; }
+.ptable thead th:not(:first-child) { text-align: right; width: 90px; }
+.ptable tbody td { padding: 12px 20px 12px 0; font-size: 13px; font-weight: 300; border-bottom: 1px solid var(--line); color: var(--txt-mid); text-align: left; }
+.ptable tbody td:not(:first-child) { text-align: right; color: var(--txt-mid); font-weight: 400; padding-right: 0; width: 90px; }
 .ptable tbody tr:last-child td { border-bottom: none; font-weight: 500; color: var(--txt); }
 .ptable tbody tr:hover td { background: rgba(42,37,32,0.03); }
 

@@ -34,12 +34,15 @@
     confirmedText: { es: 'Te hemos enviado la confirmación. Si tienes cualquier duda, escríbenos por WhatsApp.', en: "We've sent you the confirmation. If you have any questions, message us on WhatsApp." },
     backHome: { es: 'Volver al inicio', en: 'Back to home' },
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
+    addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
+    removeAddon: { es: 'Quitar', en: 'Remove' },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
 
   const state = {
     service: null,
     extras: [],
+    extraServices: [], // otros tratamientos añadidos a la misma cita
     employee: null,
     date: null,
     time: null,
@@ -48,8 +51,18 @@
 
   function extrasDuration() { return state.extras.reduce((sum, e) => sum + e.durationMinutes, 0); }
   function extrasPrice() { return state.extras.reduce((sum, e) => sum + e.price, 0); }
-  function totalDuration() { return (state.service ? state.service.durationMinutes : 0) + extrasDuration(); }
-  function totalPrice() { return (state.service ? state.service.price : 0) + extrasPrice(); }
+  function addonsDuration() { return state.extraServices.reduce((sum, s) => sum + s.durationMinutes, 0); }
+  function addonsPrice() { return state.extraServices.reduce((sum, s) => sum + s.price, 0); }
+  function totalDuration() { return (state.service ? state.service.durationMinutes : 0) + extrasDuration() + addonsDuration(); }
+  function totalPrice() { return (state.service ? state.service.price : 0) + extrasPrice() + addonsPrice(); }
+  function selectedServiceIds() { return [state.service.id, ...state.extraServices.map((s) => s.id)]; }
+  function findServiceById(id) {
+    for (const cat in servicesByCategory) {
+      const found = servicesByCategory[cat].find((s) => s.id === id);
+      if (found) return found;
+    }
+    return null;
+  }
 
   const els = {
     shell: document.getElementById('booking-shell'),
@@ -57,8 +70,12 @@
     panels: document.querySelectorAll('.booking-step-panel'),
     catPills: document.getElementById('booking-cat-pills'),
     services: document.getElementById('booking-services'),
+    addonsSection: document.getElementById('booking-addons-section'),
+    addonsChips: document.getElementById('booking-addons-chips'),
+    addonsSelect: document.getElementById('booking-addons-select'),
     extrasSection: document.getElementById('booking-extras-section'),
     extras: document.getElementById('booking-extras'),
+    step1Actions: document.getElementById('booking-step1-actions'),
     continueStep1: document.getElementById('booking-continue-step1'),
     employees: document.getElementById('booking-employees'),
     calMonthLabel: document.getElementById('cal-month-label'),
@@ -98,17 +115,20 @@
 
   // ── Resumen persistente (panel lateral) ──
   function renderSummary() {
-    const { service, extras, employee, date, time } = state;
+    const { service, extras, extraServices, employee, date, time } = state;
     if (!service) {
       els.summary.innerHTML = `<p class="booking-summary-empty">${t('chooseToStart')}</p>`;
       return;
     }
     let html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     html += `<div class="booking-summary-meta">${service.durationMinutes} min</div>`;
+    extraServices.forEach((s) => {
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div>`;
+    });
     extras.forEach((ex) => {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     });
-    if (extras.length) {
+    if (extras.length || extraServices.length) {
       html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong></div>`;
     }
     if (employee) {
@@ -179,30 +199,98 @@
   function selectService(service, cardEl) {
     state.service = service;
     state.extras = [];
+    state.extraServices = [];
     document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
     cardEl.classList.add('selected');
     renderSummary();
-    loadExtras(service.id);
+    els.addonsSection.style.display = 'block';
+    els.step1Actions.style.display = 'block';
+    renderAddonsChips();
+    renderAddonsSelect();
+    loadExtras();
   }
 
+  // ── "Otros tratamientos" añadidos a la misma cita ──
+  function renderAddonsSelect() {
+    const usedIds = new Set(selectedServiceIds());
+    els.addonsSelect.innerHTML = `<option value="">${t('addTreatment')}</option>`;
+    Object.keys(servicesByCategory).forEach((cat) => {
+      const items = servicesByCategory[cat].filter((s) => !usedIds.has(s.id));
+      if (!items.length) return;
+      const group = document.createElement('optgroup');
+      group.label = cat;
+      items.forEach((s) => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.name} — ${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}`;
+        group.appendChild(opt);
+      });
+      els.addonsSelect.appendChild(group);
+    });
+  }
+
+  function renderAddonsChips() {
+    els.addonsChips.innerHTML = '';
+    state.extraServices.forEach((s) => {
+      const chip = document.createElement('span');
+      chip.className = 'booking-addon-chip';
+      const label = document.createElement('span');
+      label.textContent = s.name;
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'booking-addon-remove';
+      removeBtn.setAttribute('aria-label', t('removeAddon'));
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', () => {
+        state.extraServices = state.extraServices.filter((x) => x.id !== s.id);
+        onAddonsChanged();
+      });
+      chip.appendChild(label);
+      chip.appendChild(removeBtn);
+      els.addonsChips.appendChild(chip);
+    });
+  }
+
+  function onAddonsChanged() {
+    renderAddonsChips();
+    renderAddonsSelect();
+    renderSummary();
+    loadExtras();
+  }
+
+  els.addonsSelect.addEventListener('change', () => {
+    const id = els.addonsSelect.value;
+    if (!id) return;
+    const svc = findServiceById(id);
+    if (svc) {
+      state.extraServices.push(svc);
+      onAddonsChanged();
+    }
+    els.addonsSelect.value = '';
+  });
+
   // ── Extras opcionales (antes de pasar a elegir profesional) ──
-  async function loadExtras(serviceId) {
+  async function loadExtras() {
     els.extrasSection.style.display = 'none';
     try {
-      const res = await fetch(`${BOOKING_API_BASE}/extras?serviceId=${encodeURIComponent(serviceId)}&lang=${LANG}`);
+      const ids = selectedServiceIds().join(',');
+      const res = await fetch(`${BOOKING_API_BASE}/extras?serviceIds=${encodeURIComponent(ids)}&lang=${LANG}`);
       const data = await res.json();
-      if (!data.extras || !data.extras.length) {
-        loadEmployees();
-        goToStep(2);
+      const applicable = data.extras || [];
+      // Si un extra ya no aplica (porque se quitó el tratamiento al que iba asociado), lo destildamos
+      state.extras = state.extras.filter((ex) => applicable.some((d) => d.id === ex.id));
+      if (!applicable.length) {
+        renderSummary();
         return;
       }
       els.extras.innerHTML = '';
-      data.extras.forEach((ex) => {
+      applicable.forEach((ex) => {
         const label = document.createElement('label');
         label.className = 'booking-extra-option';
+        const checked = state.extras.some((sel) => sel.id === ex.id);
         label.innerHTML = `
           <span class="booking-extra-option-label">
-            <input type="checkbox" value="${ex.id}">
+            <input type="checkbox" value="${ex.id}" ${checked ? 'checked' : ''}>
             <span>
               <span class="booking-extra-option-name">${ex.name}</span>
               <span class="booking-extra-option-meta"> · ${ex.durationMinutes} min</span>
@@ -221,10 +309,10 @@
         els.extras.appendChild(label);
       });
       els.extrasSection.style.display = 'block';
+      renderSummary();
     } catch (e) {
       // Si fallan los extras, seguimos sin bloquear la reserva del tratamiento principal
-      loadEmployees();
-      goToStep(2);
+      renderSummary();
     }
   }
 
@@ -237,7 +325,8 @@
   async function loadEmployees() {
     els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
     try {
-      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceId=${encodeURIComponent(state.service.id)}`);
+      const ids = selectedServiceIds().join(',');
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids)}`);
       const data = await res.json();
       els.employees.innerHTML = '';
       data.employees.forEach((emp) => {
@@ -354,6 +443,7 @@
         employeeId: state.employee.id,
         date: dateStr,
         extraIds: state.extras.map((e) => e.id).join(','),
+        extraServiceIds: state.extraServices.map((s) => s.id).join(','),
       });
       const res = await fetch(`${BOOKING_API_BASE}/availability?${params}`);
       if (!res.ok) throw new Error('availability request failed');
@@ -444,6 +534,7 @@
           serviceId: state.service.id,
           employeeId: state.employee.id,
           extraIds: state.extras.map((e) => e.id),
+          extraServiceIds: state.extraServices.map((s) => s.id),
           date: state.date,
           time: state.time,
           clientName: name,
