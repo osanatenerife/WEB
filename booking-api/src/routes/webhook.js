@@ -1,6 +1,9 @@
 const express = require('express');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
+const { appendBooking } = require('../lib/sheets');
+const services = require('../config/services');
+const employees = require('../config/employees');
 
 const router = express.Router();
 
@@ -18,7 +21,11 @@ router.post('/webhook/stripe', async (req, res) => {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const { calendarId, eventId, clientName, amount, paymentType } = session.metadata || {};
+      const {
+        bookingId, calendarId, eventId, serviceId, employeeId, date, time,
+        durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType,
+      } = session.metadata || {};
+
       if (calendarId && eventId) {
         const current = await getEvent(calendarId, eventId).catch(() => null);
         const newDescription = current
@@ -33,6 +40,38 @@ router.post('/webhook/stripe', async (req, res) => {
           colorId: '10', // verde en Google Calendar
           ...(newDescription ? { description: newDescription } : {}),
         });
+      }
+
+      // Guardamos la reserva confirmada en la Sheet para que "Mis reservas" pueda encontrarla
+      if (bookingId) {
+        try {
+          const service = services.find((s) => s.id === serviceId);
+          const employee = employees.find((e) => e.id === employeeId);
+          await appendBooking({
+            bookingId,
+            createdAt: new Date().toISOString(),
+            status: 'confirmed',
+            name: clientName || '',
+            phone: clientPhone || '',
+            email: clientEmail || '',
+            serviceId: serviceId || '',
+            serviceName: service ? service.name : '',
+            employeeId: employeeId || '',
+            employeeName: employee ? employee.name : '',
+            calendarId: calendarId || '',
+            eventId: eventId || '',
+            date: date || '',
+            time: time || '',
+            durationMinutes: durationMinutes || '',
+            price: price || '',
+            amountPaid: amount || '',
+            paymentType: paymentType || '',
+            paymentIntentId: session.payment_intent || '',
+          });
+        } catch (sheetErr) {
+          // No bloqueamos la confirmación de la cita si falla el registro en la Sheet
+          console.error('No se pudo guardar la reserva en la Sheet:', sheetErr);
+        }
       }
     }
 

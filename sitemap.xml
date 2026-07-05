@@ -84,4 +84,18 @@
     <xhtml:link rel="alternate" hreflang="en" href="https://osana.es/en/contacto.html"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://osana.es/contacto.html"/>
   </url>
+  <url>
+    <loc>https://osana.es/mis-reservas.html</loc>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://osana.es/mis-reservas.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://osana.es/en/mis-reservas.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://osana.es/mis-reservas.html"/>
+  </url>
+  <url>
+    <loc>https://osana.es/en/mis-reservas.html</loc>
+    <priority>0.5</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://osana.es/mis-reservas.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://osana.es/en/mis-reservas.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://osana.es/mis-reservas.html"/>
+  </url>
 </urlset>

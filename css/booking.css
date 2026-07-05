@@ -220,3 +220,35 @@ body.reserva-page .page-offset { padding-top: 92px; }
   .booking-form-grid { grid-template-columns: 1fr; }
   .booking-calendar { max-width: none; }
 }
+
+/* ══════════════════ MIS RESERVAS ══════════════════ */
+.mybooking-lookup { max-width: 440px; margin: 0 auto 64px; padding: 0 20px; }
+.mybooking-lookup-grid { display: flex; flex-direction: column; gap: 4px; }
+.mybooking-lookup button { margin-top: 8px; width: 100%; }
+.mybooking-wrap { max-width: 760px; margin: 0 auto 100px; padding: 0 20px; }
+.mybooking-list { display: flex; flex-direction: column; gap: 2px; background: var(--line); }
+.mybooking-card { background: var(--cream); padding: 28px 32px; display: flex; flex-direction: column; gap: 10px; }
+.mybooking-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.mybooking-service { font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 17px; color: var(--txt); }
+.mybooking-meta { font-size: 12px; color: var(--txt-soft); margin-top: 4px; }
+.mybooking-price { font-size: 14px; color: var(--brown); font-weight: 600; white-space: nowrap; }
+.mybooking-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.mybooking-actions button {
+  font-family: 'Raleway', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.14em;
+  text-transform: uppercase; padding: 11px 20px; border: 1px solid var(--line); background: transparent;
+  color: var(--txt); cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+.mybooking-actions button:hover { border-color: var(--brown); color: var(--brown); transform: translateY(-2px); }
+.mybooking-actions button.mybooking-cancel-btn:hover { border-color: #a33322; color: #a33322; }
+.mybooking-actions button:disabled { opacity: 0.4; cursor: default; transform: none; }
+.mybooking-reschedule-panel { margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--line); display: none; }
+.mybooking-reschedule-panel.open { display: block; }
+.mybooking-reschedule-panel input[type="date"] {
+  font-family: 'Raleway', sans-serif; font-size: 14px; padding: 12px 14px;
+  border: 1px solid var(--line); background: var(--cream); width: 100%; max-width: 220px; margin-bottom: 14px;
+}
+.mybooking-empty, .mybooking-loading { text-align: center; padding: 48px 20px; color: var(--txt-soft); font-size: 13px; }
+.mybooking-notice { font-size: 12.5px; padding: 14px 18px; background: var(--cream2); margin-bottom: 16px; line-height: 1.6; }
+.mybooking-status-note { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; display: inline-block; }
+.mybooking-status-note.ok { color: #2d6a2d; background: rgba(45,106,45,0.1); }
+.mybooking-status-note.warn { color: #a3661f; background: rgba(163,102,31,0.1); }

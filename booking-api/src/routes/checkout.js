@@ -7,6 +7,7 @@ const { parseExtraIds, resolveExtras, totalDuration, totalPrice } = require('../
 const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -39,6 +40,7 @@ router.post('/checkout', async (req, res) => {
   const selectedExtras = resolveExtras(parseExtraIds(extraIds));
   const duration = totalDuration(service, selectedExtras);
   const price = totalPrice(service, selectedExtras);
+  const bookingId = crypto.randomUUID();
 
   let eventId = null;
   try {
@@ -89,6 +91,7 @@ router.post('/checkout', async (req, res) => {
       successUrl: `${origin}${reservaPath}?estado=ok`,
       cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
       metadata: {
+        bookingId,
         calendarId: employee.calendarId,
         eventId,
         serviceId,
@@ -96,7 +99,11 @@ router.post('/checkout', async (req, res) => {
         extraIds: selectedExtras.map((e) => e.id).join(','),
         date,
         time,
+        durationMinutes: String(duration),
         clientName,
+        clientPhone,
+        clientEmail: clientEmail || '',
+        price: String(price),
         amount: String(amount),
         paymentType: type,
       },

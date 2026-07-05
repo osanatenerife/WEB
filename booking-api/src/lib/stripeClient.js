@@ -51,4 +51,12 @@ function constructWebhookEvent(rawBody, signature) {
   return stripeClient.webhooks.constructEvent(rawBody, signature, webhookSecret);
 }
 
-module.exports = { getStripe, createCheckoutSession, constructWebhookEvent };
+/**
+ * Reembolsa el 100% de un pago ya cobrado (usado al cancelar con ≥24h de antelación).
+ */
+async function refundPayment(paymentIntentId) {
+  const stripeClient = getStripe();
+  return stripeClient.refunds.create({ payment_intent: paymentIntentId });
+}
+
+module.exports = { getStripe, createCheckoutSession, constructWebhookEvent, refundPayment };

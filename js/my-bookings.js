@@ -1,0 +1,185 @@
+// ============================================================
+// OSANA — "Mis reservas": consultar, cancelar y reprogramar citas
+// ============================================================
+(function () {
+  const form = document.getElementById('mb-lookup-form');
+  if (!form) return;
+
+  const LANG = document.documentElement.lang === 'en' ? 'en' : 'es';
+  const phoneInput = document.getElementById('mb-phone');
+  const emailInput = document.getElementById('mb-email');
+  const resultsEl = document.getElementById('mb-results');
+  const errorEl = document.getElementById('mb-error');
+
+  const STR = {
+    loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…' },
+    noBookings: { es: 'No hemos encontrado reservas futuras con esos datos.', en: "We couldn't find any upcoming bookings with those details." },
+    genericError: { es: 'Ha ocurrido un error, inténtalo de nuevo.', en: 'Something went wrong, please try again.' },
+    confirmCancel: { es: '¿Seguro que quieres cancelar esta cita?', en: 'Are you sure you want to cancel this appointment?' },
+    cancelledRefunded: { es: '✓ Cita cancelada — se ha reembolsado el importe pagado.', en: '✓ Appointment cancelled — the amount paid has been refunded.' },
+    cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 24h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 24h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
+    cancel: { es: 'Cancelar cita', en: 'Cancel appointment' },
+    reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time' },
+    chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
+    searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
+    noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
+    confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
+    with: { es: 'Con', en: 'With' },
+    free: { es: 'Gratis', en: 'Free' },
+  };
+  function t(key) { return (STR[key] && STR[key][LANG]) || key; }
+
+  let currentPhone = '';
+  let currentEmail = '';
+
+  function showError(msg) {
+    errorEl.textContent = msg;
+    errorEl.style.display = 'block';
+  }
+  function clearError() {
+    errorEl.style.display = 'none';
+  }
+
+  function minDateStr() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function cardHtml(b) {
+    return `
+      <div class="mybooking-card" data-booking-id="${b.bookingId}">
+        <div class="mybooking-top">
+          <div>
+            <div class="mybooking-service">${b.serviceName}</div>
+            <div class="mybooking-meta">${b.date} · ${b.time} · ${t('with')} ${b.employeeName}</div>
+          </div>
+          <div class="mybooking-price">${b.amountPaid > 0 ? b.amountPaid.toFixed(0) + ' €' : t('free')}</div>
+        </div>
+        <div class="mybooking-actions">
+          <button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>
+          <button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>
+        </div>
+        <div class="mybooking-reschedule-panel"></div>
+      </div>
+    `;
+  }
+
+  function renderBookings(bookings) {
+    if (!bookings.length) {
+      resultsEl.innerHTML = `<p class="mybooking-empty">${t('noBookings')}</p>`;
+      return;
+    }
+    resultsEl.innerHTML = `<div class="mybooking-list">${bookings.map(cardHtml).join('')}</div>`;
+    bookings.forEach((b) => wireCard(b));
+  }
+
+  function wireCard(b) {
+    const card = resultsEl.querySelector(`[data-booking-id="${b.bookingId}"]`);
+    if (!card) return;
+    card.querySelector('.mybooking-cancel-btn').addEventListener('click', () => handleCancel(b, card));
+    const rescheduleBtn = card.querySelector('.mybooking-reschedule-btn');
+    const panel = card.querySelector('.mybooking-reschedule-panel');
+    rescheduleBtn.addEventListener('click', () => {
+      const willOpen = !panel.classList.contains('open');
+      panel.classList.toggle('open', willOpen);
+      if (willOpen && !panel.dataset.wired) {
+        wireReschedulePanel(b, panel);
+        panel.dataset.wired = '1';
+      }
+    });
+  }
+
+  async function handleCancel(b, card) {
+    if (!confirm(t('confirmCancel'))) return;
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.bookingId, phone: currentPhone, email: currentEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('genericError'));
+      card.innerHTML = `<p class="mybooking-status-note ok">${data.refunded ? t('cancelledRefunded') : t('cancelledNoRefund')}</p>`;
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function wireReschedulePanel(b, panel) {
+    panel.innerHTML = `
+      <div class="booking-field">
+        <label>${t('chooseNewDate')}</label>
+        <input type="date" class="mb-date-input" min="${minDateStr()}">
+      </div>
+      <div class="booking-slot-grid mb-slots"></div>
+    `;
+    const dateInput = panel.querySelector('.mb-date-input');
+    const slotsEl = panel.querySelector('.mb-slots');
+    dateInput.addEventListener('change', async () => {
+      if (!dateInput.value) return;
+      slotsEl.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
+      try {
+        const params = new URLSearchParams({ bookingId: b.bookingId, phone: currentPhone, email: currentEmail, date: dateInput.value });
+        const res = await fetch(`${BOOKING_API_BASE}/my-bookings/slots?${params}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t('genericError'));
+        slotsEl.innerHTML = '';
+        if (!data.slots || !data.slots.length) {
+          slotsEl.innerHTML = `<p class="booking-slot-message">${t('noSlots')}</p>`;
+          return;
+        }
+        data.slots.forEach((time) => {
+          const slot = document.createElement('div');
+          slot.className = 'booking-slot';
+          slot.textContent = time;
+          slot.addEventListener('click', () => confirmReschedule(b, dateInput.value, time));
+          slotsEl.appendChild(slot);
+        });
+      } catch (e) {
+        slotsEl.innerHTML = '';
+        alert(e.message);
+      }
+    });
+  }
+
+  async function confirmReschedule(b, date, time) {
+    const msg = t('confirmReschedule').replace('{date}', date).replace('{time}', time);
+    if (!confirm(msg)) return;
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/reschedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingId: b.bookingId, phone: currentPhone, email: currentEmail, newDate: date, newTime: time }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('genericError'));
+      await loadBookings();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async function loadBookings() {
+    clearError();
+    resultsEl.innerHTML = `<p class="mybooking-loading">${t('loading')}</p>`;
+    try {
+      const params = new URLSearchParams({ phone: currentPhone, email: currentEmail });
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings?${params}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('genericError'));
+      renderBookings(data.bookings);
+    } catch (e) {
+      resultsEl.innerHTML = '';
+      showError(e.message);
+    }
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    currentPhone = phoneInput.value.trim();
+    currentEmail = emailInput.value.trim();
+    if (!currentPhone || !currentEmail) return;
+    loadBookings();
+  });
+})();
