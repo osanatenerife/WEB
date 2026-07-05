@@ -57,6 +57,8 @@ nav#main-nav {
   color: var(--txt); text-decoration: none;
   display: inline-flex; align-items: center; gap: 9px;
 }
+.nav-logo-img { height: 28px; width: auto; display: block; }
+.footer-logo-img { height: 22px; width: auto; display: block; margin-bottom: 12px; }
 .logo-icon {
   width: 26px; height: 26px; flex-shrink: 0; display: inline-block;
   background-color: var(--dark);
