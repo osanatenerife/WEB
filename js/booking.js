@@ -395,7 +395,10 @@
       cell.type = 'button';
       cell.className = 'booking-cal-cell';
       cell.textContent = String(d);
-      const disabled = dateObj < MIN_DATE || dateObj > MAX_DATE;
+      const empWeekly = state.employee && state.employee.weekly;
+      const daySchedule = empWeekly && empWeekly[dateObj.getDay()];
+      const dayOff = empWeekly && (!daySchedule || daySchedule.closed);
+      const disabled = dateObj < MIN_DATE || dateObj > MAX_DATE || dayOff;
       if (disabled) {
         cell.classList.add('disabled');
         cell.disabled = true;

@@ -28,8 +28,9 @@ router.get('/employees', (req, res) => {
   if (ids.length) {
     list = employees.filter((e) => ids.every((id) => canDo(e, id)));
   }
-  // No exponemos el calendarId al frontend, no hace falta y es un dato interno
-  res.json({ employees: list.map(({ id, name }) => ({ id, name })) });
+  // No exponemos el calendarId al frontend, no hace falta y es un dato interno.
+  // "weekly" sí se expone: el calendario de reserva lo usa para marcar sus días libres.
+  res.json({ employees: list.map(({ id, name, weekly }) => ({ id, name, weekly })) });
 });
 
 // Lista de extras que se pueden añadir a los servicios dados (unión, sin duplicados)
