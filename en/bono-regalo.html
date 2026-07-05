@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>My Bookings — Cancel or Change Appointment | Osana</title>
-<meta name="description" content="Check your appointments at Osana, cancel them or change the date and time by entering your phone number and email.">
-<link rel="canonical" href="https://osana.es/en/mis-reservas.html">
-<link rel="alternate" hreflang="en" href="https://osana.es/en/mis-reservas.html">
-<link rel="alternate" hreflang="es" href="https://osana.es/mis-reservas.html">
-<link rel="alternate" hreflang="x-default" href="https://osana.es/mis-reservas.html">
+<title>Gift Voucher — Osana | South Tenerife</title>
+<meta name="description" content="Gift an Osana experience: choose a treatment or a free amount, personalize it with a message, and we'll email it to you ready to give.">
+<link rel="canonical" href="https://osana.es/en/bono-regalo.html">
+<link rel="alternate" hreflang="en" href="https://osana.es/en/bono-regalo.html">
+<link rel="alternate" hreflang="es" href="https://osana.es/bono-regalo.html">
+<link rel="alternate" hreflang="x-default" href="https://osana.es/bono-regalo.html">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../css/style.css">
 <link rel="stylesheet" href="../css/booking.css">
@@ -32,7 +32,7 @@
   <a href="formaciones.html" onclick="closeMobileMenu()">Courses</a>
   <a href="promociones.html" onclick="closeMobileMenu()">Offers</a>
   <a href="contacto.html" onclick="closeMobileMenu()">Contact</a>
-  <a href="../mis-reservas.html" class="nav-lang" onclick="closeMobileMenu()">ES</a>
+  <a href="../bono-regalo.html" class="nav-lang" onclick="closeMobileMenu()">ES</a>
   <a href="reserva.html" class="btn-primary" onclick="closeMobileMenu()" style="font-size:11px;padding:16px 40px;margin-top:8px;">Book now</a>
 </div>
 
@@ -44,7 +44,7 @@
     <li><a href="formaciones.html">Courses</a></li>
     <li><a href="promociones.html">Offers</a></li>
     <li><a href="contacto.html">Contact</a></li>
-    <li><a href="../mis-reservas.html" class="nav-lang">ES</a></li>
+    <li><a href="../bono-regalo.html" class="nav-lang">ES</a></li>
     <li><a href="reserva.html" class="nav-cta">Book now</a></li>
   </ul>
   <button class="nav-hamburger" onclick="openMobileMenu()" aria-label="Open menu"><span></span><span></span><span></span></button>
@@ -53,29 +53,65 @@
 <main id="main" class="page-offset">
 
 <section class="page-hero" style="padding-bottom:24px;">
-  <span class="page-hero-eyebrow">Manage your appointment</span>
-  <h1 class="page-hero-title">My <em>bookings</em></h1>
-  <p class="page-hero-text">Enter your phone number and email to view your appointments, cancel them, or change the date and time.</p>
+  <span class="page-hero-eyebrow">To gift</span>
+  <h1 class="page-hero-title">Osana <em>gift</em> voucher</h1>
+  <p class="page-hero-text">Choose a treatment or a free amount, add a personal message, and we'll email it to you ready to gift or print.</p>
 </section>
 
-<div class="mybooking-lookup">
-  <form id="mb-lookup-form">
-    <div class="mybooking-lookup-grid">
+<div class="booking-shell" style="max-width:640px;">
+
+  <div id="gift-error" class="booking-error" style="display:none;"></div>
+
+  <div id="gift-form">
+    <div class="booking-cat-pills" style="margin-bottom:24px;">
+      <button type="button" class="booking-pill active" id="gift-type-service">Specific treatment</button>
+      <button type="button" class="booking-pill" id="gift-type-amount">Free amount</button>
+    </div>
+
+    <div id="gift-service-field" class="booking-field">
+      <label for="gift-service-select">Treatment</label>
+      <select id="gift-service-select" class="booking-addons-select">
+        <option value="">Loading treatments…</option>
+      </select>
+    </div>
+
+    <div id="gift-amount-field" class="booking-field" style="display:none;">
+      <label for="gift-amount-input">Amount (minimum €20)</label>
+      <input type="number" id="gift-amount-input" min="20" step="5" placeholder="50">
+    </div>
+
+    <div class="booking-form-grid">
       <div class="booking-field">
-        <label for="mb-phone">Phone</label>
-        <input type="tel" id="mb-phone" required>
+        <label for="gift-from">From (your name)</label>
+        <input type="text" id="gift-from" required>
       </div>
       <div class="booking-field">
-        <label for="mb-email">Email</label>
-        <input type="email" id="mb-email" required>
+        <label for="gift-to">To (recipient's name)</label>
+        <input type="text" id="gift-to" required>
       </div>
     </div>
-    <button type="submit" class="btn-primary">Find my bookings</button>
-  </form>
-  <div id="mb-error" class="booking-error" style="display:none;"></div>
-</div>
 
-<div class="mybooking-wrap" id="mb-results"></div>
+    <div class="booking-field">
+      <label for="gift-message">Personal message (optional)</label>
+      <textarea id="gift-message" rows="3" placeholder="Because you deserve it more than anyone..."></textarea>
+    </div>
+
+    <div class="booking-form-grid">
+      <div class="booking-field">
+        <label for="gift-email">Your email (to send you the voucher)</label>
+        <input type="email" id="gift-email" required>
+      </div>
+      <div class="booking-field">
+        <label for="gift-phone">Your phone (optional)</label>
+        <input type="tel" id="gift-phone">
+      </div>
+    </div>
+
+    <button type="button" id="gift-submit" class="btn-primary" style="width:100%;">Pay and send voucher</button>
+    <p style="font-size:11px;color:var(--txt-soft);margin-top:14px;text-align:center;">The voucher is emailed to you right after payment. Valid for 12 months from purchase. To redeem it, the recipient just needs to mention it when booking their appointment.</p>
+  </div>
+
+</div>
 
 </main>
 
@@ -86,23 +122,14 @@
       <p class="footer-brand-text">Specialized center for SHR laser hair removal and advanced aesthetics in South Tenerife. Medical-aesthetic technology with a fully personalized approach.</p>
     </div>
     <div class="footer-col">
-      <span class="footer-col-title">Services</span>
-      <ul>
-        <li><a href="servicios.html#laser">SHR laser hair removal</a></li>
-        <li><a href="servicios.html#faciales">Facials & devices</a></li>
-        <li><a href="servicios.html#programas">Facial programs</a></li>
-        <li><a href="servicios.html#masajes">Essentia massages</a></li>
-      </ul>
-    </div>
-    <div class="footer-col">
       <span class="footer-col-title">Center</span>
       <ul>
-        <li><a href="index.html#nosotras">About Osana</a></li>
+        <li><a href="servicios.html">Services</a></li>
         <li><a href="formaciones.html">Courses</a></li>
         <li><a href="promociones.html">Offers</a></li>
         <li><a href="contacto.html">Contact</a></li>
         <li><a href="bono-regalo.html">Gift voucher</a></li>
-        <li><a href="reserva.html">Book now</a></li>
+        <li><a href="mis-reservas.html">Manage my booking</a></li>
       </ul>
     </div>
     <div class="footer-col">
@@ -111,17 +138,11 @@
         <li><a href="tel:+34623725551">+34 623 725 551</a></li>
         <li><a href="mailto:osanatenerife@gmail.com">osanatenerife@gmail.com</a></li>
         <li><a href="https://wa.me/34623725551">WhatsApp</a></li>
-        <li>Adeje, South Tenerife</li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
     <span class="footer-copy">© 2026 Osana · Hair Removal & Beauty Center · Adeje, Tenerife</span>
-    <div class="footer-social">
-      <a href="https://instagram.com/osana_tenerife" target="_blank" rel="noopener">Instagram</a>
-      <a href="https://tiktok.com/@osana.tenerife" target="_blank" rel="noopener">TikTok</a>
-      <a href="https://wa.me/34623725551" target="_blank" rel="noopener">WhatsApp</a>
-    </div>
   </div>
 </footer>
 
@@ -131,7 +152,8 @@
 
 <script src="../js/main.js"></script>
 <script src="../js/editor.js"></script>
+<script>window.BOOKING_LANG = 'en';</script>
 <script src="../js/booking-config.js"></script>
-<script src="../js/my-bookings.js"></script>
+<script src="../js/gift.js"></script>
 </body>
 </html>

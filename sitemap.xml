@@ -57,6 +57,20 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://osana.es/reserva.html"/>
   </url>
   <url>
+    <loc>https://osana.es/bono-regalo.html</loc>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://osana.es/bono-regalo.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://osana.es/en/bono-regalo.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://osana.es/bono-regalo.html"/>
+  </url>
+  <url>
+    <loc>https://osana.es/en/bono-regalo.html</loc>
+    <priority>0.7</priority>
+    <xhtml:link rel="alternate" hreflang="es" href="https://osana.es/bono-regalo.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://osana.es/en/bono-regalo.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://osana.es/bono-regalo.html"/>
+  </url>
+  <url>
     <loc>https://osana.es/promociones.html</loc>
     <priority>0.7</priority>
     <xhtml:link rel="alternate" hreflang="es" href="https://osana.es/promociones.html"/>

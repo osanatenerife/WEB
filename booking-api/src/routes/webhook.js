@@ -1,11 +1,202 @@
 const express = require('express');
+const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking } = require('../lib/sheets');
+const { appendBooking, appendGift } = require('../lib/sheets');
+const { sendEmail } = require('../lib/email');
 const services = require('../config/services');
 const employees = require('../config/employees');
 
 const router = express.Router();
+
+const GIFT_VALIDITY_MONTHS = 12;
+const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function randomVoucherCode() {
+  return 'OSANA-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+async function handleBookingPayment(session) {
+  const {
+    bookingId, calendarId, eventId, serviceId, employeeId, date, time,
+    durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType, lang,
+    extraServiceIds,
+  } = session.metadata || {};
+
+  // Si el cliente aplicó un cupón en Stripe, lo realmente cobrado
+  // (session.amount_total) puede ser menor que el "amount" que calculamos
+  // antes de pagar — usamos el importe real para no descuadrar las cuentas.
+  const discountCents = (session.total_details && session.total_details.amount_discount) || 0;
+  const realAmountPaid = typeof session.amount_total === 'number'
+    ? Math.round(session.amount_total) / 100
+    : Number(amount) || 0;
+  const couponNote = discountCents > 0 ? ` (cupón aplicado: -${(discountCents / 100).toFixed(2)} €)` : '';
+
+  if (calendarId && eventId) {
+    const current = await getEvent(calendarId, eventId).catch(() => null);
+    const newDescription = current
+      ? (current.description || '').replace(
+          '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
+          `✅ PAGADO — ${realAmountPaid.toFixed(2)} € (${paymentType}) recibido correctamente por Stripe.${couponNote}`
+        )
+      : undefined;
+
+    await updateEvent(calendarId, eventId, {
+      summary: `✅ Confirmada — ${clientName || ''}`.trim(),
+      colorId: '10', // verde en Google Calendar
+      ...(newDescription ? { description: newDescription } : {}),
+    });
+  }
+
+  // Guardamos la reserva confirmada en la Sheet para que "Mis reservas" pueda encontrarla
+  if (bookingId) {
+    try {
+      const service = services.find((s) => s.id === serviceId);
+      const employee = employees.find((e) => e.id === employeeId);
+      const additionalServiceIds = (extraServiceIds || '').split(',').filter(Boolean);
+      const additionalServices = additionalServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean);
+      const combinedServiceId = [serviceId, ...additionalServiceIds].filter(Boolean).join(',');
+      const combinedServiceName = [service ? service.name : null, ...additionalServices.map((s) => s.name)].filter(Boolean).join(' + ');
+      await appendBooking({
+        bookingId,
+        createdAt: new Date().toISOString(),
+        status: 'confirmed',
+        name: clientName || '',
+        phone: clientPhone || '',
+        email: clientEmail || '',
+        serviceId: combinedServiceId,
+        serviceName: combinedServiceName,
+        employeeId: employeeId || '',
+        employeeName: employee ? employee.name : '',
+        calendarId: calendarId || '',
+        eventId: eventId || '',
+        date: date || '',
+        time: time || '',
+        durationMinutes: durationMinutes || '',
+        price: price || '',
+        amountPaid: realAmountPaid,
+        paymentType: paymentType || '',
+        paymentIntentId: session.payment_intent || '',
+        lang: lang === 'en' ? 'en' : 'es',
+        reminderSent: '',
+      });
+    } catch (sheetErr) {
+      // No bloqueamos la confirmación de la cita si falla el registro en la Sheet
+      console.error('No se pudo guardar la reserva en la Sheet:', sheetErr);
+    }
+  }
+}
+
+function buildGiftEmailHtml({ fromName, toName, message, itemLabel, expiryLabel, code, lang }) {
+  const strings = lang === 'en'
+    ? {
+        subtitle: 'Hair Removal & Beauty Center',
+        from: 'From', to: 'To', validUntil: 'Valid until',
+        intro: 'For someone special, a special gift. Come and treat yourself at OSANA with:',
+        redemption: 'Prior booking required to redeem this voucher.',
+        code: 'Code',
+        contact: 'Contact',
+      }
+    : {
+        subtitle: 'Centro de Depilación y Estética',
+        from: 'De', to: 'Para', validUntil: 'Válido hasta',
+        intro: 'Para una persona especial, un regalo especial. Ven y mímate en OSANA con:',
+        redemption: 'Se requiere reserva previa para canjear este bono.',
+        code: 'Código',
+        contact: 'Contacto',
+      };
+
+  return `
+  <div style="max-width:520px;margin:0 auto;background:#f6eeda;border:1px solid #e8e2d8;padding:36px 32px;font-family:Georgia,'Times New Roman',serif;color:#2a2520;">
+    <div style="text-align:center;margin-bottom:28px;">
+      <span style="font-family:Arial,sans-serif;font-weight:700;letter-spacing:0.15em;font-size:20px;">OSANA</span>
+      <div style="font-family:Arial,sans-serif;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#8a7350;margin-top:4px;">${strings.subtitle}</div>
+    </div>
+    <table style="width:100%;margin-bottom:22px;font-family:Arial,sans-serif;font-size:13px;border-collapse:collapse;">
+      <tr><td style="padding:9px 0;border-bottom:1px solid #e8e2d8;"><strong>${strings.from}:</strong> ${escapeHtml(fromName)}</td></tr>
+      <tr><td style="padding:9px 0;border-bottom:1px solid #e8e2d8;"><strong>${strings.to}:</strong> ${escapeHtml(toName)}</td></tr>
+      <tr><td style="padding:9px 0;"><strong>${strings.validUntil}:</strong> ${expiryLabel}</td></tr>
+    </table>
+    <p style="font-family:Arial,sans-serif;font-size:13px;line-height:1.7;">${strings.intro}</p>
+    <div style="text-align:center;margin:22px 0;padding:22px 0;border-top:1px solid #2a2520;border-bottom:1px solid #2a2520;">
+      <span style="font-family:Georgia,serif;font-style:italic;font-size:23px;color:#8a7350;">${escapeHtml(itemLabel)}</span>
+    </div>
+    ${message ? `<p style="font-family:Arial,sans-serif;font-size:13px;font-style:italic;line-height:1.7;text-align:center;">${escapeHtml(message)}</p>` : ''}
+    <p style="font-family:Arial,sans-serif;font-size:11px;color:#5a5248;text-align:center;margin-top:28px;line-height:1.8;">
+      ${strings.redemption}<br>
+      ${strings.code}: <strong>${code}</strong><br>
+      ${strings.contact}: +34 623 725 551 · @osana_tenerife · www.osana.es
+    </p>
+  </div>`;
+}
+
+async function handleGiftPayment(session) {
+  const { giftId, giftType, serviceId, amount, fromName, toName, message, buyerEmail, buyerPhone, lang } = session.metadata || {};
+  const isEn = lang === 'en';
+  const service = giftType === 'service' ? services.find((s) => s.id === serviceId) : null;
+  const itemLabel = giftType === 'service'
+    ? ((isEn ? (service && service.nameEn) : service && service.name) || (service && service.name) || '')
+    : (isEn ? `€${amount} to spend on any treatment` : `${amount} € para gastar en cualquier tratamiento`);
+
+  const code = randomVoucherCode();
+  const purchaseDate = new Date();
+  const expiryDate = new Date(purchaseDate);
+  expiryDate.setMonth(expiryDate.getMonth() + GIFT_VALIDITY_MONTHS);
+  const expiryLabel = expiryDate.toLocaleDateString(isEn ? 'en-GB' : 'es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  try {
+    await appendGift({
+      bonoId: giftId || '',
+      code,
+      createdAt: purchaseDate.toISOString(),
+      status: 'purchased',
+      buyerName: fromName || '',
+      buyerEmail: buyerEmail || '',
+      buyerPhone: buyerPhone || '',
+      recipientName: toName || '',
+      giftType: giftType || '',
+      serviceId: serviceId || '',
+      serviceName: service ? service.name : '',
+      amount: amount || '',
+      message: message || '',
+      expiryDate: expiryDate.toISOString().slice(0, 10),
+      paymentIntentId: session.payment_intent || '',
+      lang: isEn ? 'en' : 'es',
+    });
+  } catch (sheetErr) {
+    console.error('No se pudo guardar el bono regalo en la Sheet:', sheetErr);
+  }
+
+  if (buyerEmail) {
+    try {
+      const html = buildGiftEmailHtml({ fromName, toName, message, itemLabel, expiryLabel, code, lang });
+      await sendEmail({
+        to: buyerEmail,
+        subject: isEn ? 'Your Osana gift voucher' : 'Tu bono regalo de Osana',
+        html,
+      });
+    } catch (emailErr) {
+      console.error('No se pudo enviar el email del bono regalo:', emailErr);
+    }
+  }
+
+  // Aviso interno para que el centro sepa que se ha vendido un bono y pueda controlarlo
+  try {
+    await sendEmail({
+      to: SALON_EMAIL,
+      subject: `Nuevo bono regalo vendido — ${code}`,
+      html: `<p>Se ha comprado un bono regalo.</p><p>De: ${escapeHtml(fromName)}<br>Para: ${escapeHtml(toName)}<br>Regalo: ${escapeHtml(itemLabel)}<br>Código: <strong>${code}</strong><br>Válido hasta: ${expiryLabel}<br>Comprador: ${escapeHtml(buyerEmail)}${buyerPhone ? ' · ' + escapeHtml(buyerPhone) : ''}</p>`,
+    });
+  } catch (notifyErr) {
+    console.error('No se pudo enviar el aviso interno del bono:', notifyErr);
+  }
+}
 
 // OJO: esta ruta necesita el body en crudo (raw), no en JSON.
 // Se monta con express.raw() en server.js antes del parser JSON global.
@@ -21,73 +212,10 @@ router.post('/webhook/stripe', async (req, res) => {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      const {
-        bookingId, calendarId, eventId, serviceId, employeeId, date, time,
-        durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType, lang,
-        extraServiceIds,
-      } = session.metadata || {};
-
-      // Si el cliente aplicó un cupón en Stripe, lo realmente cobrado
-      // (session.amount_total) puede ser menor que el "amount" que calculamos
-      // antes de pagar — usamos el importe real para no descuadrar las cuentas.
-      const discountCents = (session.total_details && session.total_details.amount_discount) || 0;
-      const realAmountPaid = typeof session.amount_total === 'number'
-        ? Math.round(session.amount_total) / 100
-        : Number(amount) || 0;
-      const couponNote = discountCents > 0 ? ` (cupón aplicado: -${(discountCents / 100).toFixed(2)} €)` : '';
-
-      if (calendarId && eventId) {
-        const current = await getEvent(calendarId, eventId).catch(() => null);
-        const newDescription = current
-          ? (current.description || '').replace(
-              '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
-              `✅ PAGADO — ${realAmountPaid.toFixed(2)} € (${paymentType}) recibido correctamente por Stripe.${couponNote}`
-            )
-          : undefined;
-
-        await updateEvent(calendarId, eventId, {
-          summary: `✅ Confirmada — ${clientName || ''}`.trim(),
-          colorId: '10', // verde en Google Calendar
-          ...(newDescription ? { description: newDescription } : {}),
-        });
-      }
-
-      // Guardamos la reserva confirmada en la Sheet para que "Mis reservas" pueda encontrarla
-      if (bookingId) {
-        try {
-          const service = services.find((s) => s.id === serviceId);
-          const employee = employees.find((e) => e.id === employeeId);
-          const additionalServiceIds = (extraServiceIds || '').split(',').filter(Boolean);
-          const additionalServices = additionalServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean);
-          const combinedServiceId = [serviceId, ...additionalServiceIds].filter(Boolean).join(',');
-          const combinedServiceName = [service ? service.name : null, ...additionalServices.map((s) => s.name)].filter(Boolean).join(' + ');
-          await appendBooking({
-            bookingId,
-            createdAt: new Date().toISOString(),
-            status: 'confirmed',
-            name: clientName || '',
-            phone: clientPhone || '',
-            email: clientEmail || '',
-            serviceId: combinedServiceId,
-            serviceName: combinedServiceName,
-            employeeId: employeeId || '',
-            employeeName: employee ? employee.name : '',
-            calendarId: calendarId || '',
-            eventId: eventId || '',
-            date: date || '',
-            time: time || '',
-            durationMinutes: durationMinutes || '',
-            price: price || '',
-            amountPaid: realAmountPaid,
-            paymentType: paymentType || '',
-            paymentIntentId: session.payment_intent || '',
-            lang: lang === 'en' ? 'en' : 'es',
-            reminderSent: '',
-          });
-        } catch (sheetErr) {
-          // No bloqueamos la confirmación de la cita si falla el registro en la Sheet
-          console.error('No se pudo guardar la reserva en la Sheet:', sheetErr);
-        }
+      if ((session.metadata || {}).type === 'gift') {
+        await handleGiftPayment(session);
+      } else {
+        await handleBookingPayment(session);
       }
     }
 

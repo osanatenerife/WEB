@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Mis Reservas — Cancelar o Cambiar Cita | Osana</title>
-<meta name="description" content="Consulta tus citas en Osana, cancélalas o cambia la fecha y hora introduciendo tu teléfono y email.">
-<link rel="canonical" href="https://osana.es/mis-reservas.html">
-<link rel="alternate" hreflang="es" href="https://osana.es/mis-reservas.html">
-<link rel="alternate" hreflang="en" href="https://osana.es/en/mis-reservas.html">
-<link rel="alternate" hreflang="x-default" href="https://osana.es/mis-reservas.html">
+<title>Bono Regalo — Osana | Tenerife Sur</title>
+<meta name="description" content="Regala una experiencia Osana: elige un tratamiento o un importe libre, personalízalo con un mensaje y lo enviamos por email listo para regalar.">
+<link rel="canonical" href="https://osana.es/bono-regalo.html">
+<link rel="alternate" hreflang="es" href="https://osana.es/bono-regalo.html">
+<link rel="alternate" hreflang="en" href="https://osana.es/en/bono-regalo.html">
+<link rel="alternate" hreflang="x-default" href="https://osana.es/bono-regalo.html">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/booking.css">
@@ -32,7 +32,7 @@
   <a href="formaciones.html" onclick="closeMobileMenu()">Formaciones</a>
   <a href="promociones.html" onclick="closeMobileMenu()">Promociones</a>
   <a href="contacto.html" onclick="closeMobileMenu()">Contacto</a>
-  <a href="en/mis-reservas.html" class="nav-lang" onclick="closeMobileMenu()">EN</a>
+  <a href="en/bono-regalo.html" class="nav-lang" onclick="closeMobileMenu()">EN</a>
   <a href="reserva.html" class="btn-primary" onclick="closeMobileMenu()" style="font-size:11px;padding:16px 40px;margin-top:8px;">Reservar cita</a>
 </div>
 
@@ -44,7 +44,7 @@
     <li><a href="formaciones.html">Formaciones</a></li>
     <li><a href="promociones.html">Promociones</a></li>
     <li><a href="contacto.html">Contacto</a></li>
-    <li><a href="en/mis-reservas.html" class="nav-lang">EN</a></li>
+    <li><a href="en/bono-regalo.html" class="nav-lang">EN</a></li>
     <li><a href="reserva.html" class="nav-cta">Reservar cita</a></li>
   </ul>
   <button class="nav-hamburger" onclick="openMobileMenu()" aria-label="Abrir menú"><span></span><span></span><span></span></button>
@@ -53,29 +53,65 @@
 <main id="main" class="page-offset">
 
 <section class="page-hero" style="padding-bottom:24px;">
-  <span class="page-hero-eyebrow">Gestiona tu cita</span>
-  <h1 class="page-hero-title">Mis <em>reservas</em></h1>
-  <p class="page-hero-text">Introduce tu teléfono y tu email para ver tus citas, cancelarlas o cambiar la fecha y hora.</p>
+  <span class="page-hero-eyebrow">Para regalar</span>
+  <h1 class="page-hero-title">Bono <em>regalo</em> Osana</h1>
+  <p class="page-hero-text">Elige un tratamiento o un importe libre, añade un mensaje personal y te lo enviamos por email listo para regalar o imprimir.</p>
 </section>
 
-<div class="mybooking-lookup">
-  <form id="mb-lookup-form">
-    <div class="mybooking-lookup-grid">
+<div class="booking-shell" style="max-width:640px;">
+
+  <div id="gift-error" class="booking-error" style="display:none;"></div>
+
+  <div id="gift-form">
+    <div class="booking-cat-pills" style="margin-bottom:24px;">
+      <button type="button" class="booking-pill active" id="gift-type-service">Tratamiento concreto</button>
+      <button type="button" class="booking-pill" id="gift-type-amount">Importe libre</button>
+    </div>
+
+    <div id="gift-service-field" class="booking-field">
+      <label for="gift-service-select">Tratamiento</label>
+      <select id="gift-service-select" class="booking-addons-select">
+        <option value="">Cargando tratamientos…</option>
+      </select>
+    </div>
+
+    <div id="gift-amount-field" class="booking-field" style="display:none;">
+      <label for="gift-amount-input">Importe (mínimo 20 €)</label>
+      <input type="number" id="gift-amount-input" min="20" step="5" placeholder="50">
+    </div>
+
+    <div class="booking-form-grid">
       <div class="booking-field">
-        <label for="mb-phone">Teléfono</label>
-        <input type="tel" id="mb-phone" required>
+        <label for="gift-from">De (tu nombre)</label>
+        <input type="text" id="gift-from" required>
       </div>
       <div class="booking-field">
-        <label for="mb-email">Email</label>
-        <input type="email" id="mb-email" required>
+        <label for="gift-to">Para (nombre de quien lo recibe)</label>
+        <input type="text" id="gift-to" required>
       </div>
     </div>
-    <button type="submit" class="btn-primary">Buscar mis reservas</button>
-  </form>
-  <div id="mb-error" class="booking-error" style="display:none;"></div>
-</div>
 
-<div class="mybooking-wrap" id="mb-results"></div>
+    <div class="booking-field">
+      <label for="gift-message">Mensaje personalizado (opcional)</label>
+      <textarea id="gift-message" rows="3" placeholder="Porque te lo mereces más que nadie..."></textarea>
+    </div>
+
+    <div class="booking-form-grid">
+      <div class="booking-field">
+        <label for="gift-email">Tu email (para enviarte el bono)</label>
+        <input type="email" id="gift-email" required>
+      </div>
+      <div class="booking-field">
+        <label for="gift-phone">Tu teléfono (opcional)</label>
+        <input type="tel" id="gift-phone">
+      </div>
+    </div>
+
+    <button type="button" id="gift-submit" class="btn-primary" style="width:100%;">Pagar y enviar bono</button>
+    <p style="font-size:11px;color:var(--txt-soft);margin-top:14px;text-align:center;">El bono se envía a tu email nada más completar el pago. Válido 12 meses desde la compra. Para canjearlo, la persona que lo reciba solo tiene que mencionarlo al reservar su cita.</p>
+  </div>
+
+</div>
 
 </main>
 
@@ -86,23 +122,14 @@
       <p class="footer-brand-text">Centro especializado en depilación láser SHR y estética avanzada en Tenerife Sur. Tecnología médico-estética con un enfoque completamente personalizado.</p>
     </div>
     <div class="footer-col">
-      <span class="footer-col-title">Servicios</span>
-      <ul>
-        <li><a href="servicios.html#laser">Depilación láser SHR</a></li>
-        <li><a href="servicios.html#faciales">Faciales & aparatología</a></li>
-        <li><a href="servicios.html#programas">Programas faciales</a></li>
-        <li><a href="servicios.html#masajes">Masajes Essentia</a></li>
-      </ul>
-    </div>
-    <div class="footer-col">
       <span class="footer-col-title">Centro</span>
       <ul>
-        <li><a href="index.html#nosotras">Sobre Osana</a></li>
+        <li><a href="servicios.html">Servicios</a></li>
         <li><a href="formaciones.html">Formaciones</a></li>
         <li><a href="promociones.html">Promociones</a></li>
         <li><a href="contacto.html">Contacto</a></li>
         <li><a href="bono-regalo.html">Bono regalo</a></li>
-        <li><a href="reserva.html">Reservar cita</a></li>
+        <li><a href="mis-reservas.html">Gestionar mi reserva</a></li>
       </ul>
     </div>
     <div class="footer-col">
@@ -111,17 +138,11 @@
         <li><a href="tel:+34623725551">+34 623 725 551</a></li>
         <li><a href="mailto:osanatenerife@gmail.com">osanatenerife@gmail.com</a></li>
         <li><a href="https://wa.me/34623725551">WhatsApp</a></li>
-        <li>Adeje, Tenerife Sur</li>
       </ul>
     </div>
   </div>
   <div class="footer-bottom">
     <span class="footer-copy">© 2026 Osana · Centro de Depilación y Estética · Adeje, Tenerife</span>
-    <div class="footer-social">
-      <a href="https://instagram.com/osana_tenerife" target="_blank" rel="noopener">Instagram</a>
-      <a href="https://tiktok.com/@osana.tenerife" target="_blank" rel="noopener">TikTok</a>
-      <a href="https://wa.me/34623725551" target="_blank" rel="noopener">WhatsApp</a>
-    </div>
   </div>
 </footer>
 
@@ -132,6 +153,6 @@
 <script src="js/main.js"></script>
 <script src="js/editor.js"></script>
 <script src="js/booking-config.js"></script>
-<script src="js/my-bookings.js"></script>
+<script src="js/gift.js"></script>
 </body>
 </html>

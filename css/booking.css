@@ -177,11 +177,11 @@ body.reserva-page .page-offset { padding-top: 92px; }
   display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
   text-transform: uppercase; color: var(--txt-soft); margin-bottom: 8px;
 }
-.booking-field input {
+.booking-field input, .booking-field textarea {
   width: 100%; padding: 13px 16px; border: 1px solid var(--line); background: none;
-  font-family: 'Raleway', sans-serif; font-size: 14px; color: var(--txt);
+  font-family: 'Raleway', sans-serif; font-size: 14px; color: var(--txt); resize: vertical;
 }
-.booking-field input:focus { outline: none; border-color: var(--brown); }
+.booking-field input:focus, .booking-field textarea:focus { outline: none; border-color: var(--brown); }
 
 .booking-back {
   background: none; border: 1px solid var(--line); color: var(--txt-mid);

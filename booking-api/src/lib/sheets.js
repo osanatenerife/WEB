@@ -127,4 +127,59 @@ async function updateBookingRow(sheetRow, currentBooking, updates) {
   });
 }
 
-module.exports = { appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS };
+// ============================================================
+// Registro de bonos regalo, en una pestaña aparte ("Bonos") de la
+// misma Google Sheet. El canje se lleva a mano: cuando alguien usa un
+// bono, edita la columna "status" directamente en la hoja.
+// ============================================================
+
+const GIFT_TAB_TITLE = 'Bonos';
+const GIFT_COLUMNS = [
+  'bonoId', 'code', 'createdAt', 'status',
+  'buyerName', 'buyerEmail', 'buyerPhone',
+  'recipientName', 'giftType', 'serviceId', 'serviceName', 'amount',
+  'message', 'expiryDate', 'paymentIntentId', 'lang',
+];
+const GIFT_LAST_COL = String.fromCharCode(64 + GIFT_COLUMNS.length);
+
+let giftTabReady = false;
+async function ensureGiftTab() {
+  if (giftTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === GIFT_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: GIFT_TAB_TITLE } } }] },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId(),
+      range: `'${GIFT_TAB_TITLE}'!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [GIFT_COLUMNS] },
+    });
+  }
+  giftTabReady = true;
+}
+
+function giftObjectToRow(obj) {
+  return GIFT_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+
+/**
+ * Añade un bono regalo comprado al registro (pestaña "Bonos").
+ */
+async function appendGift(gift) {
+  await ensureGiftTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${GIFT_TAB_TITLE}'!A:${GIFT_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [giftObjectToRow(gift)] },
+  });
+}
+
+module.exports = { appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift };
