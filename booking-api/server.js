@@ -1,3 +1,10 @@
+// Algunos hostings (Render incluido) tienen la salida IPv6 rota o muy lenta
+// hacia ciertas APIs externas (Stripe entre ellas), y Node por defecto puede
+// preferir IPv6 al resolver el dominio. Eso se manifiesta como "An error
+// occurred with our connection to Stripe" aunque la clave sea correcta.
+// Forzamos IPv4 primero para evitarlo.
+require('dns').setDefaultResultOrder('ipv4first');
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
