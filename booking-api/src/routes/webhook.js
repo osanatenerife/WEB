@@ -27,12 +27,21 @@ router.post('/webhook/stripe', async (req, res) => {
         extraServiceIds,
       } = session.metadata || {};
 
+      // Si el cliente aplicó un cupón en Stripe, lo realmente cobrado
+      // (session.amount_total) puede ser menor que el "amount" que calculamos
+      // antes de pagar — usamos el importe real para no descuadrar las cuentas.
+      const discountCents = (session.total_details && session.total_details.amount_discount) || 0;
+      const realAmountPaid = typeof session.amount_total === 'number'
+        ? Math.round(session.amount_total) / 100
+        : Number(amount) || 0;
+      const couponNote = discountCents > 0 ? ` (cupón aplicado: -${(discountCents / 100).toFixed(2)} €)` : '';
+
       if (calendarId && eventId) {
         const current = await getEvent(calendarId, eventId).catch(() => null);
         const newDescription = current
           ? (current.description || '').replace(
               '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
-              `✅ PAGADO — ${amount} € (${paymentType}) recibido correctamente por Stripe.`
+              `✅ PAGADO — ${realAmountPaid.toFixed(2)} € (${paymentType}) recibido correctamente por Stripe.${couponNote}`
             )
           : undefined;
 
@@ -69,7 +78,7 @@ router.post('/webhook/stripe', async (req, res) => {
             time: time || '',
             durationMinutes: durationMinutes || '',
             price: price || '',
-            amountPaid: amount || '',
+            amountPaid: realAmountPaid,
             paymentType: paymentType || '',
             paymentIntentId: session.payment_intent || '',
             lang: lang === 'en' ? 'en' : 'es',

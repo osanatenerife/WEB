@@ -21,6 +21,12 @@ async function createCheckoutSession({ amountEuros, description, successUrl, can
   const session = await stripeClient.checkout.sessions.create({
     mode: 'payment',
     payment_method_types: ['card'],
+    // Permite que el cliente introduzca un código de cupón en la propia
+    // pantalla de pago de Stripe. Los cupones se crean y activan/desactivan
+    // desde el Dashboard de Stripe (Productos > Cupones y códigos promocionales),
+    // sin tocar código — sirve para esta oferta de lanzamiento y para cualquier
+    // promoción futura.
+    allow_promotion_codes: true,
     line_items: [
       {
         price_data: {
