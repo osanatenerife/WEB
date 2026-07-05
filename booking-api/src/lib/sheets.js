@@ -10,7 +10,8 @@ const { getAuth } = require('./googleCalendar');
 // A bookingId · B createdAt · C status · D name · E phone · F email ·
 // G serviceId · H serviceName · I employeeId · J employeeName ·
 // K calendarId · L eventId · M date · N time · O durationMinutes ·
-// P price · Q amountPaid · R paymentType · S paymentIntentId
+// P price · Q amountPaid · R paymentType · S paymentIntentId ·
+// T lang · U reminderSent
 // ============================================================
 
 const COLUMNS = [
@@ -18,6 +19,7 @@ const COLUMNS = [
   'serviceId', 'serviceName', 'employeeId', 'employeeName',
   'calendarId', 'eventId', 'date', 'time', 'durationMinutes',
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
+  'lang', 'reminderSent',
 ];
 const RANGE_ALL = `Sheet1!A:${String.fromCharCode(64 + COLUMNS.length)}`;
 

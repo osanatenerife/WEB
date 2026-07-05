@@ -23,7 +23,7 @@ router.post('/webhook/stripe', async (req, res) => {
       const session = event.data.object;
       const {
         bookingId, calendarId, eventId, serviceId, employeeId, date, time,
-        durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType,
+        durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType, lang,
       } = session.metadata || {};
 
       if (calendarId && eventId) {
@@ -67,6 +67,8 @@ router.post('/webhook/stripe', async (req, res) => {
             amountPaid: amount || '',
             paymentType: paymentType || '',
             paymentIntentId: session.payment_intent || '',
+            lang: lang === 'en' ? 'en' : 'es',
+            reminderSent: '',
           });
         } catch (sheetErr) {
           // No bloqueamos la confirmación de la cita si falla el registro en la Sheet

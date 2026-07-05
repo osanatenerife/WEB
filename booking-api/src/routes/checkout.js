@@ -106,6 +106,7 @@ router.post('/checkout', async (req, res) => {
         price: String(price),
         amount: String(amount),
         paymentType: type,
+        lang: lang === 'en' ? 'en' : 'es',
       },
     });
 

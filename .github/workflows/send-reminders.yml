@@ -1,0 +1,14 @@
+name: Send appointment reminders
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping-reminders-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/send-reminders
+        run: |
+          curl -fsS "https://osana-9pub.onrender.com/api/send-reminders?secret=${{ secrets.REMINDER_CRON_SECRET }}"
