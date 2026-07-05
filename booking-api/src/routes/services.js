@@ -15,13 +15,18 @@ router.get('/services', (req, res) => {
   res.json({ services: list });
 });
 
+function canDo(employee, serviceId) {
+  if (employee.excludedServices && employee.excludedServices.includes(serviceId)) return false;
+  return employee.services.length === 0 || employee.services.includes(serviceId);
+}
+
 // Lista de empleadas que pueden realizar TODOS los servicios dados
 // (si la cita combina varios tratamientos, la profesional tiene que poder con todos)
 router.get('/employees', (req, res) => {
   const ids = parseIds(req.query.serviceIds || req.query.serviceId);
   let list = employees;
   if (ids.length) {
-    list = employees.filter((e) => ids.every((id) => e.services.length === 0 || e.services.includes(id)));
+    list = employees.filter((e) => ids.every((id) => canDo(e, id)));
   }
   // No exponemos el calendarId al frontend, no hace falta y es un dato interno
   res.json({ employees: list.map(({ id, name }) => ({ id, name })) });

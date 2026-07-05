@@ -13,11 +13,13 @@ function overlaps(aStart, aEnd, bStart, bEnd) {
  * @param {string} dateStr  "YYYY-MM-DD" (fecha local del centro)
  * @param {string} calendarId  calendario de Google de la empleada
  * @param {number} durationMinutes  duración del servicio
+ * @param {object} [weeklySchedule]  horario semanal a usar (por defecto, el general del centro);
+ *   pásale el de la empleada (employee.weekly) para respetar su horario personal.
  * @returns {Promise<string[]>} horas de inicio disponibles, formato "HH:mm"
  */
-async function getAvailableSlots(dateStr, calendarId, durationMinutes) {
+async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySchedule) {
   const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
-  const daySchedule = hours.weekly[weekday];
+  const daySchedule = (weeklySchedule || hours.weekly)[weekday];
   if (!daySchedule || daySchedule.closed) return [];
 
   const dayStartISO = localToISO(dateStr, daySchedule.open, hours.timezone);

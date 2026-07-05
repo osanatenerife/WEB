@@ -5,6 +5,12 @@ const { refundPayment } = require('../lib/stripeClient');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const hours = require('../config/hours');
+const employees = require('../config/employees');
+
+function weeklyScheduleFor(booking) {
+  const employee = employees.find((e) => e.id === booking.employeeId);
+  return employee && employee.weekly;
+}
 
 const router = express.Router();
 
@@ -84,7 +90,7 @@ router.get('/my-bookings/slots', async (req, res) => {
       return res.status(404).json({ error: 'No se ha encontrado esa reserva con esos datos.' });
     }
     const duration = Number(booking.durationMinutes) || 60;
-    const slots = await getAvailableSlots(date, booking.calendarId, duration);
+    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking));
     res.json({ slots });
   } catch (err) {
     console.error(err);
@@ -163,7 +169,7 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     }
 
     const duration = Number(booking.durationMinutes) || 60;
-    const freeSlots = await getAvailableSlots(newDate, booking.calendarId, duration);
+    const freeSlots = await getAvailableSlots(newDate, booking.calendarId, duration, weeklyScheduleFor(booking));
     if (!freeSlots.includes(newTime)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }

@@ -27,7 +27,7 @@ router.get('/availability', async (req, res) => {
     }
 
     const duration = totalDuration(service, resolveExtras(parseExtraIds(extraIds)), resolveExtraServices(parseExtraIds(extraServiceIds)));
-    const slots = await getAvailableSlots(date, employee.calendarId, duration);
+    const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
     res.json({ slots });
   } catch (err) {
     console.error(err);

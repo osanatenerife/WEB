@@ -46,7 +46,7 @@ router.post('/checkout', async (req, res) => {
   let eventId = null;
   try {
     // 1) Revalidar que el hueco sigue libre justo antes de bloquearlo
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, duration);
+    const freeSlots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
     if (!freeSlots.includes(time)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
