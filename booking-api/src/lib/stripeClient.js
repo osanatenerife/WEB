@@ -6,7 +6,13 @@ function getStripe() {
     if (!process.env.STRIPE_SECRET_KEY) {
       throw new Error('Falta la variable de entorno STRIPE_SECRET_KEY');
     }
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      // Reintenta automáticamente ante fallos de red puntuales (p.ej. el
+      // servidor de Render "despertando" de estar inactivo), en vez de
+      // fallar el pago a la primera.
+      maxNetworkRetries: 3,
+      timeout: 20000,
+    });
   }
   return stripe;
 }
