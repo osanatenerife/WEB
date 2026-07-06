@@ -6,7 +6,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --cream:   #ece6e0;
+  --cream:   #e8e2d8;
   --cream2:  #f6eeda;
   --dark:    #1a1612;
   --mid:     #2e2820;
