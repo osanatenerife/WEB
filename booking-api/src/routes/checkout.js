@@ -124,7 +124,11 @@ router.post('/checkout', async (req, res) => {
     if (eventId) {
       try { await deleteEvent(employee.calendarId, eventId); } catch (_) {}
     }
-    res.status(500).json({ error: err.message || 'No se pudo iniciar el pago. Inténtalo de nuevo.' });
+    // Detalle técnico añadido temporalmente al mensaje (código de red subyacente,
+    // p.ej. ETIMEDOUT/ENOTFOUND/ECONNRESET) para poder diagnosticar el fallo de
+    // conexión con Stripe sin depender de mirar los logs de Render a mano.
+    const detail = err.detail && err.detail.code ? ` [${err.detail.code}]` : (err.code ? ` [${err.code}]` : '');
+    res.status(500).json({ error: (err.message || 'No se pudo iniciar el pago. Inténtalo de nuevo.') + detail });
   }
 });
 
