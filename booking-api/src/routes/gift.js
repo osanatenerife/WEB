@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const services = require('../config/services');
 const { createCheckoutSession } = require('../lib/stripeClient');
+const { resolveOrigin } = require('../lib/origin');
 
 const router = express.Router();
 
@@ -36,9 +37,9 @@ router.post('/gift-checkout', async (req, res) => {
   }
 
   const giftId = crypto.randomUUID();
-  const origin = req.headers.origin || process.env.FRONTEND_URL;
 
   try {
+    const origin = resolveOrigin(req);
     const session = await createCheckoutSession({
       amountEuros: price,
       description: lang === 'en' ? `Osana gift voucher — ${itemNameEn}` : `Bono regalo Osana — ${itemName}`,

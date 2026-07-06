@@ -7,6 +7,7 @@ const { parseExtraIds, resolveExtras, resolveExtraServices, totalDuration, total
 const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
+const { resolveOrigin } = require('../lib/origin');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -88,7 +89,7 @@ router.post('/checkout', async (req, res) => {
     eventId = event.id;
 
     // 3) Crear la sesión de pago de Stripe
-    const origin = req.headers.origin || process.env.FRONTEND_URL;
+    const origin = resolveOrigin(req);
     const session = await createCheckoutSession({
       amountEuros: amount,
       description: lang === 'en' ? `${customerServiceName} — Osana deposit/payment` : `${summaryTitle} — seña/pago Osana`,
