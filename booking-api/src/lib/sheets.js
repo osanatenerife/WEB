@@ -11,7 +11,7 @@ const { getAuth } = require('./googleCalendar');
 // G serviceId · H serviceName · I employeeId · J employeeName ·
 // K calendarId · L eventId · M date · N time · O durationMinutes ·
 // P price · Q amountPaid · R paymentType · S paymentIntentId ·
-// T lang · U reminderSent
+// T lang · U reminderSent · V birthdate
 // ============================================================
 
 const COLUMNS = [
@@ -19,7 +19,7 @@ const COLUMNS = [
   'serviceId', 'serviceName', 'employeeId', 'employeeName',
   'calendarId', 'eventId', 'date', 'time', 'durationMinutes',
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
-  'lang', 'reminderSent',
+  'lang', 'reminderSent', 'birthdate',
 ];
 const LAST_COL = String.fromCharCode(64 + COLUMNS.length);
 
@@ -55,19 +55,19 @@ async function rangeAll() {
   return `'${tab}'!A:${LAST_COL}`;
 }
 
+// Reescribe siempre la fila de cabecera con las columnas actuales del
+// código (barato e idempotente) — así, si se añade una columna nueva
+// (como "birthdate"), aparece sola en una hoja que ya existía en
+// producción, sin tener que tocar nada a mano en Google Sheets.
 async function ensureHeader() {
   const sheets = getSheetsClient();
   const tab = await getTabName();
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: `'${tab}'!A1:A1` });
-  const hasHeader = res.data.values && res.data.values.length > 0;
-  if (!hasHeader) {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId(),
-      range: `'${tab}'!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [COLUMNS] },
-    });
-  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${tab}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [COLUMNS] },
+  });
 }
 
 function rowToObject(row) {

@@ -516,6 +516,7 @@
     const name = document.getElementById('booking-name').value.trim();
     const phone = document.getElementById('booking-phone').value.trim();
     const email = document.getElementById('booking-email').value.trim();
+    const birthdate = document.getElementById('booking-birthdate').value.trim();
 
     if (!name || !phone) {
       showError(t('fillNamePhone'));
@@ -543,6 +544,7 @@
           clientName: name,
           clientPhone: phone,
           clientEmail: email || undefined,
+          clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
           lang: LANG,
         }),

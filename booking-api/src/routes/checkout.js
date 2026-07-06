@@ -25,7 +25,7 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, paymentChoice, extraIds, extraServiceIds, lang } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, lang } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone) {
@@ -108,6 +108,7 @@ router.post('/checkout', async (req, res) => {
         clientName,
         clientPhone,
         clientEmail: clientEmail || '',
+        clientBirthdate: clientBirthdate || '',
         price: String(price),
         amount: String(amount),
         paymentType: type,

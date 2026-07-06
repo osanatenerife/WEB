@@ -3,24 +3,22 @@ const sharp = require('sharp');
 
 // ============================================================
 // Genera la tarjeta del bono regalo como imagen (PNG), horizontal,
-// pensada para imprimir: foto a la izquierda + panel de texto a la
-// derecha con el mismo lenguaje visual que el resto de la web
-// (crema/marrón, serif elegante). Se adjunta al email de confirmación.
+// pensada para imprimir: foto a sangre completa + panel translúcido
+// tipo "cristal esmerilado" con los datos, y el logo abajo — mismo
+// estilo que la plantilla de referencia que nos pasó la clienta.
 // ============================================================
 
 const CARD_W = 1600;
-const CARD_H = 900;
-const PHOTO_W = 560;
-const PANEL_X = PHOTO_W; // el panel de texto empieza justo después de la foto
-const PANEL_W = CARD_W - PHOTO_W;
-const PANEL_CENTER_X = PANEL_X + PANEL_W / 2;
-const PAD_X = 72;
+const CARD_H = 1140;
+const PAD_X = 96;
 
-const CREAM = '#f6eeda';
-const LINE = '#e3d9c4';
-const TXT = '#2a2520';
-const TXT_MID = '#5a5248';
-const BROWN = '#8a7350';
+const PANEL = { left: 128, top: 319, right: 1472, bottom: 912 };
+const PANEL_W = PANEL.right - PANEL.left;
+const PANEL_CENTER_X = (PANEL.left + PANEL.right) / 2;
+
+const TXT = '#1a1612';
+const TXT_MID = '#3a342c';
+const LOGO_W = 300;
 
 function escapeXml(str) {
   return String(str || '').replace(/[&<>"']/g, (c) => ({
@@ -56,81 +54,91 @@ function wrapText(text, maxCharsPerLine, maxLines) {
   return lines;
 }
 
-function tspanLines(lines, x, startY, lineHeight, extraAttrs = '') {
-  return lines.map((line, i) => `<tspan x="${x}" y="${startY + i * lineHeight}" ${extraAttrs}>${escapeXml(line)}</tspan>`).join('');
+function tspanLines(lines, x, startY, lineHeight) {
+  return lines.map((line, i) => `<tspan x="${x}" y="${startY + i * lineHeight}">${escapeXml(line)}</tspan>`).join('');
 }
 
 function buildSvgOverlay({ fromName, toName, itemLabel, message, expiryLabel, code, lang }) {
   const isEn = lang === 'en';
   const strings = isEn
     ? {
-        subtitle: 'HAIR REMOVAL & BEAUTY CENTER',
-        from: 'From', to: 'To', validUntil: 'Valid until',
-        intro: 'For someone special, a special gift.',
-        redemption: 'Prior booking required to redeem this voucher.',
-        code: 'Code', contact: 'Contact',
+        title: 'GIFT VOUCHER', tagline: 'a gift to treat yourself',
+        to: 'TO:', from: 'FROM:', validUntil: 'VALID UNTIL:', giftIntro: 'COME AND TREAT YOURSELF WITH:',
+        redemption: 'PRIOR BOOKING REQUIRED TO REDEEM THIS VOUCHER.',
+        code: 'CODE',
       }
     : {
-        subtitle: 'CENTRO DE DEPILACIÓN Y ESTÉTICA',
-        from: 'De', to: 'Para', validUntil: 'Válido hasta',
-        intro: 'Para una persona especial, un regalo especial.',
-        redemption: 'Se requiere reserva previa para canjear este bono.',
-        code: 'Código', contact: 'Contacto',
+        title: 'BONO REGALO', tagline: 'un regalo para que te mimes',
+        to: 'PARA:', from: 'DE:', validUntil: 'VALIDEZ:', giftIntro: 'VEN Y MÍMATE CON:',
+        redemption: 'SE REQUIERE PREVIA RESERVA PARA CANJEAR EL BONO.',
+        code: 'CÓDIGO',
       };
 
-  const itemLines = wrapText(itemLabel, 28, 2);
-  const messageLines = message ? wrapText(message, 46, 3) : [];
+  const itemLines = wrapText(itemLabel, 30, 2);
+  const messageLines = message ? wrapText(message, 60, 2) : [];
 
-  const rowsY = 210;
-  const rowGap = 56;
+  const row1Y = PANEL.top + 84;
+  const row1LineY = row1Y + 30;
+  const row2Y = row1Y + 96;
+  const row2LineY = row2Y + 30;
+
+  const giftLabelY = row2Y + 130;
+  const giftValueY = giftLabelY + 66;
+  const giftLineY = giftValueY + (itemLines.length > 1 ? 46 : 16);
+  const messageY = giftLineY + 46;
 
   return `
   <svg width="${CARD_W}" height="${CARD_H}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="${PANEL_X}" y="0" width="${PANEL_W}" height="${CARD_H}" fill="${CREAM}"/>
+    <rect x="${PANEL.left}" y="${PANEL.top}" width="${PANEL_W}" height="${PANEL.bottom - PANEL.top}" fill="#f6eeda" fill-opacity="0.58"/>
 
-    <text x="${PANEL_CENTER_X}" y="108" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="34" letter-spacing="6" fill="${TXT}">OSANA</text>
-    <text x="${PANEL_CENTER_X}" y="138" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" letter-spacing="3" fill="${BROWN}">${strings.subtitle}</text>
+    <text x="${CARD_W / 2}" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="72" letter-spacing="10" fill="${TXT}">${strings.title}</text>
+    <text x="${CARD_W / 2}" y="288" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="32" fill="${TXT_MID}">${strings.tagline}</text>
 
-    <line x1="${PANEL_X + PAD_X}" y1="${rowsY - 34}" x2="${CARD_W - PAD_X}" y2="${rowsY - 34}" stroke="${LINE}" stroke-width="1"/>
-    <text x="${PANEL_X + PAD_X}" y="${rowsY}" xml:space="preserve" font-family="Arial, sans-serif" font-size="19" fill="${TXT}"><tspan font-weight="700">${strings.from}: </tspan>${escapeXml(fromName)}</text>
-    <line x1="${PANEL_X + PAD_X}" y1="${rowsY + 20}" x2="${CARD_W - PAD_X}" y2="${rowsY + 20}" stroke="${LINE}" stroke-width="1"/>
-    <text x="${PANEL_X + PAD_X}" y="${rowsY + rowGap}" xml:space="preserve" font-family="Arial, sans-serif" font-size="19" fill="${TXT}"><tspan font-weight="700">${strings.to}: </tspan>${escapeXml(toName)}</text>
-    <line x1="${PANEL_X + PAD_X}" y1="${rowsY + rowGap + 20}" x2="${CARD_W - PAD_X}" y2="${rowsY + rowGap + 20}" stroke="${LINE}" stroke-width="1"/>
-    <text x="${PANEL_X + PAD_X}" y="${rowsY + rowGap * 2}" xml:space="preserve" font-family="Arial, sans-serif" font-size="19" fill="${TXT}"><tspan font-weight="700">${strings.validUntil}: </tspan>${escapeXml(expiryLabel)}</text>
+    <text x="${PANEL.left + PAD_X}" y="${row1Y}" font-family="Arial, sans-serif" font-weight="700" font-size="17" letter-spacing="2" fill="${TXT}">${strings.to}</text>
+    <text x="${PANEL.left + PAD_X}" y="${row1Y + 44}" font-family="Georgia, serif" font-size="26" fill="${TXT}">${escapeXml(toName)}</text>
+    <line x1="${PANEL.left + PAD_X}" y1="${row1LineY + 44}" x2="${PANEL_CENTER_X + 60}" y2="${row1LineY + 44}" stroke="${TXT}" stroke-width="1.4"/>
 
-    <text x="${PANEL_CENTER_X}" y="${rowsY + rowGap * 2 + 56}" text-anchor="middle" font-family="Arial, sans-serif" font-size="17" fill="${TXT_MID}">${strings.intro}</text>
+    <text x="${PANEL_CENTER_X + 140}" y="${row1Y}" font-family="Arial, sans-serif" font-weight="700" font-size="17" letter-spacing="2" fill="${TXT}">${strings.validUntil}</text>
+    <text x="${PANEL_CENTER_X + 140}" y="${row1Y + 44}" font-family="Georgia, serif" font-size="26" fill="${TXT}">${escapeXml(expiryLabel)}</text>
+    <line x1="${PANEL_CENTER_X + 140}" y1="${row1LineY + 44}" x2="${PANEL.right - PAD_X}" y2="${row1LineY + 44}" stroke="${TXT}" stroke-width="1.4"/>
 
-    <line x1="${PANEL_X + PAD_X}" y1="${rowsY + rowGap * 2 + 92}" x2="${CARD_W - PAD_X}" y2="${rowsY + rowGap * 2 + 92}" stroke="${TXT}" stroke-width="1"/>
-    <text text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="34" fill="${BROWN}">
-      ${tspanLines(itemLines, PANEL_CENTER_X, rowsY + rowGap * 2 + 92 + 54, 42)}
+    <text x="${PANEL.left + PAD_X}" y="${row2Y + 44}" font-family="Arial, sans-serif" font-weight="700" font-size="17" letter-spacing="2" fill="${TXT}">${strings.from}</text>
+    <text x="${PANEL.left + PAD_X + 90}" y="${row2Y + 44}" font-family="Georgia, serif" font-size="26" fill="${TXT}">${escapeXml(fromName)}</text>
+    <line x1="${PANEL.left + PAD_X}" y1="${row2LineY + 60}" x2="${PANEL_CENTER_X + 60}" y2="${row2LineY + 60}" stroke="${TXT}" stroke-width="1.4"/>
+
+    <text x="${CARD_W / 2}" y="${giftLabelY}" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="17" letter-spacing="2" fill="${TXT}">${strings.giftIntro}</text>
+    <text text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="40" fill="${TXT}">
+      ${tspanLines(itemLines, CARD_W / 2, giftValueY, 48)}
     </text>
-    <line x1="${PANEL_X + PAD_X}" y1="${rowsY + rowGap * 2 + 92 + (itemLines.length * 42) + 34}" x2="${CARD_W - PAD_X}" y2="${rowsY + rowGap * 2 + 92 + (itemLines.length * 42) + 34}" stroke="${TXT}" stroke-width="1"/>
+    <line x1="${PANEL_CENTER_X - 260}" y1="${giftLineY}" x2="${PANEL_CENTER_X + 260}" y2="${giftLineY}" stroke="${TXT}" stroke-width="1.4"/>
 
-    ${messageLines.length ? `<text text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="17" fill="${TXT}">
-      ${tspanLines(messageLines, PANEL_CENTER_X, rowsY + rowGap * 2 + 92 + (itemLines.length * 42) + 76, 26)}
+    ${messageLines.length ? `<text text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="17" fill="${TXT_MID}">
+      ${tspanLines(messageLines, CARD_W / 2, messageY, 24)}
     </text>` : ''}
 
-    <text x="${PANEL_CENTER_X}" y="${CARD_H - 118}" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="${BROWN}">✦</text>
-
-    <text x="${PANEL_CENTER_X}" y="${CARD_H - 82}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12.5" fill="${TXT_MID}">${strings.redemption}</text>
-    <text x="${PANEL_CENTER_X}" y="${CARD_H - 58}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12.5" fill="${TXT_MID}"><tspan font-weight="700">${strings.code}: ${code}</tspan></text>
-    <text x="${PANEL_CENTER_X}" y="${CARD_H - 34}" text-anchor="middle" font-family="Arial, sans-serif" font-size="12.5" fill="${TXT_MID}">${strings.contact}: +34 623 725 551 · @osana_tenerife · www.osana.es</text>
+    <text x="${CARD_W / 2}" y="${PANEL.bottom - 54}" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" letter-spacing="1.5" fill="${TXT_MID}">${strings.redemption}</text>
+    <text x="${CARD_W / 2}" y="${PANEL.bottom - 28}" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" letter-spacing="1.5" fill="${TXT_MID}">${strings.code}: <tspan font-weight="700">${code}</tspan> · CONTACTO: +34 623 725 551 · @osana_tenerife · www.osana.es</text>
   </svg>`;
 }
 
 async function generateGiftCardBuffer({ fromName, toName, itemLabel, message, expiryLabel, code, lang }) {
   const photoBuffer = await sharp(path.join(__dirname, '../../assets/gift-photo.jpg'))
-    .resize(PHOTO_W, CARD_H, { fit: 'cover', position: 'attention' })
+    .resize(CARD_W, CARD_H, { fit: 'cover', position: 'attention' })
     .toBuffer();
+
+  const logoBuffer = await sharp(path.join(__dirname, '../../assets/logo-negro.png'))
+    .resize({ width: LOGO_W })
+    .toBuffer();
+  const logoMeta = await sharp(logoBuffer).metadata();
+  const logoTop = PANEL.bottom + 30;
+  const logoLeft = Math.round((CARD_W - LOGO_W) / 2);
 
   const svg = buildSvgOverlay({ fromName, toName, itemLabel, message, expiryLabel, code, lang });
 
-  return sharp({
-    create: { width: CARD_W, height: CARD_H, channels: 3, background: CREAM },
-  })
+  return sharp(photoBuffer)
     .composite([
-      { input: photoBuffer, left: 0, top: 0 },
       { input: Buffer.from(svg), left: 0, top: 0 },
+      { input: logoBuffer, left: logoLeft, top: logoTop },
     ])
     .png()
     .toBuffer();

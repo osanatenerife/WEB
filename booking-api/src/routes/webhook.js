@@ -10,7 +10,7 @@ const employees = require('../config/employees');
 
 const router = express.Router();
 
-const GIFT_VALIDITY_MONTHS = 12;
+const GIFT_VALIDITY_MONTHS = 6;
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
 function escapeHtml(str) {
@@ -26,7 +26,7 @@ function randomVoucherCode() {
 async function handleBookingPayment(session) {
   const {
     bookingId, calendarId, eventId, serviceId, employeeId, date, time,
-    durationMinutes, clientName, clientPhone, clientEmail, price, amount, paymentType, lang,
+    durationMinutes, clientName, clientPhone, clientEmail, clientBirthdate, price, amount, paymentType, lang,
     extraServiceIds,
   } = session.metadata || {};
 
@@ -86,6 +86,7 @@ async function handleBookingPayment(session) {
         paymentIntentId: session.payment_intent || '',
         lang: lang === 'en' ? 'en' : 'es',
         reminderSent: '',
+        birthdate: clientBirthdate || '',
       });
     } catch (sheetErr) {
       // No bloqueamos la confirmación de la cita si falla el registro en la Sheet
