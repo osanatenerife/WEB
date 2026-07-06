@@ -408,6 +408,16 @@ nav#main-nav {
 .svc-body.open { max-height: 2000px; }
 .svc-inner { padding: 30px 48px 38px 100px; background: var(--svc-bg); }
 .svc-desc { font-size: 13px; font-weight: 300; color: var(--txt-mid); line-height: 1.85; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.svc-desc-tight { border-bottom: none; padding-bottom: 6px; margin-bottom: 4px; }
+.svc-benefits { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--brown); padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+
+.svc-faq { margin-top: 26px; max-width: 720px; margin-left: auto; margin-right: auto; display: flex; flex-direction: column; gap: 2px; }
+.svc-faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
+.svc-faq-item summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--txt); list-style: none; display: flex; align-items: center; gap: 10px; }
+.svc-faq-item summary::-webkit-details-marker { display: none; }
+.svc-faq-item summary::after { content: '+'; font-size: 16px; margin-left: auto; line-height: 1; color: var(--brown); }
+.svc-faq-item[open] summary::after { content: '−'; }
+.svc-faq-answer { font-size: 12.5px; font-weight: 300; color: var(--txt-mid); line-height: 1.8; padding-top: 12px; }
 
 .ptable { width: 100%; max-width: 720px; margin: 0 auto; border-collapse: collapse; table-layout: fixed; }
 .ptable thead th { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-soft); padding: 0 0 14px; border-bottom: 1px solid var(--line); text-align: left; }
