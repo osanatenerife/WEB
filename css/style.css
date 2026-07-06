@@ -6,12 +6,12 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --cream:   #e8e2d8;
+  --cream:   #ece6e0;
   --cream2:  #f6eeda;
   --dark:    #1a1612;
   --mid:     #2e2820;
   --brown:   #8a7350;
-  --gold:    #d3b896;
+  --gold:    #ac977e;
   --sage:    #7a8a7c;
   --txt:     #2a2520;
   --txt-mid: #5a5248;
@@ -420,12 +420,12 @@ nav#main-nav {
 
 .sub-title { font-family: 'Raleway', sans-serif; font-size: 16px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--txt); margin: 34px 0 18px; padding-top: 28px; border-top: 1px solid var(--line); text-align: center; max-width: 720px; margin-left: auto; margin-right: auto; }
 .sub-title::before { content: '✦'; display: block; font-size: 11px; color: var(--brown); margin-bottom: 8px; letter-spacing: 0; }
-.sub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--brown); max-width: 960px; margin: 0 auto; }
+.sub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #5c4630; max-width: 1100px; margin: 0 auto; }
 .sub-block {
-  margin: 0; padding: 30px 22px; background: var(--gold); text-align: center;
+  margin: 0; padding: 30px 22px; background: var(--cream2); text-align: center;
   transition: background-color 0.25s ease;
 }
-.sub-block:hover { background: #dfc7a4; }
+.sub-block:hover { background: var(--cream); }
 .sub-block-name { font-size: 15px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dark); margin-bottom: 8px; }
 .sub-block-desc { font-size: 12.5px; font-weight: 300; color: var(--txt-mid); line-height: 1.6; margin-bottom: 14px; }
 .sub-block-price { font-family: 'Raleway', sans-serif; font-size: 21px; font-weight: 700; color: var(--dark); }
