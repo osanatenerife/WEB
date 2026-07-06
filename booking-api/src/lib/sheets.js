@@ -182,4 +182,84 @@ async function appendGift(gift) {
   });
 }
 
-module.exports = { appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift };
+// ============================================================
+// Control de emails de cumpleaños, en una pestaña aparte
+// ("Cumpleanos") — una fila por cliente, para no mandarle el email
+// más de una vez el mismo año aunque tenga varias reservas.
+// ============================================================
+
+const BIRTHDAY_TAB_TITLE = 'Cumpleanos';
+const BIRTHDAY_COLUMNS = ['emailNormalized', 'phoneNormalized', 'name', 'birthdate', 'lastSentYear'];
+const BIRTHDAY_LAST_COL = String.fromCharCode(64 + BIRTHDAY_COLUMNS.length);
+
+let birthdayTabReady = false;
+async function ensureBirthdayTab() {
+  if (birthdayTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === BIRTHDAY_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: BIRTHDAY_TAB_TITLE } } }] },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId(),
+      range: `'${BIRTHDAY_TAB_TITLE}'!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [BIRTHDAY_COLUMNS] },
+    });
+  }
+  birthdayTabReady = true;
+}
+
+function birthdayRowToObject(row) {
+  const obj = {};
+  BIRTHDAY_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  return obj;
+}
+function birthdayObjectToRow(obj) {
+  return BIRTHDAY_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+
+async function getAllBirthdayRecords() {
+  await ensureBirthdayTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${BIRTHDAY_TAB_TITLE}'!A:${BIRTHDAY_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map((row, i) => ({ ...birthdayRowToObject(row), _sheetRow: i + 2 }));
+}
+
+/**
+ * Marca a un cliente como "ya felicitado este año" — actualiza su fila
+ * si ya existía, o crea una nueva si es la primera vez.
+ */
+async function upsertBirthdayRecord(record, existingRow) {
+  await ensureBirthdayTab();
+  const sheets = getSheetsClient();
+  if (existingRow) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId(),
+      range: `'${BIRTHDAY_TAB_TITLE}'!A${existingRow._sheetRow}:${BIRTHDAY_LAST_COL}${existingRow._sheetRow}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [birthdayObjectToRow({ ...existingRow, ...record })] },
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId(),
+      range: `'${BIRTHDAY_TAB_TITLE}'!A:${BIRTHDAY_LAST_COL}`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [birthdayObjectToRow(record)] },
+    });
+  }
+}
+
+module.exports = {
+  appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
+  getAllBirthdayRecords, upsertBirthdayRecord,
+};

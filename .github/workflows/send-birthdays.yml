@@ -1,0 +1,14 @@
+name: Send birthday emails
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping-birthdays-endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/send-birthday-emails
+        run: |
+          curl -fsS "https://osana-9pub.onrender.com/api/send-birthday-emails?secret=${{ secrets.REMINDER_CRON_SECRET }}"
