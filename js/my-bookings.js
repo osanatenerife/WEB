@@ -10,6 +10,8 @@
   const emailInput = document.getElementById('mb-email');
   const resultsEl = document.getElementById('mb-results');
   const errorEl = document.getElementById('mb-error');
+  const historyWrapEl = document.getElementById('mb-history-wrap');
+  const historyEl = document.getElementById('mb-history');
 
   const STR = {
     loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…' },
@@ -20,6 +22,7 @@
     cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 24h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 24h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
     cancel: { es: 'Cancelar cita', en: 'Cancel appointment' },
     reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time' },
+    noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
@@ -63,6 +66,37 @@
         <div class="mybooking-reschedule-panel"></div>
       </div>
     `;
+  }
+
+  function historyCardHtml(b) {
+    return `
+      <div class="mybooking-card">
+        <div class="mybooking-top">
+          <div>
+            <div class="mybooking-service">${b.serviceName}</div>
+            <div class="mybooking-meta">${b.date} · ${b.time} · ${t('with')} ${b.employeeName}</div>
+          </div>
+          <div class="mybooking-price">${b.price > 0 ? b.price.toFixed(0) + ' €' : t('free')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  async function loadHistory() {
+    try {
+      const params = new URLSearchParams({ phone: currentPhone, email: currentEmail });
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/history?${params}`);
+      const data = await res.json();
+      if (!res.ok) return;
+      historyWrapEl.style.display = 'block';
+      if (!data.bookings.length) {
+        historyEl.innerHTML = `<p class="mybooking-empty">${t('noHistory')}</p>`;
+        return;
+      }
+      historyEl.innerHTML = `<div class="mybooking-list">${data.bookings.map(historyCardHtml).join('')}</div>`;
+    } catch (e) {
+      // el historial es un extra informativo; si falla, no bloqueamos el resto de la página
+    }
   }
 
   function renderBookings(bookings) {
@@ -181,5 +215,6 @@
     currentEmail = emailInput.value.trim();
     if (!currentPhone || !currentEmail) return;
     loadBookings();
+    loadHistory();
   });
 })();

@@ -4,6 +4,7 @@ const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
 const { appendBooking, appendGift } = require('../lib/sheets');
 const { sendEmail } = require('../lib/email');
+const { generateGiftCardBuffer } = require('../lib/giftCard');
 const services = require('../config/services');
 const employees = require('../config/employees');
 
@@ -93,46 +94,23 @@ async function handleBookingPayment(session) {
   }
 }
 
-function buildGiftEmailHtml({ fromName, toName, message, itemLabel, expiryLabel, code, lang }) {
+function buildGiftEmailHtml({ lang }) {
   const strings = lang === 'en'
     ? {
-        subtitle: 'Hair Removal & Beauty Center',
-        from: 'From', to: 'To', validUntil: 'Valid until',
-        intro: 'For someone special, a special gift. Come and treat yourself at OSANA with:',
-        redemption: 'Prior booking required to redeem this voucher.',
-        code: 'Code',
-        contact: 'Contact',
+        title: 'Your gift voucher is ready 🎁',
+        body: "Thank you for your purchase! Your Osana gift voucher is attached to this email as an image, ready to print or forward to whoever you're gifting it to.",
+        sign: 'See you soon,<br>Osana',
       }
     : {
-        subtitle: 'Centro de Depilación y Estética',
-        from: 'De', to: 'Para', validUntil: 'Válido hasta',
-        intro: 'Para una persona especial, un regalo especial. Ven y mímate en OSANA con:',
-        redemption: 'Se requiere reserva previa para canjear este bono.',
-        code: 'Código',
-        contact: 'Contacto',
+        title: 'Tu bono regalo ya está listo 🎁',
+        body: '¡Gracias por tu compra! Tu bono regalo de Osana va adjunto a este email en forma de imagen, lista para imprimir o reenviar a quien se lo regales.',
+        sign: 'Te esperamos,<br>Osana',
       };
-
   return `
-  <div style="max-width:520px;margin:0 auto;background:#f6eeda;border:1px solid #e8e2d8;padding:36px 32px;font-family:Georgia,'Times New Roman',serif;color:#2a2520;">
-    <div style="text-align:center;margin-bottom:28px;">
-      <span style="font-family:Arial,sans-serif;font-weight:700;letter-spacing:0.15em;font-size:20px;">OSANA</span>
-      <div style="font-family:Arial,sans-serif;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:#8a7350;margin-top:4px;">${strings.subtitle}</div>
-    </div>
-    <table style="width:100%;margin-bottom:22px;font-family:Arial,sans-serif;font-size:13px;border-collapse:collapse;">
-      <tr><td style="padding:9px 0;border-bottom:1px solid #e8e2d8;"><strong>${strings.from}:</strong> ${escapeHtml(fromName)}</td></tr>
-      <tr><td style="padding:9px 0;border-bottom:1px solid #e8e2d8;"><strong>${strings.to}:</strong> ${escapeHtml(toName)}</td></tr>
-      <tr><td style="padding:9px 0;"><strong>${strings.validUntil}:</strong> ${expiryLabel}</td></tr>
-    </table>
-    <p style="font-family:Arial,sans-serif;font-size:13px;line-height:1.7;">${strings.intro}</p>
-    <div style="text-align:center;margin:22px 0;padding:22px 0;border-top:1px solid #2a2520;border-bottom:1px solid #2a2520;">
-      <span style="font-family:Georgia,serif;font-style:italic;font-size:23px;color:#8a7350;">${escapeHtml(itemLabel)}</span>
-    </div>
-    ${message ? `<p style="font-family:Arial,sans-serif;font-size:13px;font-style:italic;line-height:1.7;text-align:center;">${escapeHtml(message)}</p>` : ''}
-    <p style="font-family:Arial,sans-serif;font-size:11px;color:#5a5248;text-align:center;margin-top:28px;line-height:1.8;">
-      ${strings.redemption}<br>
-      ${strings.code}: <strong>${code}</strong><br>
-      ${strings.contact}: +34 623 725 551 · @osana_tenerife · www.osana.es
-    </p>
+  <div style="max-width:480px;margin:0 auto;font-family:Arial,sans-serif;color:#2a2520;">
+    <h2 style="font-size:20px;">${strings.title}</h2>
+    <p style="font-size:14px;line-height:1.7;">${strings.body}</p>
+    <p style="font-size:14px;line-height:1.7;">${strings.sign}</p>
   </div>`;
 }
 
@@ -175,11 +153,13 @@ async function handleGiftPayment(session) {
 
   if (buyerEmail) {
     try {
-      const html = buildGiftEmailHtml({ fromName, toName, message, itemLabel, expiryLabel, code, lang });
+      const cardBuffer = await generateGiftCardBuffer({ fromName, toName, itemLabel, message, expiryLabel, code, lang });
+      const html = buildGiftEmailHtml({ lang });
       await sendEmail({
         to: buyerEmail,
         subject: isEn ? 'Your Osana gift voucher' : 'Tu bono regalo de Osana',
         html,
+        attachments: [{ filename: 'bono-regalo-osana.png', content: cardBuffer.toString('base64') }],
       });
     } catch (emailErr) {
       console.error('No se pudo enviar el email del bono regalo:', emailErr);

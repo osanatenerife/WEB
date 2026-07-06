@@ -78,6 +78,37 @@ router.get('/my-bookings', async (req, res) => {
   }
 });
 
+// ── Historial de visitas pasadas (solo lectura, sin cancelar/reprogramar) ──
+router.get('/my-bookings/history', async (req, res) => {
+  const { phone, email } = req.query;
+  if (!phone || !email) {
+    return res.status(400).json({ error: 'Introduce tu teléfono y tu email para buscar tu historial.' });
+  }
+  try {
+    const all = await getAllBookings();
+    const now = Date.now();
+    const past = all.filter((b) => (
+      b.status !== '' // solo filas reales
+      && isOwner(b, phone, email)
+      && appointmentDateTime(b).getTime() <= now
+    ));
+    past.sort((a, b) => appointmentDateTime(b) - appointmentDateTime(a)); // más reciente primero
+    res.json({
+      bookings: past.map((b) => ({
+        serviceName: b.serviceName,
+        employeeName: b.employeeName,
+        date: b.date,
+        time: b.time,
+        price: Number(b.price) || 0,
+        status: b.status,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo consultar tu historial.' });
+  }
+});
+
 // ── Huecos libres para reprogramar (misma duración y profesional de la reserva original) ──
 router.get('/my-bookings/slots', async (req, res) => {
   const { bookingId, phone, email, date } = req.query;
