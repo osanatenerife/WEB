@@ -21,8 +21,12 @@ const birthdaysRouter = require('./src/routes/birthdays');
 
 const app = express();
 
-const allowedOrigin = process.env.FRONTEND_URL || '*';
-app.use(cors({ origin: allowedOrigin }));
+// Esta API la llaman los navegadores de los visitantes públicamente (no hay
+// sesiones ni cookies de por medio), así que no restringimos CORS a un único
+// origen — eso solo rompería las pruebas locales o desde otro dominio/hosting
+// sin aportar seguridad real. FRONTEND_URL se usa aparte solo para construir
+// las URLs de éxito/cancelación de Stripe (ver src/lib/origin.js).
+app.use(cors({ origin: true }));
 
 // El webhook de Stripe necesita el cuerpo SIN parsear (raw) para poder
 // verificar la firma — por eso usa su propio parser "raw" y se monta
