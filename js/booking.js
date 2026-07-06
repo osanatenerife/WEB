@@ -25,6 +25,7 @@
     payDepositOnly: { es: 'Pagar solo la seña —', en: 'Pay deposit only —' },
     restAtCenterParen: { es: '(resto en el centro)', en: '(remaining amount paid at the center)' },
     payFullNow: { es: 'Pagar el total ahora —', en: 'Pay in full now —' },
+    cancelPolicyNote: { es: 'Si cancelas con menos de 48h de antelación, el importe pagado no será reembolsado.', en: "If you cancel less than 48h in advance, the amount paid will not be refunded." },
     fillNamePhone: { es: 'Rellena tu nombre y teléfono para continuar.', en: 'Fill in your name and phone number to continue.' },
     missingBookingData: { es: 'Faltan datos de la reserva, vuelve a empezar.', en: 'Booking data is missing, please start again.' },
     connectingPayment: { es: 'Conectando con el pago seguro…', en: 'Connecting to secure payment…' },
@@ -509,6 +510,7 @@
         r.addEventListener('change', () => { state.payChoice = r.value; });
       });
     }
+    els.payOptions.innerHTML += `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`;
   }
 
   els.submit.addEventListener('click', async () => {

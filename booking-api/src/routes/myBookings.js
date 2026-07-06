@@ -14,7 +14,7 @@ function weeklyScheduleFor(booking) {
 
 const router = express.Router();
 
-const FREE_CANCEL_HOURS = 24;
+const FREE_CANCEL_HOURS = 48;
 
 function normalizePhone(raw) {
   const digits = String(raw || '').replace(/\D/g, '');
@@ -191,7 +191,7 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     }
     const hrs = hoursUntil(booking);
     if (hrs < FREE_CANCEL_HOURS) {
-      return res.status(409).json({ error: 'Para reprogramar hace falta avisar con al menos 24h de antelación. Escríbenos por WhatsApp si es más urgente.' });
+      return res.status(409).json({ error: 'Para reprogramar hace falta avisar con al menos 48h de antelación. Escríbenos por WhatsApp si es más urgente.' });
     }
 
     const daysAhead = Math.floor((new Date(`${newDate}T12:00:00Z`) - new Date()) / 86400000);

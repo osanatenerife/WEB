@@ -18,7 +18,7 @@ function computeAmount(service, price, paymentChoice) {
   if (paymentPolicy === 'deposit_required') return { amount: round2((price * depositPercent) / 100), type: 'seña' };
   // deposit_or_full: el cliente elige
   if (paymentChoice === 'full') return { amount: price, type: 'total' };
-  return { amount: round2((price * (depositPercent || 20)) / 100), type: 'seña' };
+  return { amount: round2((price * (depositPercent || 30)) / 100), type: 'seña' };
 }
 
 function round2(n) {

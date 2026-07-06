@@ -19,7 +19,7 @@
     genericError: { es: 'Ha ocurrido un error, inténtalo de nuevo.', en: 'Something went wrong, please try again.' },
     confirmCancel: { es: '¿Seguro que quieres cancelar esta cita?', en: 'Are you sure you want to cancel this appointment?' },
     cancelledRefunded: { es: '✓ Cita cancelada — se ha reembolsado el importe pagado.', en: '✓ Appointment cancelled — the amount paid has been refunded.' },
-    cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 24h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 24h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
+    cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 48h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 48h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
     cancel: { es: 'Cancelar cita', en: 'Cancel appointment' },
     reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },

@@ -30,7 +30,7 @@ const EMAIL_STRINGS = {
         👤 Con ${b.employeeName}
       </p>
       <p>📍 Calle Manuel Bello Ramos, 56, Adeje (Tenerife Sur)</p>
-      <p>¿Necesitas cancelar o cambiar la hora? Entra a <a href="https://osana.es/mis-reservas.html">osana.es/mis-reservas.html</a>.</p>
+      <p>¿Necesitas cancelar o cambiar la hora? Entra a <a href="https://osana.es/mis-reservas.html">osana.es/mis-reservas.html</a>. Recuerda que si cancelas con menos de 48h de antelación, el importe pagado no se reembolsa.</p>
       <p>¡Te esperamos!<br>Osana</p>
     `,
   },
@@ -45,7 +45,7 @@ const EMAIL_STRINGS = {
         👤 With ${b.employeeName}
       </p>
       <p>📍 Calle Manuel Bello Ramos, 56, Adeje (South Tenerife)</p>
-      <p>Need to cancel or change the time? Go to <a href="https://osana.es/en/mis-reservas.html">osana.es/en/mis-reservas.html</a>.</p>
+      <p>Need to cancel or change the time? Go to <a href="https://osana.es/en/mis-reservas.html">osana.es/en/mis-reservas.html</a>. Please note that if you cancel less than 48h in advance, the amount paid will not be refunded.</p>
       <p>See you soon!<br>Osana</p>
     `,
   },
