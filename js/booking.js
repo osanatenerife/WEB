@@ -399,7 +399,9 @@
       const empWeekly = state.employee && state.employee.weekly;
       const daySchedule = empWeekly && empWeekly[dateObj.getDay()];
       const dayOff = empWeekly && (!daySchedule || daySchedule.closed);
-      const disabled = dateObj < MIN_DATE || dateObj > MAX_DATE || dayOff;
+      const closures = (state.employee && state.employee.closures) || [];
+      const isClosureDay = closures.some((c) => iso >= c.start && iso <= c.end);
+      const disabled = dateObj < MIN_DATE || dateObj > MAX_DATE || dayOff || isClosureDay;
       if (disabled) {
         cell.classList.add('disabled');
         cell.disabled = true;

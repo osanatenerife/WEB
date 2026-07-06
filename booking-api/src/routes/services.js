@@ -2,6 +2,7 @@ const express = require('express');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const extras = require('../config/extras');
+const hours = require('../config/hours');
 const { parseExtraIds: parseIds } = require('../lib/pricing');
 
 const router = express.Router();
@@ -30,7 +31,9 @@ router.get('/employees', (req, res) => {
   }
   // No exponemos el calendarId al frontend, no hace falta y es un dato interno.
   // "weekly" sí se expone: el calendario de reserva lo usa para marcar sus días libres.
-  res.json({ employees: list.map(({ id, name, weekly }) => ({ id, name, weekly })) });
+  // "closures" son los cierres puntuales del centro (vacaciones, reformas...), iguales
+  // para todas las empleadas, para que el calendario también los tache visualmente.
+  res.json({ employees: list.map(({ id, name, weekly }) => ({ id, name, weekly, closures: hours.closures || [] })) });
 });
 
 // Lista de extras que se pueden añadir a los servicios dados (unión, sin duplicados)

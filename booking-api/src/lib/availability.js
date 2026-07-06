@@ -8,6 +8,10 @@ function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
 
+function isClosureDate(dateStr) {
+  return (hours.closures || []).some((c) => dateStr >= c.start && dateStr <= c.end);
+}
+
 /**
  * Calcula los huecos disponibles para un día concreto.
  * @param {string} dateStr  "YYYY-MM-DD" (fecha local del centro)
@@ -18,6 +22,7 @@ function overlaps(aStart, aEnd, bStart, bEnd) {
  * @returns {Promise<string[]>} horas de inicio disponibles, formato "HH:mm"
  */
 async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySchedule) {
+  if (isClosureDate(dateStr)) return [];
   const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
   const daySchedule = (weeklySchedule || hours.weekly)[weekday];
   if (!daySchedule || daySchedule.closed) return [];
