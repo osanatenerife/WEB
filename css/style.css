@@ -419,6 +419,10 @@ nav#main-nav {
 .svc-faq-item[open] summary::after { content: '−'; }
 .svc-faq-answer { font-size: 12.5px; font-weight: 300; color: var(--txt-mid); line-height: 1.8; padding-top: 12px; }
 
+.svc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; max-width: 1100px; margin: 0 auto; }
+.svc-two-col .ptable { max-width: none; margin: 0; }
+.svc-two-col .svc-faq { margin-top: 0; max-width: none; margin-left: 0; margin-right: 0; }
+
 .ptable { width: 100%; max-width: 720px; margin: 0 auto; border-collapse: collapse; table-layout: fixed; }
 .ptable thead th { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-soft); padding: 0 0 14px; border-bottom: 1px solid var(--line); text-align: left; }
 .ptable thead th:not(:first-child) { text-align: right; }
@@ -756,6 +760,8 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
   .svc-sub { font-size: 9px !important; }
   .svc-desde-price { font-size: 18px !important; }
   .svc-inner { padding: 24px 20px 28px !important; }
+
+  .svc-two-col { grid-template-columns: 1fr; gap: 30px; }
 
   .ptable { display: block; width: 100%; }
   .ptable thead { display: none; }
