@@ -411,7 +411,10 @@ nav#main-nav {
 .svc-desc-tight { border-bottom: none; padding-bottom: 6px; margin-bottom: 4px; }
 .svc-benefits { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--brown); padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
 
+.svc-faq-title { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brown); margin: 26px auto 12px; max-width: 720px; }
+.svc-two-col .svc-faq-title { margin-top: 0; max-width: none; }
 .svc-faq { margin-top: 26px; max-width: 720px; margin-left: auto; margin-right: auto; display: flex; flex-direction: column; gap: 2px; }
+.svc-two-col .svc-faq { margin-top: 0; max-width: none; }
 .svc-faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
 .svc-faq-item summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--txt); list-style: none; display: flex; align-items: center; gap: 10px; }
 .svc-faq-item summary::-webkit-details-marker { display: none; }
