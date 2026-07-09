@@ -37,7 +37,7 @@
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
     addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
     removeAddon: { es: 'Quitar', en: 'Remove' },
-    bonoTitle: { es: '¿Sabías que puedes ahorrar?', en: 'Did you know you can save?' },
+    bonoTitle: { es: 'Ahorra', en: 'Save' },
     bonoSingleLabel: { es: 'Solo esta sesión', en: 'Just this session' },
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package` },
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}` },

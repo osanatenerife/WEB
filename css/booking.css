@@ -217,11 +217,11 @@ body.reserva-page .page-offset { padding-top: 92px; }
 
 /* ── Bono de sesiones (selector destacado, sin precios tachados) ── */
 .booking-bono-section {
-  margin-top: 26px; padding: 22px 24px; border: 1px solid var(--brown); background: var(--cream2);
+  margin-top: 26px; padding: 22px 24px; border: 1px solid var(--dark); background: var(--dark);
 }
 .booking-bono-title {
-  font-family: 'Raleway', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.03em;
-  color: var(--brown); margin-bottom: 14px;
+  font-family: 'Raleway', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--gold); margin-bottom: 14px;
 }
 .booking-bono-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .booking-bono-option {
@@ -238,7 +238,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
   align-self: flex-start; font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--cream); background: var(--brown); padding: 3px 8px;
 }
-.booking-bono-note { margin-top: 12px; font-size: 12px; color: var(--txt-soft); line-height: 1.6; }
+.booking-bono-note { margin-top: 12px; font-size: 12px; color: rgba(240,235,226,0.55); line-height: 1.6; }
 .booking-bono-terms { align-items: flex-start; }
 .booking-bono-terms input { margin-top: 2px; }
 .booking-bono-terms span { font-size: 11.5px; line-height: 1.6; color: var(--txt-mid); }
