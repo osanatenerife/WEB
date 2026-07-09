@@ -37,6 +37,17 @@
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
     addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
     removeAddon: { es: 'Quitar', en: 'Remove' },
+    bonoTitle: { es: '¿Sabías que puedes ahorrar?', en: 'Did you know you can save?' },
+    bonoSingleLabel: { es: 'Solo esta sesión', en: 'Just this session' },
+    bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package` },
+    bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}` },
+    bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. El resto se agendan en el centro.`, en: (n) => `Today you book session 1 of ${n}. The rest are scheduled at the center.` },
+    bonoFullNote: { es: 'También puedes financiar el bono si pagas el total ahora.', en: 'You can also finance the package if you pay the full amount now.' },
+    bonoTermsLabel: {
+      es: 'He leído y acepto que, tras la primera ausencia sin preaviso o cancelación con menos de 48h se me avisará, y a partir de la segunda vez se descontará una sesión del bono.',
+      en: 'I have read and accept that after the first no-show or cancellation with less than 48h notice I will be warned, and from the second time onward a session will be deducted from the package.',
+    },
+    bonoTermsRequired: { es: 'Tienes que aceptar las condiciones del bono para continuar.', en: 'You need to accept the package terms to continue.' },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
 
@@ -48,6 +59,8 @@
     date: null,
     time: null,
     payChoice: 'deposit', // 'deposit' | 'full'
+    wantsBono: false, // true si eligió el bono de varias sesiones en vez de una suelta
+    bono: null, // { serviceId, serviceName, sessions, bonoPrice, singleSessionPrice }
   };
 
   function extrasDuration() { return state.extras.reduce((sum, e) => sum + e.durationMinutes, 0); }
@@ -55,7 +68,10 @@
   function addonsDuration() { return state.extraServices.reduce((sum, s) => sum + s.durationMinutes, 0); }
   function addonsPrice() { return state.extraServices.reduce((sum, s) => sum + s.price, 0); }
   function totalDuration() { return (state.service ? state.service.durationMinutes : 0) + extrasDuration() + addonsDuration(); }
-  function totalPrice() { return (state.service ? state.service.price : 0) + extrasPrice() + addonsPrice(); }
+  function totalPrice() {
+    if (state.wantsBono && state.bono) return state.bono.bonoPrice;
+    return (state.service ? state.service.price : 0) + extrasPrice() + addonsPrice();
+  }
   function selectedServiceIds() { return [state.service.id, ...state.extraServices.map((s) => s.id)]; }
   function findServiceById(id) {
     for (const cat in servicesByCategory) {
@@ -71,6 +87,7 @@
     panels: document.querySelectorAll('.booking-step-panel'),
     catPills: document.getElementById('booking-cat-pills'),
     services: document.getElementById('booking-services'),
+    bonoSection: document.getElementById('booking-bono-section'),
     addonsSection: document.getElementById('booking-addons-section'),
     addonsChips: document.getElementById('booking-addons-chips'),
     addonsSelect: document.getElementById('booking-addons-select'),
@@ -121,7 +138,14 @@
       els.summary.innerHTML = `<p class="booking-summary-empty">${t('chooseToStart')}</p>`;
       return;
     }
-    let html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
+    let html;
+    if (state.wantsBono && state.bono) {
+      html = `<div class="booking-summary-row"><strong>${t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div>`;
+      html += `<div class="booking-summary-meta">${service.durationMinutes} min · ${t('bonoSessionNote')(state.bono.sessions)}</div>`;
+      els.summary.innerHTML = html + (employee ? `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>` : '') + (date && time ? `<div class="booking-summary-line">${new Date(`${date}T12:00:00`).toLocaleDateString(DATE_LOCALE, { weekday: 'long', day: 'numeric', month: 'long' })} ${t('at')} ${time}</div>` : '');
+      return;
+    }
+    html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     html += `<div class="booking-summary-meta">${service.durationMinutes} min</div>`;
     extraServices.forEach((s) => {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div>`;
@@ -197,13 +221,76 @@
     });
   }
 
+  // ── Bonos de sesiones (opcional, solo si el tratamiento elegido tiene uno) ──
+  let bonosById = {};
+  async function loadBonos() {
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/bonos?lang=${LANG}`);
+      const data = await res.json();
+      bonosById = {};
+      (data.bonos || []).forEach((b) => { bonosById[b.serviceId] = b; });
+    } catch (e) {
+      bonosById = {}; // si falla, simplemente no se ofrece bono — no bloquea la reserva normal
+    }
+  }
+
+  function renderBonoSection() {
+    const bono = state.service ? bonosById[state.service.id] : null;
+    if (!bono) {
+      els.bonoSection.style.display = 'none';
+      els.bonoSection.innerHTML = '';
+      state.wantsBono = false;
+      state.bono = null;
+      return;
+    }
+    state.bono = bono;
+    const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
+    els.bonoSection.style.display = 'block';
+    els.bonoSection.innerHTML = `
+      <div class="booking-bono-title">✦ ${t('bonoTitle')}</div>
+      <div class="booking-bono-options">
+        <button type="button" class="booking-bono-option${!state.wantsBono ? ' selected' : ''}" data-bono="0">
+          <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
+          <span class="booking-bono-option-price">${bono.singleSessionPrice.toFixed(0)} €</span>
+        </button>
+        <button type="button" class="booking-bono-option booking-bono-option-pack${state.wantsBono ? ' selected' : ''}" data-bono="1">
+          <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
+          <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
+          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
+        </button>
+      </div>
+      <p class="booking-bono-note">${t('bonoSessionNote')(bono.sessions)}</p>
+    `;
+    els.bonoSection.querySelectorAll('.booking-bono-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.wantsBono = btn.dataset.bono === '1';
+        els.bonoSection.querySelectorAll('.booking-bono-option').forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        // Un bono es de un solo tratamiento — no tiene sentido combinarlo con extras/otros tratamientos
+        els.addonsSection.style.display = state.wantsBono ? 'none' : 'block';
+        if (state.wantsBono) {
+          state.extras = [];
+          state.extraServices = [];
+          els.extrasSection.style.display = 'none';
+        } else {
+          renderAddonsChips();
+          renderAddonsSelect();
+          loadExtras();
+        }
+        renderSummary();
+      });
+    });
+  }
+
   function selectService(service, cardEl) {
     state.service = service;
     state.extras = [];
     state.extraServices = [];
+    state.wantsBono = false;
     document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
     cardEl.classList.add('selected');
     renderSummary();
+    renderBonoSection();
     els.addonsSection.style.display = 'block';
     els.step1Actions.style.display = 'block';
     renderAddonsChips();
@@ -487,8 +574,34 @@
   function renderPayOptions() {
     const { service } = state;
     const price = totalPrice();
-    const depositAmount = round2((price * (service.depositPercent || 0)) / 100);
     els.payOptions.innerHTML = '';
+
+    if (state.wantsBono && state.bono) {
+      const depositAmount = round2((price * (service.depositPercent || 30)) / 100);
+      state.payChoice = 'deposit';
+      els.payOptions.innerHTML = `
+        <label class="booking-pay-option">
+          <input type="radio" name="pay" value="deposit" checked>
+          <span>${t('payDepositOnly')} <strong>${depositAmount.toFixed(2)} €</strong> ${t('restAtCenterParen')}</span>
+        </label>
+        <label class="booking-pay-option">
+          <input type="radio" name="pay" value="full">
+          <span>${t('payFullNow')} <strong>${price.toFixed(2)} €</strong></span>
+        </label>
+        <p class="booking-pay-note">${t('bonoFullNote')}</p>
+        <label class="booking-pay-option booking-bono-terms">
+          <input type="checkbox" id="booking-bono-terms-check">
+          <span>${t('bonoTermsLabel')}</span>
+        </label>
+      `;
+      els.payOptions.querySelectorAll('input[name="pay"]').forEach((r) => {
+        r.addEventListener('change', () => { state.payChoice = r.value; });
+      });
+      els.payOptions.innerHTML += `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`;
+      return;
+    }
+
+    const depositAmount = round2((price * (service.depositPercent || 0)) / 100);
 
     if (service.paymentPolicy === 'full_required') {
       els.payOptions.innerHTML = `<p class="booking-pay-note">${t('fullRequired')} <strong>${price.toFixed(2)} €</strong></p>`;
@@ -530,15 +643,32 @@
       showError(t('missingBookingData'));
       return;
     }
+    if (state.wantsBono) {
+      const termsCheck = document.getElementById('booking-bono-terms-check');
+      if (!termsCheck || !termsCheck.checked) {
+        showError(t('bonoTermsRequired'));
+        return;
+      }
+    }
 
     els.submit.disabled = true;
     els.submit.textContent = t('connectingPayment');
 
-    try {
-      const res = await fetch(`${BOOKING_API_BASE}/checkout`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+    const endpoint = state.wantsBono ? 'bono-checkout' : 'checkout';
+    const body = state.wantsBono
+      ? {
+          serviceId: state.service.id,
+          employeeId: state.employee.id,
+          date: state.date,
+          time: state.time,
+          clientName: name,
+          clientPhone: phone,
+          clientEmail: email || undefined,
+          clientBirthdate: birthdate || undefined,
+          paymentChoice: state.payChoice,
+          lang: LANG,
+        }
+      : {
           serviceId: state.service.id,
           employeeId: state.employee.id,
           extraIds: state.extras.map((e) => e.id),
@@ -551,7 +681,13 @@
           clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
           lang: LANG,
-        }),
+        };
+
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('checkoutError'));
@@ -575,7 +711,9 @@
   } else if (params.get('estado') === 'cancelado') {
     showError(t('cancelledPayment'));
     loadServices();
+    loadBonos();
   } else {
     loadServices();
+    loadBonos();
   }
 })();
