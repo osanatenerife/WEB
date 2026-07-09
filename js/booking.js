@@ -37,7 +37,8 @@
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
     addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
     removeAddon: { es: 'Quitar', en: 'Remove' },
-    bonoTitle: { es: 'Ahorra', en: 'Save' },
+    bonoTitle: { es: 'Ahorra con bonos de 3 sesiones', en: 'Save with 3-session packages' },
+    bonoPerSession: { es: (n) => `= ${n} € / sesión`, en: (n) => `= €${n} / session` },
     bonoSingleLabel: { es: 'Solo esta sesión', en: 'Just this session' },
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package` },
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}` },
@@ -257,6 +258,7 @@
           <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
           <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
           <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
+          <span class="booking-bono-option-per-session">${t('bonoPerSession')((bono.bonoPrice / bono.sessions).toFixed(0))}</span>
         </button>
       </div>
       <p class="booking-bono-note">${t('bonoSessionNote')(bono.sessions)}</p>
