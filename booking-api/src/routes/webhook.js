@@ -2,15 +2,17 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift } = require('../lib/sheets');
+const { appendBooking, appendGift, appendSessionBono } = require('../lib/sheets');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
 const services = require('../config/services');
 const employees = require('../config/employees');
+const bonos = require('../config/bonos');
 
 const router = express.Router();
 
 const GIFT_VALIDITY_MONTHS = 6;
+const BONO_VALIDITY_MONTHS = 12;
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
 function escapeHtml(str) {
@@ -93,6 +95,112 @@ async function handleBookingPayment(session) {
       console.error('No se pudo guardar la reserva en la Sheet:', sheetErr);
     }
   }
+}
+
+function addMonthsISO(months) {
+  const d = new Date();
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+async function handleBonoSessionPayment(session) {
+  const {
+    bonoId, calendarId, eventId, serviceId, employeeId, date, time,
+    durationMinutes, clientName, clientPhone, clientEmail, clientBirthdate,
+    sessions, totalPrice, amount, paymentType, lang,
+  } = session.metadata || {};
+
+  const discountCents = (session.total_details && session.total_details.amount_discount) || 0;
+  const realAmountPaid = typeof session.amount_total === 'number'
+    ? Math.round(session.amount_total) / 100
+    : Number(amount) || 0;
+  const couponNote = discountCents > 0 ? ` (cupón aplicado: -${(discountCents / 100).toFixed(2)} €)` : '';
+
+  const totalSessions = Number(sessions) || 1;
+  const bonoPrice = Number(totalPrice) || 0;
+  const remainingAmount = Math.max(0, round2(bonoPrice - realAmountPaid));
+
+  if (calendarId && eventId) {
+    const current = await getEvent(calendarId, eventId).catch(() => null);
+    const newDescription = current
+      ? (current.description || '').replace(
+          '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
+          `✅ PAGADO — ${realAmountPaid.toFixed(2)} € (${paymentType}) recibido correctamente por Stripe.${couponNote}`
+        )
+      : undefined;
+    await updateEvent(calendarId, eventId, {
+      summary: `✅ Confirmada — Bono (1/${totalSessions}) — ${clientName || ''}`.trim(),
+      colorId: '10',
+      ...(newDescription ? { description: newDescription } : {}),
+    });
+  }
+
+  const service = services.find((s) => s.id === serviceId);
+  const employee = employees.find((e) => e.id === employeeId);
+
+  // 1) Registramos el bono en su propia pestaña, con la 1ª sesión ya usada
+  try {
+    await appendSessionBono({
+      bonoId,
+      createdAt: new Date().toISOString(),
+      clientName: clientName || '',
+      clientPhone: clientPhone || '',
+      clientEmail: clientEmail || '',
+      serviceId: serviceId || '',
+      serviceName: service ? service.name : '',
+      employeeId: employeeId || '',
+      totalSessions,
+      sessionsUsed: 1,
+      sessionsRemaining: totalSessions - 1,
+      totalPrice: bonoPrice,
+      amountPaidOnline: realAmountPaid,
+      paymentType: paymentType || '',
+      remainingAmount,
+      remainingPaidHow: '', // se rellena desde el panel interno al cobrar el resto en el centro
+      status: 'active',
+      expiryDate: addMonthsISO(BONO_VALIDITY_MONTHS),
+      paymentIntentId: session.payment_intent || '',
+      lang: lang === 'en' ? 'en' : 'es',
+    });
+  } catch (sheetErr) {
+    console.error('No se pudo guardar el bono en la Sheet:', sheetErr);
+  }
+
+  // 2) Registramos la 1ª sesión como una reserva normal, enlazada al bono
+  try {
+    await appendBooking({
+      bookingId: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      status: 'confirmed',
+      name: clientName || '',
+      phone: clientPhone || '',
+      email: clientEmail || '',
+      serviceId: serviceId || '',
+      serviceName: service ? `${service.name} (1/${totalSessions})` : '',
+      employeeId: employeeId || '',
+      employeeName: employee ? employee.name : '',
+      calendarId: calendarId || '',
+      eventId: eventId || '',
+      date: date || '',
+      time: time || '',
+      durationMinutes: durationMinutes || '',
+      price: totalPrice || '',
+      amountPaid: realAmountPaid,
+      paymentType: paymentType || '',
+      paymentIntentId: session.payment_intent || '',
+      lang: lang === 'en' ? 'en' : 'es',
+      reminderSent: '',
+      birthdate: clientBirthdate || '',
+      bonoId: bonoId || '',
+      sessionNumber: 1,
+    });
+  } catch (sheetErr) {
+    console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
+  }
+}
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
 }
 
 function buildGiftEmailHtml({ lang }) {
@@ -193,8 +301,11 @@ router.post('/webhook/stripe', async (req, res) => {
   try {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
-      if ((session.metadata || {}).type === 'gift') {
+      const sessionType = (session.metadata || {}).type;
+      if (sessionType === 'gift') {
         await handleGiftPayment(session);
+      } else if (sessionType === 'bono_session') {
+        await handleBonoSessionPayment(session);
       } else {
         await handleBookingPayment(session);
       }

@@ -19,7 +19,7 @@ const COLUMNS = [
   'serviceId', 'serviceName', 'employeeId', 'employeeName',
   'calendarId', 'eventId', 'date', 'time', 'durationMinutes',
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
-  'lang', 'reminderSent', 'birthdate',
+  'lang', 'reminderSent', 'birthdate', 'bonoId', 'sessionNumber',
 ];
 const LAST_COL = String.fromCharCode(64 + COLUMNS.length);
 
@@ -259,7 +259,96 @@ async function upsertBirthdayRecord(record, existingRow) {
   }
 }
 
+// ============================================================
+// Bonos de sesiones (paquetes de 3 sesiones), en una pestaña aparte
+// ("BonosSesiones"). La 1ª sesión se agenda al comprar el bono; el
+// resto se agendan desde el panel interno, que descuenta de
+// "sessionsRemaining" cada vez que se usa una.
+// ============================================================
+
+const SESSION_BONO_TAB_TITLE = 'BonosSesiones';
+const SESSION_BONO_COLUMNS = [
+  'bonoId', 'createdAt', 'clientName', 'clientPhone', 'clientEmail',
+  'serviceId', 'serviceName', 'employeeId', 'totalSessions', 'sessionsUsed',
+  'sessionsRemaining', 'totalPrice', 'amountPaidOnline', 'paymentType',
+  'remainingAmount', 'remainingPaidHow', 'status', 'expiryDate',
+  'paymentIntentId', 'lang',
+];
+const SESSION_BONO_LAST_COL = String.fromCharCode(64 + SESSION_BONO_COLUMNS.length);
+
+let sessionBonoTabReady = false;
+async function ensureSessionBonoTab() {
+  if (sessionBonoTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === SESSION_BONO_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: SESSION_BONO_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${SESSION_BONO_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [SESSION_BONO_COLUMNS] },
+  });
+  sessionBonoTabReady = true;
+}
+
+function sessionBonoRowToObject(row) {
+  const obj = {};
+  SESSION_BONO_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  return obj;
+}
+function sessionBonoObjectToRow(obj) {
+  return SESSION_BONO_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+
+async function appendSessionBono(bono) {
+  await ensureSessionBonoTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${SESSION_BONO_TAB_TITLE}'!A:${SESSION_BONO_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [sessionBonoObjectToRow(bono)] },
+  });
+}
+
+async function getAllSessionBonos() {
+  await ensureSessionBonoTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${SESSION_BONO_TAB_TITLE}'!A:${SESSION_BONO_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map((row, i) => ({ ...sessionBonoRowToObject(row), _sheetRow: i + 2 }));
+}
+
+async function findSessionBonoById(bonoId) {
+  const all = await getAllSessionBonos();
+  return all.find((b) => b.bonoId === bonoId) || null;
+}
+
+async function updateSessionBonoRow(sheetRow, currentBono, updates) {
+  await ensureSessionBonoTab();
+  const merged = { ...currentBono, ...updates };
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${SESSION_BONO_TAB_TITLE}'!A${sheetRow}:${SESSION_BONO_LAST_COL}${sheetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [sessionBonoObjectToRow(merged)] },
+  });
+}
+
 module.exports = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
   getAllBirthdayRecords, upsertBirthdayRecord,
+  appendSessionBono, getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
 };

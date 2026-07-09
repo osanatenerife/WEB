@@ -21,12 +21,15 @@ function getStripe() {
  * Crea una sesión de Stripe Checkout para cobrar la seña o el total.
  * amountEuros puede tener decimales (p.ej. seña del 20%).
  */
-async function createCheckoutSession({ amountEuros, description, successUrl, cancelUrl, metadata }) {
+async function createCheckoutSession({ amountEuros, description, successUrl, cancelUrl, metadata, allowKlarna }) {
   const stripeClient = getStripe();
   const amountCents = Math.round(amountEuros * 100);
   const session = await stripeClient.checkout.sessions.create({
     mode: 'payment',
-    payment_method_types: ['card'],
+    // Klarna solo se ofrece cuando se paga el 100% online (p.ej. bonos de
+    // sesiones con pago completo) — no tiene sentido financiar solo una
+    // seña, así que el resto de flujos (seña, bono regalo...) solo usan tarjeta.
+    payment_method_types: allowKlarna ? ['card', 'klarna'] : ['card'],
     // Permite que el cliente introduzca un código de cupón en la propia
     // pantalla de pago de Stripe. Los cupones se crean y activan/desactivan
     // desde el Dashboard de Stripe (Productos > Cupones y códigos promocionales),

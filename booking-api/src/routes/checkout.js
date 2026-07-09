@@ -15,10 +15,10 @@ const router = express.Router();
 function computeAmount(service, price, paymentChoice) {
   const { paymentPolicy, depositPercent } = service;
   if (paymentPolicy === 'full_required') return { amount: price, type: 'total' };
-  if (paymentPolicy === 'deposit_required') return { amount: round2((price * depositPercent) / 100), type: 'seña' };
+  if (paymentPolicy === 'deposit_required') return { amount: round2((price * depositPercent) / 100), type: 'pagar reserva' };
   // deposit_or_full: el cliente elige
   if (paymentChoice === 'full') return { amount: price, type: 'total' };
-  return { amount: round2((price * (depositPercent || 30)) / 100), type: 'seña' };
+  return { amount: round2((price * (depositPercent || 30)) / 100), type: 'pagar reserva' };
 }
 
 function round2(n) {
@@ -92,7 +92,7 @@ router.post('/checkout', async (req, res) => {
     const origin = resolveOrigin(req);
     const session = await createCheckoutSession({
       amountEuros: amount,
-      description: lang === 'en' ? `${customerServiceName} — Osana deposit/payment` : `${summaryTitle} — seña/pago Osana`,
+      description: lang === 'en' ? `${customerServiceName} — Osana booking/payment` : `${summaryTitle} — reserva/pago Osana`,
       successUrl: `${origin}${reservaPath}?estado=ok`,
       cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
       metadata: {

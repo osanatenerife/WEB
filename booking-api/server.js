@@ -18,6 +18,7 @@ const myBookingsRouter = require('./src/routes/myBookings');
 const remindersRouter = require('./src/routes/reminders');
 const giftRouter = require('./src/routes/gift');
 const birthdaysRouter = require('./src/routes/birthdays');
+const bonoCheckoutRouter = require('./src/routes/bonoCheckout');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api', myBookingsRouter);
 app.use('/api', remindersRouter);
 app.use('/api', giftRouter);
 app.use('/api', birthdaysRouter);
+app.use('/api', bonoCheckoutRouter);
 
 app.get('/', (req, res) => {
   res.json({ ok: true, service: 'osana-booking-api' });
