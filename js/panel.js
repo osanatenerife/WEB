@@ -20,6 +20,8 @@
     results: document.getElementById('panel-results'),
     saleToggle: document.getElementById('panel-sale-toggle'),
     saleSlot: document.getElementById('panel-sale-slot'),
+    reportToggle: document.getElementById('panel-report-toggle'),
+    reportSlot: document.getElementById('panel-report-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -154,6 +156,62 @@
     });
   });
 
+  // ── Informe trimestral en Excel (para el asesor cada 3 meses) ──
+  els.reportToggle.addEventListener('click', () => {
+    if (els.reportSlot.innerHTML) { els.reportSlot.innerHTML = ''; return; }
+    const now = new Date();
+    const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
+    els.reportSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Descargar informe trimestral</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Trimestre</label>
+            <select class="pr-quarter">
+              <option value="1">T1 (Ene-Mar)</option>
+              <option value="2">T2 (Abr-Jun)</option>
+              <option value="3">T3 (Jul-Sep)</option>
+              <option value="4">T4 (Oct-Dic)</option>
+            </select>
+          </div>
+          <div class="panel-field"><label>Año</label><input type="number" class="pr-year" value="${now.getFullYear()}"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-report">Descargar Excel</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const slot = els.reportSlot;
+    slot.querySelector('.pr-quarter').value = String(currentQuarter);
+    const quarterSelect = slot.querySelector('.pr-quarter');
+    const yearInput = slot.querySelector('.pr-year');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-report').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        const res = await fetch(`${BOOKING_API_BASE}/panel/report?quarter=${quarterSelect.value}&year=${yearInput.value}`, {
+          headers: { 'x-panel-key': panelKey },
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || 'No se pudo generar el informe.');
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Osana_Informe_Q${quarterSelect.value}_${yearInput.value}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+      ev.target.disabled = false;
+    });
+  });
+
   function fmtDateParts(dateStr) {
     const d = new Date(`${dateStr}T12:00:00`);
     const day = d.toLocaleDateString('es-ES', { day: '2-digit' });
@@ -167,6 +225,7 @@
     const strikeBadge = client.strikeCount > 0
       ? `<span class="panel-pill panel-pill-warn"><span class="dot"></span>${client.strikeCount} falta${client.strikeCount > 1 ? 's' : ''} registrada${client.strikeCount > 1 ? 's' : ''}</span>`
       : `<span class="panel-pill panel-pill-ok"><span class="dot"></span>Sin faltas</span>`;
+    const balance = Number(client.loyaltyBalance) || 0;
 
     wrap.innerHTML = `
       <div class="panel-client-card">
@@ -177,12 +236,22 @@
           </div>
           ${strikeBadge}
         </div>
+        <div class="panel-client-loyalty">
+          <span class="panel-pill">💶 Saldo: ${balance.toFixed(2)} €</span>
+          ${balance > 0 ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-redeem-toggle">Canjear saldo</button>' : ''}
+        </div>
+        <div class="panel-redeem-slot"></div>
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
       <div class="panel-section-label">Todas las citas</div>
       <div class="panel-appts"></div>
     `;
+
+    const redeemBtn = wrap.querySelector('.panel-redeem-toggle');
+    if (redeemBtn) {
+      redeemBtn.addEventListener('click', () => toggleRedeem(wrap, client, balance));
+    }
 
     const bonosContainer = wrap.querySelector('.panel-bonos');
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
@@ -191,6 +260,38 @@
     client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b)));
 
     els.results.appendChild(wrap);
+  }
+
+  function toggleRedeem(clientEl, client, balance) {
+    const slot = clientEl.querySelector('.panel-redeem-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Canjear saldo (máx. ${balance.toFixed(2)} €)</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Importe a canjear (€)</label><input type="number" step="0.01" class="rd-amount" max="${balance}"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-redeem">Aplicar descuento</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const amountInput = slot.querySelector('.rd-amount');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-redeem').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        const data = await panelFetch('/panel/redeem', {
+          method: 'POST',
+          body: JSON.stringify({ phone: client.phone, amount: amountInput.value }),
+        });
+        slot.innerHTML = `<p class="panel-status">Canjeado ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €</p>`;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   }
 
   function renderBono(bono, client) {

@@ -3,7 +3,8 @@ const {
   getAllBookings, findBookingById, updateBookingRow, appendBooking,
   getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
   getAllStrikeRecords, upsertStrikeRecord,
-  appendLoyaltyMovement, appendProductSale,
+  appendLoyaltyMovement, appendProductSale, getAllProductSales,
+  getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
 } = require('../lib/sheets');
 const { createBookingEvent, updateEvent } = require('../lib/googleCalendar');
 const { getAvailableSlots } = require('../lib/availability');
@@ -11,7 +12,8 @@ const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { accountingCategoryFor } = require('../config/accountingCategories');
-const { earnRateFor } = require('../config/loyalty');
+const { earnRateFor, BALANCE_VALIDITY_MONTHS } = require('../config/loyalty');
+const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const hours = require('../config/hours');
 const services = require('../config/services');
 const employees = require('../config/employees');
@@ -48,6 +50,23 @@ async function earnLoyalty({ booking, portionAmount, paidHow }) {
   });
 }
 
+// El saldo ganado caduca a los BALANCE_VALIDITY_MONTHS; lo canjeado se
+// resta siempre, sin caducidad (ya salió de la cuenta).
+function computeLoyaltyBalance(movements) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - BALANCE_VALIDITY_MONTHS);
+  let balance = 0;
+  (movements || []).forEach((m) => {
+    const amount = Number(m.amount) || 0;
+    if (m.type === 'redeem') {
+      balance -= amount;
+    } else if (new Date(m.date) >= cutoff) {
+      balance += amount;
+    }
+  });
+  return Math.max(0, round2(balance));
+}
+
 // ── Todas las rutas del panel exigen la clave interna ──
 router.use('/panel', (req, res, next) => {
   const expected = process.env.PANEL_SECRET;
@@ -74,8 +93,8 @@ router.get('/panel/search', async (req, res) => {
   if (!q) return res.status(400).json({ error: 'Escribe un teléfono, email o nombre para buscar.' });
 
   try {
-    const [allBookings, allBonos, allStrikes] = await Promise.all([
-      getAllBookings(), getAllSessionBonos(), getAllStrikeRecords(),
+    const [allBookings, allBonos, allStrikes, allLoyalty] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllStrikeRecords(), getAllLoyaltyMovements(),
     ]);
 
     const digits = q.replace(/\D/g, '');
@@ -109,11 +128,13 @@ router.get('/panel/search', async (req, res) => {
       const emailN = normalizeEmail(latest.email);
       const bonos = allBonos.filter((bo) => normalizePhone(bo.clientPhone) === phoneN);
       const strike = allStrikes.find((s) => s.phoneNormalized === phoneN);
+      const loyaltyMovements = allLoyalty.filter((m) => m.phoneNormalized === phoneN);
       return {
         name: latest.name,
         phone: latest.phone,
         email: latest.email,
         strikeCount: strike ? Number(strike.strikeCount) || 0 : 0,
+        loyaltyBalance: computeLoyaltyBalance(loyaltyMovements),
         bonos: bonos.map((bo) => ({
           bonoId: bo.bonoId,
           serviceName: bo.serviceName,
@@ -355,6 +376,50 @@ router.post('/panel/product-sale', async (req, res) => {
   }
 });
 
+// ── Canjear saldo de fidelización (aplicado como descuento en el centro) ──
+router.post('/panel/redeem', async (req, res) => {
+  const { phone, amount, bookingId } = req.body || {};
+  const redeemAmount = round2(Number(amount));
+  if (!phone || !redeemAmount || redeemAmount <= 0) {
+    return res.status(400).json({ error: 'Indica el teléfono de la clienta y el importe a canjear.' });
+  }
+  try {
+    const phoneN = normalizePhone(phone);
+    const movements = await getLoyaltyMovementsForPhone(phoneN);
+    const balance = computeLoyaltyBalance(movements);
+    if (redeemAmount > balance) {
+      return res.status(409).json({ error: `Saldo insuficiente: dispone de ${balance.toFixed(2)} €.` });
+    }
+
+    let name = '';
+    if (bookingId) {
+      const booking = await findBookingById(bookingId);
+      if (booking) name = booking.name;
+    }
+    if (!name && movements.length) name = movements[movements.length - 1].name;
+
+    await appendLoyaltyMovement({
+      date: new Date().toISOString().slice(0, 10),
+      phoneNormalized: phoneN,
+      emailNormalized: '',
+      name,
+      type: 'redeem',
+      bookingId: bookingId || '',
+      serviceName: '',
+      category: '',
+      baseAmount: '',
+      paidHow: '',
+      rateApplied: '',
+      amount: redeemAmount,
+    });
+
+    res.json({ ok: true, newBalance: round2(balance - redeemAmount) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo canjear el saldo.' });
+  }
+});
+
 function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
   const isEn = lang === 'en';
   if (isFirstTime) {
@@ -453,6 +518,30 @@ router.post('/panel/no-show', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo marcar la ausencia.' });
+  }
+});
+
+// ── Informe trimestral en Excel, con la misma estructura que la plantilla
+// de contabilidad real, listo para entregar al asesor cada 3 meses ──
+router.get('/panel/report', async (req, res) => {
+  const year = Number(req.query.year);
+  const quarter = Number(req.query.quarter);
+  if (!year || !quarter || quarter < 1 || quarter > 4) {
+    return res.status(400).json({ error: 'Indica un año y un trimestre (1-4) válidos.' });
+  }
+  try {
+    const [bookings, sessionBonos, productSales] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllProductSales(),
+    ]);
+    const workbook = await buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales });
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="Osana_Informe_Q${quarter}_${year}.xlsx"`);
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo generar el informe.' });
   }
 });
 
