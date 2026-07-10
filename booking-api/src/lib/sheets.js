@@ -1,6 +1,19 @@
 const { google } = require('googleapis');
 const { getAuth } = require('./googleCalendar');
 
+// Convierte un índice de columna 1-indexado a su letra de columna de
+// Sheets (1→A, 26→Z, 27→AA...) — String.fromCharCode(64+n) solo vale
+// hasta la Z (26), y varias de nuestras pestañas ya la superan.
+function colLetter(n) {
+  let s = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 // ============================================================
 // Registro de reservas en una Google Sheet — hace de "base de datos"
 // ligera para poder buscar/cancelar/reprogramar citas desde la web
@@ -20,8 +33,9 @@ const COLUMNS = [
   'calendarId', 'eventId', 'date', 'time', 'durationMinutes',
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
   'lang', 'reminderSent', 'birthdate', 'bonoId', 'sessionNumber', 'notes',
+  'finalAmount', 'remainderPaidHow',
 ];
-const LAST_COL = String.fromCharCode(64 + COLUMNS.length);
+const LAST_COL = colLetter(COLUMNS.length);
 
 function getSheetsClient() {
   return google.sheets({ version: 'v4', auth: getAuth() });
@@ -140,7 +154,7 @@ const GIFT_COLUMNS = [
   'recipientName', 'giftType', 'serviceId', 'serviceName', 'amount',
   'message', 'expiryDate', 'paymentIntentId', 'lang',
 ];
-const GIFT_LAST_COL = String.fromCharCode(64 + GIFT_COLUMNS.length);
+const GIFT_LAST_COL = colLetter(GIFT_COLUMNS.length);
 
 let giftTabReady = false;
 async function ensureGiftTab() {
@@ -190,7 +204,7 @@ async function appendGift(gift) {
 
 const BIRTHDAY_TAB_TITLE = 'Cumpleanos';
 const BIRTHDAY_COLUMNS = ['emailNormalized', 'phoneNormalized', 'name', 'birthdate', 'lastSentYear'];
-const BIRTHDAY_LAST_COL = String.fromCharCode(64 + BIRTHDAY_COLUMNS.length);
+const BIRTHDAY_LAST_COL = colLetter(BIRTHDAY_COLUMNS.length);
 
 let birthdayTabReady = false;
 async function ensureBirthdayTab() {
@@ -274,7 +288,7 @@ const SESSION_BONO_COLUMNS = [
   'remainingAmount', 'remainingPaidHow', 'status', 'expiryDate',
   'paymentIntentId', 'lang',
 ];
-const SESSION_BONO_LAST_COL = String.fromCharCode(64 + SESSION_BONO_COLUMNS.length);
+const SESSION_BONO_LAST_COL = colLetter(SESSION_BONO_COLUMNS.length);
 
 let sessionBonoTabReady = false;
 async function ensureSessionBonoTab() {
@@ -356,7 +370,7 @@ async function updateSessionBonoRow(sheetRow, currentBono, updates) {
 
 const STRIKES_TAB_TITLE = 'Faltas';
 const STRIKES_COLUMNS = ['phoneNormalized', 'emailNormalized', 'name', 'strikeCount', 'lastStrikeDate'];
-const STRIKES_LAST_COL = String.fromCharCode(64 + STRIKES_COLUMNS.length);
+const STRIKES_LAST_COL = colLetter(STRIKES_COLUMNS.length);
 
 let strikesTabReady = false;
 async function ensureStrikesTab() {
@@ -421,9 +435,156 @@ async function upsertStrikeRecord(record, existingRow) {
   }
 }
 
+// ============================================================
+// Saldo de fidelización, en una pestaña aparte ("Saldo") — es un
+// libro mayor (ledger): cada fila es un movimiento (earn/redeem), y
+// el saldo de una clienta es la suma de sus filas. Así queda
+// trazable de dónde sale cada euro acumulado (fecha, tratamiento,
+// categoría contable, forma de pago, tasa aplicada).
+// ============================================================
+
+const LOYALTY_TAB_TITLE = 'Saldo';
+const LOYALTY_COLUMNS = [
+  'date', 'phoneNormalized', 'emailNormalized', 'name', 'type',
+  'bookingId', 'serviceName', 'category', 'baseAmount', 'paidHow',
+  'rateApplied', 'amount',
+];
+const LOYALTY_LAST_COL = colLetter(LOYALTY_COLUMNS.length);
+
+let loyaltyTabReady = false;
+async function ensureLoyaltyTab() {
+  if (loyaltyTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === LOYALTY_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: LOYALTY_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${LOYALTY_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [LOYALTY_COLUMNS] },
+  });
+  loyaltyTabReady = true;
+}
+
+function loyaltyObjectToRow(obj) {
+  return LOYALTY_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+function loyaltyRowToObject(row) {
+  const obj = {};
+  LOYALTY_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  return obj;
+}
+
+async function appendLoyaltyMovement(movement) {
+  await ensureLoyaltyTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${LOYALTY_TAB_TITLE}'!A:${LOYALTY_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [loyaltyObjectToRow(movement)] },
+  });
+}
+
+async function getLoyaltyMovementsForPhone(phoneNormalized) {
+  await ensureLoyaltyTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${LOYALTY_TAB_TITLE}'!A:${LOYALTY_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(loyaltyRowToObject).filter((m) => m.phoneNormalized === phoneNormalized);
+}
+
+async function getAllLoyaltyMovements() {
+  await ensureLoyaltyTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${LOYALTY_TAB_TITLE}'!A:${LOYALTY_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(loyaltyRowToObject);
+}
+
+// ============================================================
+// Ventas de producto sueltas (no ligadas a ninguna cita) — para que
+// el informe trimestral también recoja la columna "Venta" del Excel.
+// ============================================================
+
+const PRODUCT_SALE_TAB_TITLE = 'VentasProducto';
+const PRODUCT_SALE_COLUMNS = ['saleId', 'createdAt', 'date', 'product', 'amount', 'paidHow', 'notes'];
+const PRODUCT_SALE_LAST_COL = colLetter(PRODUCT_SALE_COLUMNS.length);
+
+let productSaleTabReady = false;
+async function ensureProductSaleTab() {
+  if (productSaleTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === PRODUCT_SALE_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: PRODUCT_SALE_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${PRODUCT_SALE_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [PRODUCT_SALE_COLUMNS] },
+  });
+  productSaleTabReady = true;
+}
+
+function productSaleObjectToRow(obj) {
+  return PRODUCT_SALE_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+function productSaleRowToObject(row) {
+  const obj = {};
+  PRODUCT_SALE_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  return obj;
+}
+
+async function appendProductSale(sale) {
+  await ensureProductSaleTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${PRODUCT_SALE_TAB_TITLE}'!A:${PRODUCT_SALE_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [productSaleObjectToRow(sale)] },
+  });
+}
+
+async function getAllProductSales() {
+  await ensureProductSaleTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${PRODUCT_SALE_TAB_TITLE}'!A:${PRODUCT_SALE_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(productSaleRowToObject);
+}
+
 module.exports = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
   getAllBirthdayRecords, upsertBirthdayRecord,
   appendSessionBono, getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
   getAllStrikeRecords, upsertStrikeRecord,
+  appendLoyaltyMovement, getLoyaltyMovementsForPhone, getAllLoyaltyMovements,
+  appendProductSale, getAllProductSales,
 };

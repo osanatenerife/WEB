@@ -18,6 +18,8 @@
     searchError: document.getElementById('panel-search-error'),
     searchStatus: document.getElementById('panel-search-status'),
     results: document.getElementById('panel-results'),
+    saleToggle: document.getElementById('panel-sale-toggle'),
+    saleSlot: document.getElementById('panel-sale-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -95,6 +97,62 @@
   }
   els.searchBtn.addEventListener('click', doSearch);
   els.searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
+
+  // ── Venta de producto suelta (no ligada a ninguna cita) ──
+  els.saleToggle.addEventListener('click', () => {
+    if (els.saleSlot.innerHTML) { els.saleSlot.innerHTML = ''; return; }
+    const today = new Date().toISOString().slice(0, 10);
+    els.saleSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Registrar venta de producto</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Fecha</label><input type="date" class="ps-date" value="${today}"></div>
+          <div class="panel-field"><label>Producto</label><input type="text" class="ps-product" placeholder="Ej. Crema hidratante"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="ps-amount"></div>
+          <div class="panel-field"><label>Pagado con</label>
+            <select class="ps-paidhow">
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="bizum">Bizum</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-sale">Guardar venta</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const slot = els.saleSlot;
+    const dateInput = slot.querySelector('.ps-date');
+    const productInput = slot.querySelector('.ps-product');
+    const amountInput = slot.querySelector('.ps-amount');
+    const paidHowSelect = slot.querySelector('.ps-paidhow');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-sale').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      if (!productInput.value.trim() || !amountInput.value) {
+        errorEl.textContent = 'Indica el producto y el importe.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/product-sale', {
+          method: 'POST',
+          body: JSON.stringify({
+            date: dateInput.value, product: productInput.value.trim(),
+            amount: amountInput.value, paidHow: paidHowSelect.value,
+          }),
+        });
+        slot.innerHTML = '<p class="panel-status">Venta registrada ✓</p>';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+  });
 
   function fmtDateParts(dateStr) {
     const d = new Date(`${dateStr}T12:00:00`);
@@ -305,16 +363,20 @@
   function toggleClose(apptEl, b) {
     const slot = apptEl.querySelector('.panel-close-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    const closedNote = b.finalAmount !== null && b.finalAmount !== undefined
+      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow})` : ''}</p>`
+      : '';
     slot.innerHTML = `
       <div class="panel-new-appt">
+        ${closedNote}
         <div class="panel-label">Cerrar cita — importe total real</div>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.price || b.amountPaid || ''}"></div>
+          <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.finalAmount || b.price || b.amountPaid || ''}"></div>
           <div class="panel-field"><label>Resto pagado en centro con</label>
             <select class="pf-paidhow">
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
-              <option value="ya pagado online">Ya pagado online (sin resto)</option>
+              <option value="bizum">Bizum</option>
             </select>
           </div>
         </div>

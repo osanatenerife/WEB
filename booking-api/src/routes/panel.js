@@ -3,18 +3,50 @@ const {
   getAllBookings, findBookingById, updateBookingRow, appendBooking,
   getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
   getAllStrikeRecords, upsertStrikeRecord,
+  appendLoyaltyMovement, appendProductSale,
 } = require('../lib/sheets');
 const { createBookingEvent, updateEvent } = require('../lib/googleCalendar');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
+const { accountingCategoryFor } = require('../config/accountingCategories');
+const { earnRateFor } = require('../config/loyalty');
 const hours = require('../config/hours');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const crypto = require('crypto');
 
 const router = express.Router();
+
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+
+// Registra en el libro de saldo lo ganado por una parte del importe (la
+// pagada online siempre es tarjeta; la del centro depende de paidHow).
+async function earnLoyalty({ booking, portionAmount, paidHow }) {
+  if (!portionAmount || portionAmount <= 0) return;
+  const firstServiceId = String(booking.serviceId || '').split(',')[0].trim();
+  const category = accountingCategoryFor(firstServiceId);
+  const rate = earnRateFor(category, paidHow);
+  const amount = round2(portionAmount * rate);
+  if (amount <= 0) return;
+  await appendLoyaltyMovement({
+    date: new Date().toISOString().slice(0, 10),
+    phoneNormalized: normalizePhone(booking.phone),
+    emailNormalized: normalizeEmail(booking.email),
+    name: booking.name,
+    type: 'earn',
+    bookingId: booking.bookingId,
+    serviceName: booking.serviceName,
+    category,
+    baseAmount: portionAmount,
+    paidHow,
+    rateApplied: rate,
+    amount,
+  });
+}
 
 // ── Todas las rutas del panel exigen la clave interna ──
 router.use('/panel', (req, res, next) => {
@@ -104,6 +136,8 @@ router.get('/panel/search', async (req, res) => {
             durationMinutes: Number(b.durationMinutes) || 0,
             price: Number(b.price) || 0,
             amountPaid: Number(b.amountPaid) || 0,
+            finalAmount: b.finalAmount !== undefined && b.finalAmount !== '' ? Number(b.finalAmount) : null,
+            remainderPaidHow: b.remainderPaidHow || '',
             paymentType: b.paymentType,
             status: b.status,
             bonoId: b.bonoId || '',
@@ -259,7 +293,9 @@ router.post('/panel/reschedule', async (req, res) => {
   }
 });
 
-// ── Cerrar cita: registrar importe total real y cómo se pagó el resto ──
+// ── Cerrar cita: registrar importe total real y cómo se pagó el resto,
+// sin tocar amountPaid (el pago online por Stripe queda como registro
+// histórico intacto) — y acumular saldo de fidelización.
 router.post('/panel/close', async (req, res) => {
   const { bookingId, finalAmount, paidHow } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
@@ -267,19 +303,55 @@ router.post('/panel/close', async (req, res) => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
 
+    // Ya cerrada antes: no volver a acumular saldo por duplicado.
+    const alreadyClosed = booking.finalAmount !== undefined && booking.finalAmount !== '';
+
+    const onlinePaid = Number(booking.amountPaid) || 0;
+    const total = finalAmount !== undefined && finalAmount !== '' ? Number(finalAmount) : onlinePaid;
+    const remainder = Math.max(0, round2(total - onlinePaid));
+
     if (booking.bonoId) {
       const bono = await findSessionBonoById(booking.bonoId);
       if (bono) {
         await updateSessionBonoRow(bono._sheetRow, bono, { remainingPaidHow: paidHow || '' });
       }
     }
+
     await updateBookingRow(booking._sheetRow, booking, {
-      amountPaid: finalAmount !== undefined ? finalAmount : booking.amountPaid,
+      finalAmount: total,
+      remainderPaidHow: paidHow || '',
     });
+
+    if (!alreadyClosed) {
+      await earnLoyalty({ booking, portionAmount: onlinePaid, paidHow: 'tarjeta' });
+      await earnLoyalty({ booking, portionAmount: remainder, paidHow: paidHow || '' });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo cerrar la cita.' });
+  }
+});
+
+// ── Registrar venta de producto suelta (no ligada a ninguna cita) ──
+router.post('/panel/product-sale', async (req, res) => {
+  const { date, product, amount, paidHow, notes } = req.body || {};
+  if (!date || !product || !amount) return res.status(400).json({ error: 'Faltan datos de la venta.' });
+  try {
+    await appendProductSale({
+      saleId: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      date,
+      product,
+      amount: Number(amount),
+      paidHow: paidHow || '',
+      notes: notes || '',
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo registrar la venta.' });
   }
 });
 
