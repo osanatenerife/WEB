@@ -19,7 +19,7 @@ const COLUMNS = [
   'serviceId', 'serviceName', 'employeeId', 'employeeName',
   'calendarId', 'eventId', 'date', 'time', 'durationMinutes',
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
-  'lang', 'reminderSent', 'birthdate', 'bonoId', 'sessionNumber',
+  'lang', 'reminderSent', 'birthdate', 'bonoId', 'sessionNumber', 'notes',
 ];
 const LAST_COL = String.fromCharCode(64 + COLUMNS.length);
 
@@ -347,8 +347,83 @@ async function updateSessionBonoRow(sheetRow, currentBono, updates) {
   });
 }
 
+// ============================================================
+// Faltas (ausencias sin preaviso / cancelaciones tardías), en una
+// pestaña aparte ("Faltas") — una fila por clienta, cuenta GLOBAL
+// (no por bono): la 1ª falta se perdona, a partir de la 2ª se
+// descuenta sesión del bono correspondiente.
+// ============================================================
+
+const STRIKES_TAB_TITLE = 'Faltas';
+const STRIKES_COLUMNS = ['phoneNormalized', 'emailNormalized', 'name', 'strikeCount', 'lastStrikeDate'];
+const STRIKES_LAST_COL = String.fromCharCode(64 + STRIKES_COLUMNS.length);
+
+let strikesTabReady = false;
+async function ensureStrikesTab() {
+  if (strikesTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === STRIKES_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: STRIKES_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${STRIKES_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [STRIKES_COLUMNS] },
+  });
+  strikesTabReady = true;
+}
+
+function strikesRowToObject(row) {
+  const obj = {};
+  STRIKES_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  return obj;
+}
+function strikesObjectToRow(obj) {
+  return STRIKES_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+
+async function getAllStrikeRecords() {
+  await ensureStrikesTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${STRIKES_TAB_TITLE}'!A:${STRIKES_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map((row, i) => ({ ...strikesRowToObject(row), _sheetRow: i + 2 }));
+}
+
+async function upsertStrikeRecord(record, existingRow) {
+  await ensureStrikesTab();
+  const sheets = getSheetsClient();
+  if (existingRow) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId(),
+      range: `'${STRIKES_TAB_TITLE}'!A${existingRow._sheetRow}:${STRIKES_LAST_COL}${existingRow._sheetRow}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [strikesObjectToRow({ ...existingRow, ...record })] },
+    });
+  } else {
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: sheetId(),
+      range: `'${STRIKES_TAB_TITLE}'!A:${STRIKES_LAST_COL}`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [strikesObjectToRow(record)] },
+    });
+  }
+}
+
 module.exports = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
   getAllBirthdayRecords, upsertBirthdayRecord,
   appendSessionBono, getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
+  getAllStrikeRecords, upsertStrikeRecord,
 };

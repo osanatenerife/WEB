@@ -6,6 +6,7 @@ const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const hours = require('../config/hours');
 const employees = require('../config/employees');
+const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 
 function weeklyScheduleFor(booking) {
   const employee = employees.find((e) => e.id === booking.employeeId);
@@ -15,14 +16,6 @@ function weeklyScheduleFor(booking) {
 const router = express.Router();
 
 const FREE_CANCEL_HOURS = 48;
-
-function normalizePhone(raw) {
-  const digits = String(raw || '').replace(/\D/g, '');
-  return digits.slice(-9); // compara los últimos 9 dígitos (móvil español), ignora prefijo de país
-}
-function normalizeEmail(raw) {
-  return String(raw || '').trim().toLowerCase();
-}
 
 function appointmentDateTime(booking) {
   const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;

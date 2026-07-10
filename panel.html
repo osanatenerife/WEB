@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Panel interno — Osana</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/panel.css">
+</head>
+<body>
+
+<div id="panel-login" class="panel-login">
+  <div class="panel-login-box">
+    <div class="panel-login-title">Osana · Panel interno</div>
+    <p class="panel-login-sub">Acceso solo para el equipo</p>
+    <input type="password" id="panel-key-input" placeholder="Clave de acceso" autocomplete="off">
+    <button type="button" id="panel-key-submit" class="panel-btn panel-btn-primary">Entrar</button>
+    <p id="panel-key-error" class="panel-login-error" style="display:none;"></p>
+  </div>
+</div>
+
+<div id="panel-app" class="panel-app" style="display:none;">
+  <div class="panel-topbar">
+    <div class="panel-brand">Osana · Panel interno <span class="panel-lock">🔒 solo equipo</span></div>
+    <button type="button" id="panel-logout" class="panel-link-btn">Cerrar sesión</button>
+  </div>
+
+  <div class="panel-search-row">
+    <input type="text" id="panel-search-input" class="panel-search-input" placeholder="Buscar por teléfono, email o nombre…">
+    <button type="button" id="panel-search-btn" class="panel-btn panel-btn-primary">Buscar</button>
+  </div>
+  <p id="panel-search-error" class="panel-error" style="display:none;"></p>
+  <p id="panel-search-status" class="panel-status" style="display:none;"></p>
+
+  <div id="panel-results"></div>
+</div>
+
+<script src="js/booking-config.js"></script>
+<script src="js/panel.js"></script>
+</body>
+</html>
