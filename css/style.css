@@ -420,7 +420,7 @@ nav#main-nav {
   transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
 }
 .svc-faq-item:hover { border-color: var(--gold); }
-.svc-faq-item[open] { border-color: var(--brown); background: #fff; box-shadow: 0 6px 20px rgba(20,16,12,0.07); }
+.svc-faq-item[open] { border-color: var(--brown); background: var(--cream2); box-shadow: 0 6px 20px rgba(20,16,12,0.07); }
 .svc-faq-item summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--txt); list-style: none; display: flex; align-items: center; gap: 14px; }
 .svc-faq-item summary::-webkit-details-marker { display: none; }
 .svc-faq-item summary::after {
