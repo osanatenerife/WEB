@@ -413,14 +413,23 @@ nav#main-nav {
 
 .svc-faq-title { font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brown); margin: 26px auto 12px; max-width: 720px; }
 .svc-two-col .svc-faq-title { margin-top: 0; max-width: none; }
-.svc-faq { margin-top: 26px; max-width: 720px; margin-left: auto; margin-right: auto; display: flex; flex-direction: column; gap: 2px; }
+.svc-faq { margin-top: 26px; max-width: 720px; margin-left: auto; margin-right: auto; display: flex; flex-direction: column; gap: 10px; }
 .svc-two-col .svc-faq { margin-top: 0; max-width: none; }
-.svc-faq-item { border-top: 1px solid var(--line); padding: 16px 0; }
-.svc-faq-item summary { cursor: pointer; font-size: 13px; font-weight: 500; color: var(--txt); list-style: none; display: flex; align-items: center; gap: 10px; }
+.svc-faq-item {
+  border: 1px solid var(--line); background: var(--cream); padding: 17px 20px;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+}
+.svc-faq-item:hover { border-color: var(--gold); }
+.svc-faq-item[open] { border-color: var(--brown); background: #fff; box-shadow: 0 6px 20px rgba(20,16,12,0.07); }
+.svc-faq-item summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--txt); list-style: none; display: flex; align-items: center; gap: 14px; }
 .svc-faq-item summary::-webkit-details-marker { display: none; }
-.svc-faq-item summary::after { content: '+'; font-size: 16px; margin-left: auto; line-height: 1; color: var(--brown); }
-.svc-faq-item[open] summary::after { content: '−'; }
-.svc-faq-answer { font-size: 12.5px; font-weight: 300; color: var(--txt-mid); line-height: 1.8; padding-top: 12px; }
+.svc-faq-item summary::after {
+  content: '+'; flex: none; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--brown);
+  display: flex; align-items: center; justify-content: center; margin-left: auto; line-height: 1; font-size: 13px;
+  color: var(--brown); transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s ease;
+}
+.svc-faq-item[open] summary::after { content: '−'; background: var(--brown); color: var(--cream); transform: rotate(180deg); }
+.svc-faq-answer { font-size: 12.5px; font-weight: 300; color: var(--txt-mid); line-height: 1.8; padding: 14px 0 2px 36px; }
 
 .svc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; align-items: start; max-width: 1100px; margin: 0 auto; }
 .svc-two-col .ptable { max-width: none; margin: 0; }
