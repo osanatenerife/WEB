@@ -26,7 +26,7 @@
     restAtCenterParen: { es: '(resto en el centro)', en: '(remaining amount paid at the center)' },
     payFullNow: { es: 'Pagar el total ahora —', en: 'Pay in full now —' },
     cancelPolicyNote: { es: 'Si cancelas con menos de 48h de antelación, el importe pagado no será reembolsado.', en: "If you cancel less than 48h in advance, the amount paid will not be refunded." },
-    fillNamePhone: { es: 'Rellena tu nombre y teléfono para continuar.', en: 'Fill in your name and phone number to continue.' },
+    fillNamePhone: { es: 'Rellena tu nombre, teléfono y email para continuar.', en: 'Fill in your name, phone number and email to continue.' },
     missingBookingData: { es: 'Faltan datos de la reserva, vuelve a empezar.', en: 'Booking data is missing, please start again.' },
     connectingPayment: { es: 'Conectando con el pago seguro…', en: 'Connecting to secure payment…' },
     goToPayment: { es: 'Ir al pago seguro', en: 'Go to secure payment' },
@@ -637,7 +637,7 @@
     const email = document.getElementById('booking-email').value.trim();
     const birthdate = document.getElementById('booking-birthdate').value.trim();
 
-    if (!name || !phone) {
+    if (!name || !phone || !email) {
       showError(t('fillNamePhone'));
       return;
     }

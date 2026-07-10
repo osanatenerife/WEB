@@ -36,10 +36,6 @@ function appointmentDateTime(b) {
   return new Date(localToISO(b.date, time, hours.timezone));
 }
 
-function sameClient(a, phoneN, emailN) {
-  return normalizePhone(a.phone) === phoneN || (emailN && normalizeEmail(a.email) === emailN);
-}
-
 // ── Buscar clienta por teléfono, email o nombre ──
 router.get('/panel/search', async (req, res) => {
   const q = String(req.query.q || '').trim();
@@ -66,19 +62,21 @@ router.get('/panel/search', async (req, res) => {
       matches = allBookings.filter((b) => (b.name || '').toLowerCase().includes(qLower));
     }
 
-    // Agrupamos por clienta (teléfono+email) — normalmente será una sola persona
+    // Agrupamos solo por teléfono (siempre obligatorio en la reserva) — el email
+    // es opcional, así que agrupar también por email fragmentaría el historial
+    // de una misma clienta si una vez lo puso y otra vez no.
     const clientsMap = new Map();
     matches.forEach((b) => {
-      const key = `${normalizePhone(b.phone)}|${normalizeEmail(b.email)}`;
+      const key = normalizePhone(b.phone);
       if (!clientsMap.has(key)) clientsMap.set(key, []);
       clientsMap.get(key).push(b);
     });
 
-    const clients = Array.from(clientsMap.entries()).map(([key, bookings]) => {
-      const [phoneN, emailN] = key.split('|');
+    const clients = Array.from(clientsMap.entries()).map(([phoneN, bookings]) => {
       const latest = bookings.slice().sort((a, b) => appointmentDateTime(b) - appointmentDateTime(a))[0];
-      const bonos = allBonos.filter((bo) => sameClient({ phone: bo.clientPhone, email: bo.clientEmail }, phoneN, emailN));
-      const strike = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
+      const emailN = normalizeEmail(latest.email);
+      const bonos = allBonos.filter((bo) => normalizePhone(bo.clientPhone) === phoneN);
+      const strike = allStrikes.find((s) => s.phoneNormalized === phoneN);
       return {
         name: latest.name,
         phone: latest.phone,

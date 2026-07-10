@@ -252,8 +252,10 @@
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-note-toggle">✎ Nota</button>
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
+        ${b.status === 'confirmed' && b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-close-toggle">💶 Cerrar cita</button>' : ''}
       </div>
       <div class="panel-reschedule-slot"></div>
+      <div class="panel-close-slot"></div>
     `;
 
     const noteEdit = el.querySelector('.panel-appt-note-edit');
@@ -292,7 +294,52 @@
       });
     }
 
+    const closeBtn = el.querySelector('.panel-close-toggle');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => toggleClose(el, b));
+    }
+
     return el;
+  }
+
+  function toggleClose(apptEl, b) {
+    const slot = apptEl.querySelector('.panel-close-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Cerrar cita — importe total real</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.price || b.amountPaid || ''}"></div>
+          <div class="panel-field"><label>Resto pagado en centro con</label>
+            <select class="pf-paidhow">
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="ya pagado online">Ya pagado online (sin resto)</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-close">Guardar</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const amountInput = slot.querySelector('.pf-amount');
+    const paidHowSelect = slot.querySelector('.pf-paidhow');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-close').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/close', {
+          method: 'POST',
+          body: JSON.stringify({ bookingId: b.bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value }),
+        });
+        slot.innerHTML = '<p class="panel-status">Guardado ✓</p>';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   }
 
   async function toggleReschedule(apptEl, b) {
