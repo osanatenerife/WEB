@@ -120,6 +120,8 @@
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="bizum">Bizum</option>
+              <option value="bonos archipiélago">Bonos Archipiélago</option>
+              <option value="bono adeje">Bono Adeje</option>
             </select>
           </div>
         </div>
@@ -558,6 +560,8 @@
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="bizum">Bizum</option>
+              <option value="bonos archipiélago">Bonos Archipiélago</option>
+              <option value="bono adeje">Bono Adeje</option>
             </select>
           </div>
         </div>
@@ -569,6 +573,8 @@
               <option value="efectivo">Efectivo</option>
               <option value="tarjeta">Tarjeta</option>
               <option value="bizum">Bizum</option>
+              <option value="bonos archipiélago">Bonos Archipiélago</option>
+              <option value="bono adeje">Bono Adeje</option>
             </select>
           </div>
         </div>
