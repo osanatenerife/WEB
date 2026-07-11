@@ -22,6 +22,8 @@
     saleSlot: document.getElementById('panel-sale-slot'),
     reportToggle: document.getElementById('panel-report-toggle'),
     reportSlot: document.getElementById('panel-report-slot'),
+    quoteToggle: document.getElementById('panel-quote-toggle'),
+    quoteSlot: document.getElementById('panel-quote-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -204,6 +206,84 @@
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+      ev.target.disabled = false;
+    });
+  });
+
+  // ── Presupuesto personalizado: genera un link de pago (con Klarna) para
+  // un importe fuera de catálogo, para mandárselo a la clienta ──
+  els.quoteToggle.addEventListener('click', () => {
+    if (els.quoteSlot.innerHTML) { els.quoteSlot.innerHTML = ''; return; }
+    els.quoteSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Generar link de pago personalizado</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Nombre de la clienta</label><input type="text" class="pq-name"></div>
+          <div class="panel-field"><label>Teléfono</label><input type="text" class="pq-phone"></div>
+          <div class="panel-field"><label>Email (para el link y el recibo)</label><input type="email" class="pq-email"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Descripción del presupuesto</label><input type="text" class="pq-desc" placeholder="Ej. Pack personalizado 5 sesiones"></div>
+          <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="pq-amount"></div>
+          <div class="panel-field"><label>Categoría contable</label>
+            <select class="pq-category">
+              <option value="laser">Láser</option>
+              <option value="corporal">Corporal</option>
+              <option value="facial">Facial</option>
+              <option value="cejas">Cejas / Depilación</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-quote">Generar link de pago</button>
+        <p class="panel-error" style="display:none;"></p>
+        <div class="pq-result" style="display:none;"></div>
+      </div>
+    `;
+    const slot = els.quoteSlot;
+    const nameInput = slot.querySelector('.pq-name');
+    const phoneInput = slot.querySelector('.pq-phone');
+    const emailInput = slot.querySelector('.pq-email');
+    const descInput = slot.querySelector('.pq-desc');
+    const amountInput = slot.querySelector('.pq-amount');
+    const categorySelect = slot.querySelector('.pq-category');
+    const errorEl = slot.querySelector('.panel-error');
+    const resultEl = slot.querySelector('.pq-result');
+    slot.querySelector('.panel-confirm-quote').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      resultEl.style.display = 'none';
+      if (!nameInput.value.trim() || !descInput.value.trim() || !amountInput.value) {
+        errorEl.textContent = 'Indica al menos el nombre, la descripción y el importe.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        const data = await panelFetch('/panel/custom-quote', {
+          method: 'POST',
+          body: JSON.stringify({
+            clientName: nameInput.value.trim(), clientPhone: phoneInput.value.trim(),
+            clientEmail: emailInput.value.trim(), description: descInput.value.trim(),
+            amount: amountInput.value, category: categorySelect.value,
+          }),
+        });
+        const waText = encodeURIComponent(`Hola ${nameInput.value.trim()}, aquí tienes el link para pagar tu presupuesto (${descInput.value.trim()}, ${Number(amountInput.value).toFixed(2)} €): ${data.url}`);
+        resultEl.innerHTML = `
+          <p class="panel-status">Link generado ✓</p>
+          <input type="text" class="pq-link-out" readonly value="${data.url}" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:12.5px;margin-bottom:10px;">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pq-copy">Copiar link</button>
+            <a class="panel-btn panel-btn-ghost panel-btn-sm" href="https://wa.me/?text=${waText}" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+          </div>
+        `;
+        resultEl.style.display = 'block';
+        resultEl.querySelector('.pq-copy').addEventListener('click', () => {
+          resultEl.querySelector('.pq-link-out').select();
+          navigator.clipboard.writeText(data.url);
+        });
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

@@ -2,7 +2,9 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift, appendSessionBono } = require('../lib/sheets');
+const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement } = require('../lib/sheets');
+const { earnRateFor } = require('../config/loyalty');
+const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
 const services = require('../config/services');
@@ -203,6 +205,66 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
+async function handleCustomQuotePayment(session) {
+  const { quoteId, clientName, clientPhone, clientEmail, description, category, amount, lang } = session.metadata || {};
+  const realAmountPaid = typeof session.amount_total === 'number'
+    ? Math.round(session.amount_total) / 100
+    : Number(amount) || 0;
+
+  try {
+    const quotes = await getAllCustomQuotes();
+    const quote = quotes.find((q) => q.quoteId === quoteId);
+    if (quote) {
+      await updateQuoteRow(quote._sheetRow, {
+        status: 'paid',
+        paidDate: new Date().toISOString().slice(0, 10),
+        paymentIntentId: session.payment_intent || '',
+      });
+    }
+  } catch (sheetErr) {
+    console.error('No se pudo marcar el presupuesto como pagado:', sheetErr);
+  }
+
+  // Siempre se considera pagado online (tarjeta o Klarna, ambos liquidan igual)
+  try {
+    const rate = earnRateFor(category, 'tarjeta');
+    const earned = round2(realAmountPaid * rate);
+    if (earned > 0) {
+      await appendLoyaltyMovement({
+        date: new Date().toISOString().slice(0, 10),
+        phoneNormalized: normalizePhone(clientPhone),
+        emailNormalized: normalizeEmail(clientEmail),
+        name: clientName || '',
+        type: 'earn',
+        bookingId: quoteId || '',
+        serviceName: description || '',
+        category,
+        baseAmount: realAmountPaid,
+        paidHow: 'tarjeta',
+        rateApplied: rate,
+        amount: earned,
+      });
+    }
+  } catch (loyaltyErr) {
+    console.error('No se pudo acumular saldo del presupuesto:', loyaltyErr);
+  }
+
+  if (clientEmail) {
+    try {
+      const isEn = lang === 'en';
+      await sendEmail({
+        to: clientEmail,
+        subject: isEn ? 'Payment confirmation — Osana' : 'Confirmación de pago — Osana',
+        html: isEn
+          ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Payment received</h2><p><b>${escapeHtml(description)}</b></p><p>Amount paid: ${realAmountPaid.toFixed(2)} €</p><p>Thank you!<br>Osana</p></div>`
+          : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Pago recibido</h2><p><b>${escapeHtml(description)}</b></p><p>Importe pagado: ${realAmountPaid.toFixed(2)} €</p><p>¡Gracias!<br>Osana</p></div>`,
+      });
+    } catch (emailErr) {
+      console.error('No se pudo enviar la confirmación del presupuesto:', emailErr);
+    }
+  }
+}
+
 function buildGiftEmailHtml({ lang }) {
   const strings = lang === 'en'
     ? {
@@ -306,6 +368,8 @@ router.post('/webhook/stripe', async (req, res) => {
         await handleGiftPayment(session);
       } else if (sessionType === 'bono_session') {
         await handleBonoSessionPayment(session);
+      } else if (sessionType === 'custom_quote') {
+        await handleCustomQuotePayment(session);
       } else {
         await handleBookingPayment(session);
       }

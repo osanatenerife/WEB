@@ -584,6 +584,88 @@ async function getAllProductSales() {
   return rows.slice(1).map(productSaleRowToObject);
 }
 
+// ============================================================
+// Presupuestos personalizados — cuando en el centro se acuerda un
+// importe especial con la clienta (fuera del catálogo) y se le manda
+// un link de pago para que lo pague online (con opción de Klarna).
+// ============================================================
+
+const QUOTE_TAB_TITLE = 'Presupuestos';
+const QUOTE_COLUMNS = [
+  'quoteId', 'createdAt', 'clientName', 'clientPhone', 'clientEmail',
+  'description', 'category', 'amount', 'status', 'paidDate', 'paymentIntentId', 'lang',
+];
+const QUOTE_LAST_COL = colLetter(QUOTE_COLUMNS.length);
+
+let quoteTabReady = false;
+async function ensureQuoteTab() {
+  if (quoteTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === QUOTE_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: QUOTE_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${QUOTE_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [QUOTE_COLUMNS] },
+  });
+  quoteTabReady = true;
+}
+
+function quoteObjectToRow(obj) {
+  return QUOTE_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+function quoteRowToObject(row, index) {
+  const obj = {};
+  QUOTE_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  obj._sheetRow = index + 2;
+  return obj;
+}
+
+async function appendCustomQuote(quote) {
+  await ensureQuoteTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${QUOTE_TAB_TITLE}'!A:${QUOTE_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [quoteObjectToRow(quote)] },
+  });
+}
+
+async function getAllCustomQuotes() {
+  await ensureQuoteTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${QUOTE_TAB_TITLE}'!A:${QUOTE_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(quoteRowToObject);
+}
+
+async function updateQuoteRow(sheetRow, updates) {
+  await ensureQuoteTab();
+  const sheets = getSheetsClient();
+  const current = await getAllCustomQuotes();
+  const existing = current.find((q) => q._sheetRow === sheetRow) || {};
+  const merged = { ...existing, ...updates };
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${QUOTE_TAB_TITLE}'!A${sheetRow}:${QUOTE_LAST_COL}${sheetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [quoteObjectToRow(merged)] },
+  });
+}
+
 module.exports = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
   getAllBirthdayRecords, upsertBirthdayRecord,
@@ -591,4 +673,5 @@ module.exports = {
   getAllStrikeRecords, upsertStrikeRecord,
   appendLoyaltyMovement, getLoyaltyMovementsForPhone, getAllLoyaltyMovements,
   appendProductSale, getAllProductSales,
+  appendCustomQuote, getAllCustomQuotes, updateQuoteRow,
 };

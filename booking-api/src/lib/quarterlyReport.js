@@ -40,7 +40,7 @@ function normalizePaidHow(paidHow) {
 }
 
 // Construye, por mes, un mapa día → { laser, corporal, facial, cejas, venta, efectivo, tarjeta, bizum }
-function buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, productSales }) {
+function buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, productSales, customQuotes }) {
   const months = monthsForQuarter(quarter);
   const byMonth = {};
   months.forEach((m) => { byMonth[m] = {}; });
@@ -107,6 +107,15 @@ function buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, product
     addRevenue(s.date, 'venta', amount, s.paidHow);
   });
 
+  // 4) Presupuestos personalizados pagados (siempre online, tarjeta o Klarna → tarjeta)
+  (customQuotes || []).forEach((q) => {
+    if (q.status !== 'paid') return;
+    const amount = Number(q.amount) || 0;
+    const dateStr = q.paidDate || String(q.createdAt || '').slice(0, 10);
+    if (amount <= 0 || !dateStr) return;
+    addRevenue(dateStr, q.category, amount, 'tarjeta');
+  });
+
   return byMonth;
 }
 
@@ -168,12 +177,12 @@ function writeMonthSheet(workbook, { year, monthIndex0, aggregates }) {
   sheet.views = [{ state: 'frozen', ySplit: 5 }];
 }
 
-async function buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales }) {
+async function buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales, customQuotes }) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Osana — informe automático';
   workbook.created = new Date();
 
-  const byMonth = buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, productSales });
+  const byMonth = buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, productSales, customQuotes });
   monthsForQuarter(quarter).forEach((monthIndex0) => {
     writeMonthSheet(workbook, { year, monthIndex0, aggregates: byMonth[monthIndex0] });
   });

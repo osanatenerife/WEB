@@ -5,6 +5,7 @@ const {
   getAllStrikeRecords, upsertStrikeRecord,
   appendLoyaltyMovement, appendProductSale, getAllProductSales,
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
+  appendCustomQuote, getAllCustomQuotes,
 } = require('../lib/sheets');
 const { createBookingEvent, updateEvent } = require('../lib/googleCalendar');
 const { getAvailableSlots } = require('../lib/availability');
@@ -14,10 +15,14 @@ const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { earnRateFor, BALANCE_VALIDITY_MONTHS } = require('../config/loyalty');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
+const { createCheckoutSession } = require('../lib/stripeClient');
+const { resolveOrigin } = require('../lib/origin');
 const hours = require('../config/hours');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const crypto = require('crypto');
+
+const QUOTE_CATEGORIES = ['laser', 'corporal', 'facial', 'cejas'];
 
 const router = express.Router();
 
@@ -540,10 +545,10 @@ router.get('/panel/report', async (req, res) => {
     return res.status(400).json({ error: 'Indica un año y un trimestre (1-4) válidos.' });
   }
   try {
-    const [bookings, sessionBonos, productSales] = await Promise.all([
-      getAllBookings(), getAllSessionBonos(), getAllProductSales(),
+    const [bookings, sessionBonos, productSales, customQuotes] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllProductSales(), getAllCustomQuotes(),
     ]);
-    const workbook = await buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales });
+    const workbook = await buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales, customQuotes });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="Osana_Informe_Q${quarter}_${year}.xlsx"`);
@@ -552,6 +557,62 @@ router.get('/panel/report', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo generar el informe.' });
+  }
+});
+
+// ── Presupuesto personalizado: genera un link de pago de Stripe para un
+// importe fuera de catálogo (con Klarna, ya que siempre es pago 100% online) ──
+router.post('/panel/custom-quote', async (req, res) => {
+  const { clientName, clientPhone, clientEmail, description, amount, category, lang } = req.body || {};
+  const amountNum = Number(amount);
+  if (!clientName || !description || !amountNum || amountNum <= 0) {
+    return res.status(400).json({ error: 'Indica al menos el nombre, la descripción y el importe.' });
+  }
+  if (!QUOTE_CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: 'Elige una categoría contable válida.' });
+  }
+  try {
+    const quoteId = crypto.randomUUID();
+    const origin = resolveOrigin(req);
+    const thanksPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
+    const session = await createCheckoutSession({
+      amountEuros: amountNum,
+      description: `${description} — Osana`,
+      successUrl: `${origin}${thanksPath}?estado=ok`,
+      cancelUrl: `${origin}${thanksPath}?estado=cancelado`,
+      allowKlarna: true, // siempre pago 100% online, tiene sentido ofrecer financiación
+      metadata: {
+        type: 'custom_quote',
+        quoteId,
+        clientName,
+        clientPhone: clientPhone || '',
+        clientEmail: clientEmail || '',
+        description,
+        category,
+        amount: String(amountNum),
+        lang: lang === 'en' ? 'en' : 'es',
+      },
+    });
+
+    await appendCustomQuote({
+      quoteId,
+      createdAt: new Date().toISOString(),
+      clientName,
+      clientPhone: clientPhone || '',
+      clientEmail: clientEmail || '',
+      description,
+      category,
+      amount: amountNum,
+      status: 'pending',
+      paidDate: '',
+      paymentIntentId: '',
+      lang: lang === 'en' ? 'en' : 'es',
+    });
+
+    res.json({ ok: true, url: session.url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo generar el link de pago.' });
   }
 });
 
