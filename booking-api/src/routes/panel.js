@@ -7,7 +7,7 @@ const {
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
   appendCustomQuote, getAllCustomQuotes,
 } = require('../lib/sheets');
-const { createBookingEvent, updateEvent } = require('../lib/googleCalendar');
+const { createBookingEvent, updateEvent, getEvent } = require('../lib/googleCalendar');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
@@ -184,6 +184,11 @@ router.get('/panel/search', async (req, res) => {
 });
 
 // ── Añadir/editar nota de una sesión ──
+// Las notas también se escriben en la descripción del evento de Google
+// Calendar, así se ven de un vistazo sin entrar al panel — solo las ve
+// quien tenga ese calendario compartido (nunca la clienta).
+const NOTE_MARKER = '\n\n📝 Notas internas (solo equipo):\n';
+
 router.post('/panel/note', async (req, res) => {
   const { bookingId, note } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
@@ -191,6 +196,18 @@ router.post('/panel/note', async (req, res) => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
     await updateBookingRow(booking._sheetRow, booking, { notes: note || '' });
+
+    if (booking.calendarId && booking.eventId) {
+      try {
+        const event = await getEvent(booking.calendarId, booking.eventId);
+        const baseDescription = (event.description || '').split(NOTE_MARKER)[0];
+        const newDescription = note ? `${baseDescription}${NOTE_MARKER}${note}` : baseDescription;
+        await updateEvent(booking.calendarId, booking.eventId, { description: newDescription });
+      } catch (calErr) {
+        console.error('No se pudo actualizar la nota en Google Calendar:', calErr);
+      }
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
