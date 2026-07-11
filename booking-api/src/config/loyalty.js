@@ -24,4 +24,28 @@ const REDEEMABLE_ON = ['treatment'];
 const MIN_REDEEM_AMOUNT = 10; // en euros
 const BALANCE_VALIDITY_MONTHS = 12;
 
-module.exports = { BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT, BALANCE_VALIDITY_MONTHS };
+function round2(n) {
+  return Math.round(n * 100) / 100;
+}
+
+// El saldo ganado ('earn') caduca a los BALANCE_VALIDITY_MONTHS; lo
+// canjeado ('redeem') se resta siempre, sin caducidad (ya salió de la cuenta).
+function computeLoyaltyBalance(movements) {
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - BALANCE_VALIDITY_MONTHS);
+  let balance = 0;
+  (movements || []).forEach((m) => {
+    const amount = Number(m.amount) || 0;
+    if (m.type === 'redeem') {
+      balance -= amount;
+    } else if (new Date(m.date) >= cutoff) {
+      balance += amount;
+    }
+  });
+  return Math.max(0, round2(balance));
+}
+
+module.exports = {
+  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT, BALANCE_VALIDITY_MONTHS,
+  computeLoyaltyBalance,
+};

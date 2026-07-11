@@ -306,3 +306,10 @@ body.reserva-page .page-offset { padding-top: 92px; }
 .mybooking-status-note { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; display: inline-block; }
 .mybooking-status-note.ok { color: #2d6a2d; background: rgba(45,106,45,0.1); }
 .mybooking-status-note.warn { color: #a3661f; background: rgba(163,102,31,0.1); }
+
+/* ── Saldo de fidelización en "Mis reservas" ── */
+.mb-loyalty-card { background: var(--dark); color: var(--cream2); padding: 28px 32px; }
+.mb-loyalty-label { font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(240,235,226,0.6); margin-bottom: 8px; }
+.mb-loyalty-amount { font-family: 'Raleway', sans-serif; font-size: 32px; font-weight: 700; color: var(--gold); margin-bottom: 14px; }
+.mb-loyalty-rules { font-size: 11.5px; line-height: 1.8; color: rgba(240,235,226,0.65); margin: 0; padding-left: 18px; }
+.mb-loyalty-rules li { margin-bottom: 3px; }

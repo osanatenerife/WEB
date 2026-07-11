@@ -12,6 +12,7 @@
   const errorEl = document.getElementById('mb-error');
   const historyWrapEl = document.getElementById('mb-history-wrap');
   const historyEl = document.getElementById('mb-history');
+  const loyaltyEl = document.getElementById('mb-loyalty');
 
   const STR = {
     loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…' },
@@ -29,6 +30,23 @@
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
     with: { es: 'Con', en: 'With' },
     free: { es: 'Gratis', en: 'Free' },
+    loyaltyLabel: { es: 'Tu saldo de fidelización', en: 'Your loyalty balance' },
+    loyaltyRules: {
+      es: [
+        'Se canjea solo en tratamientos sueltos pagados en el centro (no en bonos de sesiones ni bonos regalo).',
+        'Canje mínimo de 10 € por vez.',
+        'No se puede canjear más de lo que quede por pagar en la cita, ni más del saldo disponible.',
+        'El saldo generado caduca a los 12 meses.',
+        'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento.',
+      ],
+      en: [
+        'Redeemable only on single treatments paid at the centre (not on session packages or gift vouchers).',
+        'Minimum redemption of €10 per time.',
+        'You can\'t redeem more than what\'s left to pay on the appointment, or more than your available balance.',
+        'Balance earned expires after 12 months.',
+        'Not transferable between clients or redeemable for cash — only as a discount on a treatment.',
+      ],
+    },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || key; }
 
@@ -194,6 +212,20 @@
     }
   }
 
+  function renderLoyalty(balance) {
+    if (!loyaltyEl) return;
+    if (!balance || balance <= 0) { loyaltyEl.style.display = 'none'; loyaltyEl.innerHTML = ''; return; }
+    const rulesHtml = t('loyaltyRules').map((r) => `<li>${r}</li>`).join('');
+    loyaltyEl.innerHTML = `
+      <div class="mb-loyalty-card">
+        <div class="mb-loyalty-label">${t('loyaltyLabel')}</div>
+        <div class="mb-loyalty-amount">${balance.toFixed(2)} €</div>
+        <ul class="mb-loyalty-rules">${rulesHtml}</ul>
+      </div>
+    `;
+    loyaltyEl.style.display = 'block';
+  }
+
   async function loadBookings() {
     clearError();
     resultsEl.innerHTML = `<p class="mybooking-loading">${t('loading')}</p>`;
@@ -203,6 +235,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));
       renderBookings(data.bookings);
+      renderLoyalty(data.loyaltyBalance);
     } catch (e) {
       resultsEl.innerHTML = '';
       showError(e.message);

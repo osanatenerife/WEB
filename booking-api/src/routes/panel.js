@@ -13,7 +13,7 @@ const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { accountingCategoryFor } = require('../config/accountingCategories');
-const { earnRateFor, BALANCE_VALIDITY_MONTHS } = require('../config/loyalty');
+const { earnRateFor, computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -53,23 +53,6 @@ async function earnLoyalty({ booking, portionAmount, paidHow }) {
     rateApplied: rate,
     amount,
   });
-}
-
-// El saldo ganado caduca a los BALANCE_VALIDITY_MONTHS; lo canjeado se
-// resta siempre, sin caducidad (ya salió de la cuenta).
-function computeLoyaltyBalance(movements) {
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - BALANCE_VALIDITY_MONTHS);
-  let balance = 0;
-  (movements || []).forEach((m) => {
-    const amount = Number(m.amount) || 0;
-    if (m.type === 'redeem') {
-      balance -= amount;
-    } else if (new Date(m.date) >= cutoff) {
-      balance += amount;
-    }
-  });
-  return Math.max(0, round2(balance));
 }
 
 // ── Todas las rutas del panel exigen la clave interna ──
@@ -362,9 +345,11 @@ router.post('/panel/close', async (req, res) => {
 
     // Aplicar canje de saldo (si se pide): se resta del resto antes de
     // repartirlo en formas de pago, y nunca puede superar ni lo que queda
-    // por pagar ni el saldo real disponible de la clienta.
+    // por pagar ni el saldo real disponible de la clienta. Solo vale en
+    // tratamientos sueltos (no en sesiones de un bono) y con un mínimo de
+    // MIN_REDEEM_AMOUNT por canje.
     let redeemed = 0;
-    if (!alreadyClosed && redeemAmount && Number(redeemAmount) > 0) {
+    if (!alreadyClosed && !booking.bonoId && redeemAmount && Number(redeemAmount) >= MIN_REDEEM_AMOUNT) {
       const phoneN = normalizePhone(booking.phone);
       const movements = await getLoyaltyMovementsForPhone(phoneN);
       const balance = computeLoyaltyBalance(movements);
@@ -447,6 +432,9 @@ router.post('/panel/redeem', async (req, res) => {
   if (!phone || !redeemAmount || redeemAmount <= 0) {
     return res.status(400).json({ error: 'Indica el teléfono de la clienta y el importe a canjear.' });
   }
+  if (redeemAmount < MIN_REDEEM_AMOUNT) {
+    return res.status(400).json({ error: `El canje mínimo es de ${MIN_REDEEM_AMOUNT} €.` });
+  }
   try {
     const phoneN = normalizePhone(phone);
     const movements = await getLoyaltyMovementsForPhone(phoneN);
@@ -458,7 +446,12 @@ router.post('/panel/redeem', async (req, res) => {
     let name = '';
     if (bookingId) {
       const booking = await findBookingById(bookingId);
-      if (booking) name = booking.name;
+      if (booking) {
+        if (booking.bonoId) {
+          return res.status(400).json({ error: 'El saldo no se puede canjear en sesiones de un bono, solo en tratamientos sueltos.' });
+        }
+        name = booking.name;
+      }
     }
     if (!name && movements.length) name = movements[movements.length - 1].name;
 
