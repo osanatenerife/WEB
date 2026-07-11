@@ -95,6 +95,7 @@ router.post('/checkout', async (req, res) => {
       description: lang === 'en' ? `${customerServiceName} — Osana booking/payment` : `${summaryTitle} — reserva/pago Osana`,
       successUrl: `${origin}${reservaPath}?estado=ok`,
       cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
+      allowKlarna: type === 'total',
       metadata: {
         bookingId,
         calendarId: employee.calendarId,
