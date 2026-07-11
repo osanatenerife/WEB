@@ -60,7 +60,7 @@ async function getBusyIntervals(calendarId, timeMinISO, timeMaxISO) {
 /**
  * Crea el evento de la cita en el calendario de la empleada.
  */
-async function createBookingEvent(calendarId, { summary, description, startISO, endISO, clientEmail, clientName }) {
+async function createBookingEvent(calendarId, { summary, description, startISO, endISO }) {
   const calendar = getCalendarClient();
   const event = {
     summary,
@@ -71,16 +71,15 @@ async function createBookingEvent(calendarId, { summary, description, startISO, 
       private: { osanaBooking: 'true' },
     },
   };
-  // Añadimos al cliente como asistente solo si nos dio email
-  // (no obligatorio: crear invitados requiere permisos de invitados
-  // en el calendario, así que lo dejamos opcional y en description igual).
-  if (clientEmail) {
-    event.attendees = [{ email: clientEmail, displayName: clientName }];
-  }
+  // No añadimos al cliente como "attendee": los calendarios son cuentas de
+  // Gmail personales compartidas con la cuenta de servicio, y Google no
+  // deja que una cuenta de servicio invite asistentes sin Domain-Wide
+  // Delegation (solo disponible en Google Workspace) — daría un 403. El
+  // cliente ya recibe su confirmación por email aparte (ver lib/email.js).
   const res = await calendar.events.insert({
     calendarId,
     requestBody: event,
-    sendUpdates: clientEmail ? 'all' : 'none',
+    sendUpdates: 'none',
   });
   return res.data;
 }
