@@ -33,7 +33,11 @@ const COLUMNS = [
   'calendarId', 'eventId', 'date', 'time', 'durationMinutes',
   'price', 'amountPaid', 'paymentType', 'paymentIntentId',
   'lang', 'reminderSent', 'birthdate', 'bonoId', 'sessionNumber', 'notes',
-  'finalAmount', 'remainderPaidHow',
+  // finalAmount = importe total real cobrado en la cita. El resto (finalAmount
+  // - amountPaid, lo pagado online) puede venir dividido en hasta 2 formas de
+  // pago (p.ej. mitad tarjeta, mitad efectivo): remainderPaidHow/remainderAmount2
+  // cubre la 2ª parte; la 1ª parte es el resto menos remainderAmount2.
+  'finalAmount', 'remainderPaidHow', 'remainderAmount2', 'remainderPaidHow2',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 

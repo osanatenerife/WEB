@@ -159,6 +159,8 @@ router.get('/panel/search', async (req, res) => {
             amountPaid: Number(b.amountPaid) || 0,
             finalAmount: b.finalAmount !== undefined && b.finalAmount !== '' ? Number(b.finalAmount) : null,
             remainderPaidHow: b.remainderPaidHow || '',
+            remainderAmount2: b.remainderAmount2 !== undefined && b.remainderAmount2 !== '' ? Number(b.remainderAmount2) : 0,
+            remainderPaidHow2: b.remainderPaidHow2 || '',
             paymentType: b.paymentType,
             status: b.status,
             bonoId: b.bonoId || '',
@@ -318,7 +320,9 @@ router.post('/panel/reschedule', async (req, res) => {
 // sin tocar amountPaid (el pago online por Stripe queda como registro
 // histórico intacto) — y acumular saldo de fidelización.
 router.post('/panel/close', async (req, res) => {
-  const { bookingId, finalAmount, paidHow } = req.body || {};
+  // remainderAmount2/paidHow2 son opcionales — para cuando el resto se paga
+  // dividido entre dos formas de pago (p.ej. mitad tarjeta, mitad efectivo).
+  const { bookingId, finalAmount, paidHow, remainderAmount2, paidHow2 } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   try {
     const booking = await findBookingById(bookingId);
@@ -331,6 +335,9 @@ router.post('/panel/close', async (req, res) => {
     const total = finalAmount !== undefined && finalAmount !== '' ? Number(finalAmount) : onlinePaid;
     const remainder = Math.max(0, round2(total - onlinePaid));
 
+    const part2 = Math.max(0, Math.min(remainder, round2(Number(remainderAmount2) || 0)));
+    const part1 = round2(remainder - part2);
+
     if (booking.bonoId) {
       const bono = await findSessionBonoById(booking.bonoId);
       if (bono) {
@@ -341,11 +348,14 @@ router.post('/panel/close', async (req, res) => {
     await updateBookingRow(booking._sheetRow, booking, {
       finalAmount: total,
       remainderPaidHow: paidHow || '',
+      remainderAmount2: part2 || '',
+      remainderPaidHow2: part2 > 0 ? (paidHow2 || '') : '',
     });
 
     if (!alreadyClosed) {
       await earnLoyalty({ booking, portionAmount: onlinePaid, paidHow: 'tarjeta' });
-      await earnLoyalty({ booking, portionAmount: remainder, paidHow: paidHow || '' });
+      await earnLoyalty({ booking, portionAmount: part1, paidHow: paidHow || '' });
+      if (part2 > 0) await earnLoyalty({ booking, portionAmount: part2, paidHow: paidHow2 || '' });
     }
 
     res.json({ ok: true });

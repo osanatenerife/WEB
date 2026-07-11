@@ -465,7 +465,7 @@
     const slot = apptEl.querySelector('.panel-close-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     const closedNote = b.finalAmount !== null && b.finalAmount !== undefined
-      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow})` : ''}</p>`
+      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow}${b.remainderAmount2 ? ` + ${b.remainderPaidHow2} ${b.remainderAmount2.toFixed(2)} €` : ''})` : ''}</p>`
       : '';
     slot.innerHTML = `
       <div class="panel-new-appt">
@@ -481,20 +481,42 @@
             </select>
           </div>
         </div>
+        <label class="panel-split-toggle"><input type="checkbox" class="pf-split"> El resto se pagó dividido en dos formas de pago</label>
+        <div class="panel-field-row pf-split-row" style="display:none;">
+          <div class="panel-field"><label>Importe con la 2ª forma de pago (€)</label><input type="number" step="0.01" class="pf-amount2"></div>
+          <div class="panel-field"><label>2ª forma de pago</label>
+            <select class="pf-paidhow2">
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="bizum">Bizum</option>
+            </select>
+          </div>
+        </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-close">Guardar</button>
         <p class="panel-error" style="display:none;"></p>
       </div>
     `;
     const amountInput = slot.querySelector('.pf-amount');
     const paidHowSelect = slot.querySelector('.pf-paidhow');
+    const splitToggle = slot.querySelector('.pf-split');
+    const splitRow = slot.querySelector('.pf-split-row');
+    const amount2Input = slot.querySelector('.pf-amount2');
+    const paidHow2Select = slot.querySelector('.pf-paidhow2');
     const errorEl = slot.querySelector('.panel-error');
+    splitToggle.addEventListener('change', () => {
+      splitRow.style.display = splitToggle.checked ? 'grid' : 'none';
+    });
     slot.querySelector('.panel-confirm-close').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       ev.target.disabled = true;
       try {
         await panelFetch('/panel/close', {
           method: 'POST',
-          body: JSON.stringify({ bookingId: b.bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value }),
+          body: JSON.stringify({
+            bookingId: b.bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value,
+            remainderAmount2: splitToggle.checked ? amount2Input.value : 0,
+            paidHow2: splitToggle.checked ? paidHow2Select.value : '',
+          }),
         });
         slot.innerHTML = '<p class="panel-status">Guardado ✓</p>';
       } catch (e) {
