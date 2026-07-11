@@ -166,6 +166,7 @@ router.get('/panel/search', async (req, res) => {
             remainderPaidHow: b.remainderPaidHow || '',
             remainderAmount2: b.remainderAmount2 !== undefined && b.remainderAmount2 !== '' ? Number(b.remainderAmount2) : 0,
             remainderPaidHow2: b.remainderPaidHow2 || '',
+            redeemedAmount: b.redeemedAmount !== undefined && b.redeemedAmount !== '' ? Number(b.redeemedAmount) : 0,
             paymentType: b.paymentType,
             status: b.status,
             bonoId: b.bonoId || '',
@@ -344,7 +345,9 @@ router.post('/panel/reschedule', async (req, res) => {
 router.post('/panel/close', async (req, res) => {
   // remainderAmount2/paidHow2 son opcionales — para cuando el resto se paga
   // dividido entre dos formas de pago (p.ej. mitad tarjeta, mitad efectivo).
-  const { bookingId, finalAmount, paidHow, remainderAmount2, paidHow2 } = req.body || {};
+  // redeemAmount es opcional — saldo de fidelización que se aplica como
+  // descuento directamente aquí, para no tener que restarlo a mano.
+  const { bookingId, finalAmount, paidHow, remainderAmount2, paidHow2, redeemAmount } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   try {
     const booking = await findBookingById(bookingId);
@@ -355,7 +358,35 @@ router.post('/panel/close', async (req, res) => {
 
     const onlinePaid = Number(booking.amountPaid) || 0;
     const total = finalAmount !== undefined && finalAmount !== '' ? Number(finalAmount) : onlinePaid;
-    const remainder = Math.max(0, round2(total - onlinePaid));
+    let remainder = Math.max(0, round2(total - onlinePaid));
+
+    // Aplicar canje de saldo (si se pide): se resta del resto antes de
+    // repartirlo en formas de pago, y nunca puede superar ni lo que queda
+    // por pagar ni el saldo real disponible de la clienta.
+    let redeemed = 0;
+    if (!alreadyClosed && redeemAmount && Number(redeemAmount) > 0) {
+      const phoneN = normalizePhone(booking.phone);
+      const movements = await getLoyaltyMovementsForPhone(phoneN);
+      const balance = computeLoyaltyBalance(movements);
+      redeemed = Math.max(0, Math.min(remainder, balance, round2(Number(redeemAmount))));
+      if (redeemed > 0) {
+        remainder = round2(remainder - redeemed);
+        await appendLoyaltyMovement({
+          date: new Date().toISOString().slice(0, 10),
+          phoneNormalized: phoneN,
+          emailNormalized: normalizeEmail(booking.email),
+          name: booking.name,
+          type: 'redeem',
+          bookingId: booking.bookingId,
+          serviceName: booking.serviceName,
+          category: '',
+          baseAmount: '',
+          paidHow: '',
+          rateApplied: '',
+          amount: redeemed,
+        });
+      }
+    }
 
     const part2 = Math.max(0, Math.min(remainder, round2(Number(remainderAmount2) || 0)));
     const part1 = round2(remainder - part2);
@@ -372,6 +403,7 @@ router.post('/panel/close', async (req, res) => {
       remainderPaidHow: paidHow || '',
       remainderAmount2: part2 || '',
       remainderPaidHow2: part2 > 0 ? (paidHow2 || '') : '',
+      redeemedAmount: redeemed || '',
     });
 
     if (!alreadyClosed) {

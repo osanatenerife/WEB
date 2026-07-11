@@ -79,7 +79,10 @@ function buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, product
 
     const finalAmount = b.finalAmount !== undefined && b.finalAmount !== '' ? Number(b.finalAmount) : null;
     if (finalAmount !== null) {
-      const remainder = round2(finalAmount - onlinePaid);
+      // El saldo de fidelización canjeado es un descuento, no facturación
+      // real cobrada — se descuenta antes de repartir el resto.
+      const redeemed = Number(b.redeemedAmount) || 0;
+      const remainder = Math.max(0, round2(finalAmount - onlinePaid - redeemed));
       // El resto puede venir dividido en 2 formas de pago (p.ej. mitad
       // tarjeta, mitad efectivo) — remainderAmount2 es la 2ª parte.
       const part2 = Math.max(0, Math.min(remainder, Number(b.remainderAmount2) || 0));

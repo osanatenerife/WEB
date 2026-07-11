@@ -38,6 +38,10 @@ const COLUMNS = [
   // pago (p.ej. mitad tarjeta, mitad efectivo): remainderPaidHow/remainderAmount2
   // cubre la 2ª parte; la 1ª parte es el resto menos remainderAmount2.
   'finalAmount', 'remainderPaidHow', 'remainderAmount2', 'remainderPaidHow2',
+  // Saldo de fidelización aplicado como descuento al cerrar esta cita (se
+  // resta del importe antes de repartirlo entre las formas de pago, y no
+  // cuenta como facturación real en el informe).
+  'redeemedAmount',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 

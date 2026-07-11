@@ -339,7 +339,7 @@
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
 
     const apptsContainer = wrap.querySelector('.panel-appts');
-    client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b)));
+    client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client)));
 
     els.results.appendChild(wrap);
   }
@@ -466,7 +466,7 @@
     });
   }
 
-  function renderAppt(b) {
+  function renderAppt(b, client) {
     const el = document.createElement('div');
     el.className = 'panel-appt';
     const statusPill = {
@@ -537,17 +537,18 @@
 
     const closeBtn = el.querySelector('.panel-close-toggle');
     if (closeBtn) {
-      closeBtn.addEventListener('click', () => toggleClose(el, b));
+      closeBtn.addEventListener('click', () => toggleClose(el, b, client));
     }
 
     return el;
   }
 
-  function toggleClose(apptEl, b) {
+  function toggleClose(apptEl, b, client) {
     const slot = apptEl.querySelector('.panel-close-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    const balance = client && Number(client.loyaltyBalance) || 0;
     const closedNote = b.finalAmount !== null && b.finalAmount !== undefined
-      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow}${b.remainderAmount2 ? ` + ${b.remainderPaidHow2} ${b.remainderAmount2.toFixed(2)} €` : ''})` : ''}</p>`
+      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow}${b.remainderAmount2 ? ` + ${b.remainderPaidHow2} ${b.remainderAmount2.toFixed(2)} €` : ''})` : ''}${b.redeemedAmount ? ` · saldo canjeado: ${b.redeemedAmount.toFixed(2)} €` : ''}</p>`
       : '';
     slot.innerHTML = `
       <div class="panel-new-appt">
@@ -565,6 +566,10 @@
             </select>
           </div>
         </div>
+        ${balance > 0 ? `
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Aplicar saldo de fidelización (€) — disponible: ${balance.toFixed(2)} €</label><input type="number" step="0.01" class="pf-redeem" max="${balance}"></div>
+        </div>` : ''}
         <label class="panel-split-toggle"><input type="checkbox" class="pf-split"> El resto se pagó dividido en dos formas de pago</label>
         <div class="panel-field-row pf-split-row" style="display:none;">
           <div class="panel-field"><label>Importe con la 2ª forma de pago (€)</label><input type="number" step="0.01" class="pf-amount2"></div>
@@ -584,6 +589,7 @@
     `;
     const amountInput = slot.querySelector('.pf-amount');
     const paidHowSelect = slot.querySelector('.pf-paidhow');
+    const redeemInput = slot.querySelector('.pf-redeem');
     const splitToggle = slot.querySelector('.pf-split');
     const splitRow = slot.querySelector('.pf-split-row');
     const amount2Input = slot.querySelector('.pf-amount2');
@@ -602,6 +608,7 @@
             bookingId: b.bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value,
             remainderAmount2: splitToggle.checked ? amount2Input.value : 0,
             paidHow2: splitToggle.checked ? paidHow2Select.value : '',
+            redeemAmount: redeemInput ? redeemInput.value : 0,
           }),
         });
         slot.innerHTML = '<p class="panel-status">Guardado ✓</p>';
