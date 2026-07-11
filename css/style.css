@@ -753,6 +753,17 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
   footer { padding: 48px 24px 24px; }
   .footer-top { grid-template-columns: 1fr 1fr; gap: 28px; }
 
+  /* Footer simplificado en móvil: solo lo esencial (la lista completa se
+     queda solo en escritorio, ya que estos enlaces también están en el
+     menú principal). */
+  .footer-top > .footer-col:nth-child(2) { display: none; } /* Servicios */
+  .footer-top > .footer-col:nth-child(3) ul li:nth-child(1),
+  .footer-top > .footer-col:nth-child(3) ul li:nth-child(2),
+  .footer-top > .footer-col:nth-child(3) ul li:nth-child(3),
+  .footer-top > .footer-col:nth-child(3) ul li:nth-child(6) { display: none; } /* Centro: deja Contacto, Reservar cita, Gestionar mi reserva */
+  .footer-top > .footer-col:nth-child(4) ul li:nth-child(2),
+  .footer-top > .footer-col:nth-child(4) ul li:nth-child(4) { display: none; } /* Contacto: deja teléfono y WhatsApp */
+
   .page-hero { padding: 108px 24px 44px; }
 
   /* HERO con foto */
@@ -800,8 +811,13 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
   .reserve-strip-actions a { flex: 1; text-align: center; }
 
   /* TILES SERVICIOS */
-  .tile-grid { grid-template-columns: 1fr; }
-  .tile:nth-child(3n) .tile-info { border-right: none; }
+  .tile-grid { grid-template-columns: repeat(2, 1fr); }
+  .tile:nth-child(3n) .tile-info { border-right: 1px solid rgba(240,235,226,0.12); }
+  .tile:nth-child(2n) .tile-info { border-right: none; }
+  .tile-name { font-size: 15px !important; }
+  .tile-desc { display: none; }
+  .tile-info { padding: 14px 16px !important; gap: 8px !important; }
+  .tile-btn { font-size: 10px !important; }
 
   /* CURSOS */
   .course-grid { grid-template-columns: 1fr; }
