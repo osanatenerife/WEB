@@ -2,8 +2,8 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement } = require('../lib/sheets');
-const { earnRateFor } = require('../config/loyalty');
+const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone } = require('../lib/sheets');
+const { earnRateFor, computeLoyaltyBalance } = require('../config/loyalty');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
@@ -25,6 +25,62 @@ function escapeHtml(str) {
 
 function randomVoucherCode() {
   return 'OSANA-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+}
+
+// Línea con el saldo de fidelización, para incluir en la confirmación de
+// reserva (así la clienta se entera de cuánto tiene sin tener que entrar
+// a "Mis reservas").
+async function loyaltyBalanceLine(clientPhone, lang) {
+  if (!clientPhone) return '';
+  try {
+    const movements = await getLoyaltyMovementsForPhone(normalizePhone(clientPhone));
+    const balance = computeLoyaltyBalance(movements);
+    if (balance <= 0) return '';
+    return lang === 'en'
+      ? `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre (min. €10 per redemption).</p>`
+      : `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro (canje mínimo de 10 €).</p>`;
+  } catch (e) {
+    console.error('No se pudo calcular el saldo para el email de confirmación:', e);
+    return '';
+  }
+}
+
+async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, date, time, employeeName, amountPaid, price, lang }) {
+  if (!clientEmail) return;
+  const isEn = lang === 'en';
+  const total = Number(price) || 0;
+  const paid = Number(amountPaid) || 0;
+  const pending = Math.max(0, round2(total - paid));
+  const pendingLine = pending > 0
+    ? (isEn ? `<p>Remaining to pay at the centre: <strong>${pending.toFixed(2)} €</strong></p>` : `<p>Resto a pagar en el centro: <strong>${pending.toFixed(2)} €</strong></p>`)
+    : '';
+  const loyaltyLine = await loyaltyBalanceLine(clientPhone, lang);
+  const html = isEn
+    ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Booking confirmed ✓</h2>
+        <p>Hi ${escapeHtml(clientName || '')},</p>
+        <p><b>${escapeHtml(serviceName)}</b><br>${date} at ${time}<br>With ${escapeHtml(employeeName || '')}</p>
+        <p>Paid online: <strong>${paid.toFixed(2)} €</strong></p>
+        ${pendingLine}
+        ${loyaltyLine}
+        <p>Need to cancel or reschedule? Go to <a href="https://osana.es/en/mis-reservas.html">osana.es/en/mis-reservas.html</a>.</p>
+        <p>See you soon!<br>Osana</p>
+      </div>`
+    : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Reserva confirmada ✓</h2>
+        <p>Hola ${escapeHtml(clientName || '')},</p>
+        <p><b>${escapeHtml(serviceName)}</b><br>${date} a las ${time}<br>Con ${escapeHtml(employeeName || '')}</p>
+        <p>Pagado online: <strong>${paid.toFixed(2)} €</strong></p>
+        ${pendingLine}
+        ${loyaltyLine}
+        <p>¿Necesitas cancelar o reprogramar? Entra en <a href="https://osana.es/mis-reservas.html">osana.es/mis-reservas.html</a>.</p>
+        <p>¡Te esperamos!<br>Osana</p>
+      </div>`;
+  try {
+    await sendEmail({ to: clientEmail, subject: isEn ? 'Booking confirmed — Osana' : 'Reserva confirmada — Osana', html });
+  } catch (emailErr) {
+    console.error('No se pudo enviar el email de confirmación de reserva:', emailErr);
+  }
 }
 
 async function handleBookingPayment(session) {
@@ -60,14 +116,15 @@ async function handleBookingPayment(session) {
   }
 
   // Guardamos la reserva confirmada en la Sheet para que "Mis reservas" pueda encontrarla
+  const service = services.find((s) => s.id === serviceId);
+  const employee = employees.find((e) => e.id === employeeId);
+  const additionalServiceIds = (extraServiceIds || '').split(',').filter(Boolean);
+  const additionalServices = additionalServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean);
+  const combinedServiceId = [serviceId, ...additionalServiceIds].filter(Boolean).join(',');
+  const combinedServiceName = [service ? service.name : null, ...additionalServices.map((s) => s.name)].filter(Boolean).join(' + ');
+
   if (bookingId) {
     try {
-      const service = services.find((s) => s.id === serviceId);
-      const employee = employees.find((e) => e.id === employeeId);
-      const additionalServiceIds = (extraServiceIds || '').split(',').filter(Boolean);
-      const additionalServices = additionalServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean);
-      const combinedServiceId = [serviceId, ...additionalServiceIds].filter(Boolean).join(',');
-      const combinedServiceName = [service ? service.name : null, ...additionalServices.map((s) => s.name)].filter(Boolean).join(' + ');
       await appendBooking({
         bookingId,
         createdAt: new Date().toISOString(),
@@ -97,6 +154,13 @@ async function handleBookingPayment(session) {
       console.error('No se pudo guardar la reserva en la Sheet:', sheetErr);
     }
   }
+
+  await sendBookingConfirmationEmail({
+    clientEmail, clientName, clientPhone,
+    serviceName: combinedServiceName, date, time,
+    employeeName: employee ? employee.name : '',
+    amountPaid: realAmountPaid, price, lang,
+  });
 }
 
 function addMonthsISO(months) {
@@ -199,6 +263,14 @@ async function handleBonoSessionPayment(session) {
   } catch (sheetErr) {
     console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
   }
+
+  await sendBookingConfirmationEmail({
+    clientEmail, clientName, clientPhone,
+    serviceName: service ? `${service.name} — bono de ${totalSessions} sesiones (1/${totalSessions})` : `Bono de ${totalSessions} sesiones`,
+    date, time,
+    employeeName: employee ? employee.name : '',
+    amountPaid: realAmountPaid, price: bonoPrice, lang,
+  });
 }
 
 function round2(n) {
