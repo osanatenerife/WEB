@@ -17,52 +17,66 @@ function round2(n) {
 }
 
 router.post('/bono-checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, lang } = req.body || {};
+  const {
+    serviceId, extraBonoServiceIds, employeeId, date, time,
+    clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, lang,
+  } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
   }
 
-  const bono = bonos.find((b) => b.serviceId === serviceId);
-  const service = services.find((s) => s.id === serviceId);
+  // Puede ser un único bono, o varios bonos de zonas/tratamientos distintos
+  // combinados en la misma cita (p.ej. bono pierna + bono brazo).
+  const allServiceIds = [serviceId, ...(Array.isArray(extraBonoServiceIds) ? extraBonoServiceIds : [])].filter(Boolean);
   const employee = employees.find((e) => e.id === employeeId);
-  if (!bono || !service) return res.status(404).json({ error: 'Bono no encontrado para este tratamiento.' });
   if (!employee) return res.status(404).json({ error: 'Empleada no encontrada' });
 
-  const bonoId = crypto.randomUUID();
+  const items = [];
+  for (const id of allServiceIds) {
+    const bono = bonos.find((b) => b.serviceId === id);
+    const service = services.find((s) => s.id === id);
+    if (!bono || !service) return res.status(404).json({ error: 'Bono no encontrado para uno de los tratamientos elegidos.' });
+    items.push({ service, bono, bonoId: crypto.randomUUID() });
+  }
+  const primaryService = items[0].service;
+  const totalDuration = items.reduce((sum, it) => sum + it.service.durationMinutes, 0);
+  const totalBonoPrice = round2(items.reduce((sum, it) => sum + it.bono.price, 0));
 
-  // "full": paga el bono completo online (aquí es donde tiene sentido Klarna).
-  // "deposit": paga solo la seña de la 1ª sesión, resto en el centro.
+  // "full": paga todos los bonos completos online (aquí es donde tiene sentido Klarna).
+  // "deposit": paga solo la seña sobre el total combinado, resto en el centro.
   const isFull = paymentChoice === 'full';
-  const amount = isFull ? bono.price : round2((bono.price * (service.depositPercent || 30)) / 100);
+  const amount = isFull ? totalBonoPrice : round2((totalBonoPrice * (primaryService.depositPercent || 30)) / 100);
   const paymentType = isFull ? 'total' : 'pagar reserva';
 
   let eventId = null;
   try {
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, service.durationMinutes, employee.weekly);
+    const freeSlots = await getAvailableSlots(date, employee.calendarId, totalDuration, employee.weekly);
     if (!freeSlots.includes(time)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
 
     const startISO = localToISO(date, time.length === 5 ? time : time + ':00', hours.timezone);
-    const endISO = addMinutes(startISO, service.durationMinutes);
+    const endISO = addMinutes(startISO, totalDuration);
 
+    const bonoLines = items.map((it) => `Bono: ${it.service.name} · ${it.bono.sessions} sesiones (1/${it.bono.sessions}) — ${it.bono.price.toFixed(2)} €`);
     const description = [
       `Cliente: ${clientName}`,
       `Teléfono: ${clientPhone}`,
       clientEmail ? `Email: ${clientEmail}` : null,
-      `Bono: ${service.name} · ${bono.sessions} sesiones (1/${bono.sessions})`,
-      `Precio total del bono: ${bono.price.toFixed(2)} €`,
+      ...bonoLines,
+      `Precio total: ${totalBonoPrice.toFixed(2)} €`,
       `Pago online: ${amount.toFixed(2)} € (${paymentType})`,
-      amount < bono.price ? `Resto a pagar en centro: ${(bono.price - amount).toFixed(2)} €` : null,
+      amount < totalBonoPrice ? `Resto a pagar en centro: ${(totalBonoPrice - amount).toFixed(2)} €` : null,
       '',
       '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
     ].filter(Boolean).join('\n');
 
-    const customerServiceName = lang === 'en' ? (service.nameEn || service.name) : service.name;
+    const allNames = items.map((it) => it.service.name).join(' + ');
+    const customerAllNames = items.map((it) => (lang === 'en' ? (it.service.nameEn || it.service.name) : it.service.name)).join(' + ');
     const event = await createBookingEvent(employee.calendarId, {
-      summary: `⏳ Pendiente de pago — Bono ${service.name} (1/${bono.sessions}) — ${clientName}`,
+      summary: `⏳ Pendiente de pago — Bono ${allNames} — ${clientName}`,
       description,
       startISO,
       endISO,
@@ -71,31 +85,33 @@ router.post('/bono-checkout', async (req, res) => {
     });
     eventId = event.id;
 
+    const bonoItems = items.map((it) => ({
+      serviceId: it.service.id, bonoId: it.bonoId, sessions: it.bono.sessions, price: it.bono.price,
+    }));
+
     const origin = resolveOrigin(req);
     const session = await createCheckoutSession({
       amountEuros: amount,
       description: lang === 'en'
-        ? `${customerServiceName} — ${bono.sessions}-session package — Osana`
-        : `${service.name} — bono de ${bono.sessions} sesiones — Osana`,
+        ? `${customerAllNames} — session package(s) — Osana`
+        : `${allNames} — bono(s) de sesiones — Osana`,
       successUrl: `${origin}${reservaPath}?estado=ok`,
       cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
       allowKlarna: isFull,
       metadata: {
         type: 'bono_session',
-        bonoId,
+        bonoItems: JSON.stringify(bonoItems),
         calendarId: employee.calendarId,
         eventId,
-        serviceId,
         employeeId,
-        sessions: String(bono.sessions),
-        totalPrice: String(bono.price),
         date,
         time,
-        durationMinutes: String(service.durationMinutes),
+        durationMinutes: String(totalDuration),
         clientName,
         clientPhone,
         clientEmail: clientEmail || '',
         clientBirthdate: clientBirthdate || '',
+        totalPrice: String(totalBonoPrice),
         amount: String(amount),
         paymentType,
         lang: lang === 'en' ? 'en' : 'es',

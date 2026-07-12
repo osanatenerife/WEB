@@ -171,10 +171,20 @@ function addMonthsISO(months) {
 
 async function handleBonoSessionPayment(session) {
   const {
-    bonoId, calendarId, eventId, serviceId, employeeId, date, time,
-    durationMinutes, clientName, clientPhone, clientEmail, clientBirthdate,
-    sessions, totalPrice, amount, paymentType, lang,
+    bonoItems, calendarId, eventId, employeeId, date, time,
+    clientName, clientPhone, clientEmail, clientBirthdate,
+    totalPrice, amount, paymentType, lang,
   } = session.metadata || {};
+
+  // Uno o varios bonos combinados en la misma cita (p.ej. bono pierna + bono
+  // brazo), cada uno con su propio bonoId, sesiones y precio.
+  let items = [];
+  try {
+    items = JSON.parse(bonoItems || '[]');
+  } catch (e) {
+    console.error('No se pudo leer bonoItems del metadata:', e);
+  }
+  if (!items.length) return;
 
   const discountCents = (session.total_details && session.total_details.amount_discount) || 0;
   const realAmountPaid = typeof session.amount_total === 'number'
@@ -182,9 +192,25 @@ async function handleBonoSessionPayment(session) {
     : Number(amount) || 0;
   const couponNote = discountCents > 0 ? ` (cupón aplicado: -${(discountCents / 100).toFixed(2)} €)` : '';
 
-  const totalSessions = Number(sessions) || 1;
-  const bonoPrice = Number(totalPrice) || 0;
-  const remainingAmount = Math.max(0, round2(bonoPrice - realAmountPaid));
+  const combinedBonoPrice = Number(totalPrice) || items.reduce((sum, it) => sum + Number(it.price || 0), 0);
+  const employee = employees.find((e) => e.id === employeeId);
+
+  // Repartimos el pago online proporcionalmente al precio de cada bono; el
+  // último se lleva el resto de céntimos para que la suma cuadre exacta.
+  let assigned = 0;
+  const itemsWithShare = items.map((it, i) => {
+    const itemService = services.find((s) => s.id === it.serviceId);
+    let share;
+    if (i === items.length - 1) {
+      share = round2(realAmountPaid - assigned);
+    } else {
+      share = round2(realAmountPaid * (Number(it.price) / combinedBonoPrice || 0));
+      assigned = round2(assigned + share);
+    }
+    return { ...it, service: itemService, amountPaidOnline: Math.max(0, share) };
+  });
+
+  const allNames = itemsWithShare.map((it) => (it.service ? it.service.name : it.serviceId)).join(' + ');
 
   if (calendarId && eventId) {
     const current = await getEvent(calendarId, eventId).catch(() => null);
@@ -195,81 +221,90 @@ async function handleBonoSessionPayment(session) {
         )
       : undefined;
     await updateEvent(calendarId, eventId, {
-      summary: `✅ Confirmada — Bono (1/${totalSessions}) — ${clientName || ''}`.trim(),
+      summary: `✅ Confirmada — Bono ${allNames} — ${clientName || ''}`.trim(),
       colorId: '10',
       ...(newDescription ? { description: newDescription } : {}),
     });
   }
 
-  const service = services.find((s) => s.id === serviceId);
-  const employee = employees.find((e) => e.id === employeeId);
+  for (const it of itemsWithShare) {
+    const totalSessions = Number(it.sessions) || 1;
+    const bonoPrice = Number(it.price) || 0;
+    const remainingAmount = Math.max(0, round2(bonoPrice - it.amountPaidOnline));
 
-  // 1) Registramos el bono en su propia pestaña, con la 1ª sesión ya usada
-  try {
-    await appendSessionBono({
-      bonoId,
-      createdAt: new Date().toISOString(),
-      clientName: clientName || '',
-      clientPhone: clientPhone || '',
-      clientEmail: clientEmail || '',
-      serviceId: serviceId || '',
-      serviceName: service ? service.name : '',
-      employeeId: employeeId || '',
-      totalSessions,
-      sessionsUsed: 1,
-      sessionsRemaining: totalSessions - 1,
-      totalPrice: bonoPrice,
-      amountPaidOnline: realAmountPaid,
-      paymentType: paymentType || '',
-      remainingAmount,
-      remainingPaidHow: '', // se rellena desde el panel interno al cobrar el resto en el centro
-      status: 'active',
-      expiryDate: addMonthsISO(BONO_VALIDITY_MONTHS),
-      paymentIntentId: session.payment_intent || '',
-      lang: lang === 'en' ? 'en' : 'es',
-    });
-  } catch (sheetErr) {
-    console.error('No se pudo guardar el bono en la Sheet:', sheetErr);
+    // 1) Registramos el bono en su propia pestaña, con la 1ª sesión ya usada
+    try {
+      await appendSessionBono({
+        bonoId: it.bonoId,
+        createdAt: new Date().toISOString(),
+        clientName: clientName || '',
+        clientPhone: clientPhone || '',
+        clientEmail: clientEmail || '',
+        serviceId: it.serviceId || '',
+        serviceName: it.service ? it.service.name : '',
+        employeeId: employeeId || '',
+        totalSessions,
+        sessionsUsed: 1,
+        sessionsRemaining: totalSessions - 1,
+        totalPrice: bonoPrice,
+        amountPaidOnline: it.amountPaidOnline,
+        paymentType: paymentType || '',
+        remainingAmount,
+        remainingPaidHow: '', // se rellena desde el panel interno al cobrar el resto en el centro
+        status: 'active',
+        expiryDate: addMonthsISO(BONO_VALIDITY_MONTHS),
+        paymentIntentId: session.payment_intent || '',
+        lang: lang === 'en' ? 'en' : 'es',
+      });
+    } catch (sheetErr) {
+      console.error('No se pudo guardar el bono en la Sheet:', sheetErr);
+    }
+
+    // 2) Registramos la 1ª sesión como una reserva normal, enlazada al bono
+    // — comparte la misma cita/hueco de calendario que el resto de bonos
+    // combinados en esta compra.
+    try {
+      await appendBooking({
+        bookingId: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        status: 'confirmed',
+        name: clientName || '',
+        phone: clientPhone || '',
+        email: clientEmail || '',
+        serviceId: it.serviceId || '',
+        serviceName: it.service ? `${it.service.name} (1/${totalSessions})` : '',
+        employeeId: employeeId || '',
+        employeeName: employee ? employee.name : '',
+        calendarId: calendarId || '',
+        eventId: eventId || '',
+        date: date || '',
+        time: time || '',
+        durationMinutes: it.service ? it.service.durationMinutes : '',
+        price: bonoPrice,
+        amountPaid: it.amountPaidOnline,
+        paymentType: paymentType || '',
+        paymentIntentId: session.payment_intent || '',
+        lang: lang === 'en' ? 'en' : 'es',
+        reminderSent: '',
+        birthdate: clientBirthdate || '',
+        bonoId: it.bonoId || '',
+        sessionNumber: 1,
+      });
+    } catch (sheetErr) {
+      console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
+    }
   }
 
-  // 2) Registramos la 1ª sesión como una reserva normal, enlazada al bono
-  try {
-    await appendBooking({
-      bookingId: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      status: 'confirmed',
-      name: clientName || '',
-      phone: clientPhone || '',
-      email: clientEmail || '',
-      serviceId: serviceId || '',
-      serviceName: service ? `${service.name} (1/${totalSessions})` : '',
-      employeeId: employeeId || '',
-      employeeName: employee ? employee.name : '',
-      calendarId: calendarId || '',
-      eventId: eventId || '',
-      date: date || '',
-      time: time || '',
-      durationMinutes: durationMinutes || '',
-      price: totalPrice || '',
-      amountPaid: realAmountPaid,
-      paymentType: paymentType || '',
-      paymentIntentId: session.payment_intent || '',
-      lang: lang === 'en' ? 'en' : 'es',
-      reminderSent: '',
-      birthdate: clientBirthdate || '',
-      bonoId: bonoId || '',
-      sessionNumber: 1,
-    });
-  } catch (sheetErr) {
-    console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
-  }
+  const combinedServiceName = itemsWithShare
+    .map((it) => `${it.service ? it.service.name : it.serviceId} — bono de ${it.sessions} sesiones (1/${it.sessions})`)
+    .join(' + ');
 
   await sendBookingConfirmationEmail({
     clientEmail, clientName, clientPhone,
-    serviceName: service ? `${service.name} — bono de ${totalSessions} sesiones (1/${totalSessions})` : `Bono de ${totalSessions} sesiones`,
+    serviceName: combinedServiceName,
     date, time,
     employeeName: employee ? employee.name : '',
-    amountPaid: realAmountPaid, price: bonoPrice, lang,
+    amountPaid: realAmountPaid, price: combinedBonoPrice, lang,
   });
 }
 
