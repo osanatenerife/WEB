@@ -671,7 +671,10 @@
       els.payOptions.querySelectorAll('input[name="pay"]').forEach((r) => {
         r.addEventListener('change', () => { state.payChoice = r.value; });
       });
-      els.payOptions.innerHTML += `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`;
+      // OJO: nunca usar "innerHTML +=" aquí — recrea todos los nodos hijos
+      // (incluidos los radios ya con su listener) dejando la elección de
+      // pago sin efecto. insertAdjacentHTML solo añade, no destruye nada.
+      els.payOptions.insertAdjacentHTML('beforeend', `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`);
       return;
     }
 
@@ -699,7 +702,8 @@
         r.addEventListener('change', () => { state.payChoice = r.value; });
       });
     }
-    els.payOptions.innerHTML += `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`;
+    // Igual que arriba: insertAdjacentHTML, nunca "innerHTML +=".
+    els.payOptions.insertAdjacentHTML('beforeend', `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`);
   }
 
   els.submit.addEventListener('click', async () => {
