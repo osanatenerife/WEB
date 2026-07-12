@@ -134,6 +134,46 @@ Sube este cambio (o dímelo y lo hago yo) y publica la web.
 3. Cuando todo funcione, cambia `STRIPE_SECRET_KEY` a tu clave **real**
    (`sk_live_...`) en Render, y ya está cobrando de verdad.
 
+## Paso 8 — Recordatorio de cita por WhatsApp (opcional)
+
+El código ya está preparado para mandar el recordatorio de 24h también por
+WhatsApp además de por email — solo falta crear la cuenta y aprobar la
+plantilla. Precio orientativo: unos **2 céntimos por recordatorio enviado**
+(tasa de Meta + tasa de Twilio), sin cuota fija mensual. Con el volumen
+normal de un centro como Osana, esto son unos pocos euros al mes.
+
+1. Crea una cuenta en [twilio.com](https://www.twilio.com) (piden una
+   tarjeta para el consumo, pero no hay cuota mensual — solo pagas lo que
+   uses).
+2. En el panel de Twilio, ve a **Messaging → Try it out → Send a WhatsApp
+   message** para activar WhatsApp. Para producción (no solo pruebas)
+   tendrás que **verificar el negocio** (Meta Business Verification): te
+   pedirán datos básicos de Osana (CIF/NIF, dirección, teléfono) — es
+   gratis, pero puede tardar de un día a una semana en aprobarse.
+3. Necesitas un **número de teléfono dedicado a WhatsApp Business API**:
+   no puede ser el mismo que uses a diario en la app normal de WhatsApp
+   Business en tu móvil. Puedes comprar un número nuevo dentro de Twilio.
+4. Crea una **plantilla de mensaje** (Twilio → Content Editor) de categoría
+   "Utility", con este texto de ejemplo (los `{{1}}`, `{{2}}`... son las
+   variables que rellena el sistema automáticamente):
+
+   > Hola {{1}}, te recordamos tu cita en Osana el {{2}} a las {{3}} ({{4}}). Para cancelar o cambiar la hora entra en osana.es/mis-reservas.html. ¡Te esperamos!
+
+   Envíala a aprobar (Meta la revisa, normalmente en minutos u horas).
+   Cuando esté aprobada, copia su **ContentSid** (empieza por `HX...`).
+5. En Render (Environment Variables), añade:
+   - `TWILIO_ACCOUNT_SID` y `TWILIO_AUTH_TOKEN` (Twilio → Console, en la
+     página principal)
+   - `TWILIO_WHATSAPP_FROM` → `whatsapp:+34XXXXXXXXX` (tu número de Twilio)
+   - `TWILIO_REMINDER_TEMPLATE_SID` → el ContentSid del paso 4
+6. Guarda y espera a que Render redespliegue. A partir de ahí, cada
+   recordatorio de 24h se manda automáticamente por email **y** WhatsApp,
+   sin tocar nada más.
+
+> Si no rellenas estas variables, todo sigue funcionando exactamente igual
+> que ahora (solo email) — es opcional y no rompe nada si se deja para más
+> adelante.
+
 ---
 
 ## Preguntas frecuentes

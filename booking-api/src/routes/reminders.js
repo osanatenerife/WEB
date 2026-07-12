@@ -1,6 +1,7 @@
 const express = require('express');
 const { getAllBookings, updateBookingRow } = require('../lib/sheets');
 const { sendEmail } = require('../lib/email');
+const { sendWhatsAppTemplate } = require('../lib/whatsapp');
 const { localToISO } = require('../lib/timezone');
 const hours = require('../config/hours');
 
@@ -80,6 +81,19 @@ router.get('/send-reminders', async (req, res) => {
           subject: strings.subject,
           html: `<p>${strings.greeting(b.name)}</p>${strings.body(b, dateLabel)}`,
         });
+        // El WhatsApp es un extra: si Twilio no está configurado todavía,
+        // sendWhatsAppTemplate no hace nada; si falla el envío, no debe
+        // impedir que el recordatorio por email cuente como enviado.
+        if (b.phone) {
+          try {
+            await sendWhatsAppTemplate({
+              to: b.phone,
+              variables: { 1: b.name || '', 2: dateLabel, 3: b.time, 4: b.serviceName },
+            });
+          } catch (waErr) {
+            console.error(`Error enviando WhatsApp a ${b.phone}:`, waErr.message);
+          }
+        }
         await updateBookingRow(b._sheetRow, b, { reminderSent: 'sent' });
         sent++;
       } catch (err) {
