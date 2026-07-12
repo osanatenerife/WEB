@@ -36,7 +36,6 @@
     backHome: { es: 'Volver al inicio', en: 'Back to home' },
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
     addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
-    addBonoTreatment: { es: '+ Añadir otro bono a la misma cita…', en: '+ Add another package to the same visit…' },
     removeAddon: { es: 'Quitar', en: 'Remove' },
     bonoTitle: { es: 'Ahorra con bonos de 3 sesiones', en: 'Save with 3-session packages' },
     bonoPerSession: { es: (n) => `= ${n} € / sesión`, en: (n) => `= €${n} / session` },
@@ -66,6 +65,10 @@
     bono: null, // { serviceId, serviceName, sessions, bonoPrice, singleSessionPrice }
   };
 
+  // "extras" son modificadores de zona/tiempo del tratamiento principal
+  // (solo aplican cuando el principal NO es bono). "extraServices" y
+  // "extraBonos" son otros tratamientos añadidos a la misma cita — sesión
+  // suelta o bono, cualquier combinación, indistintamente del principal.
   function extrasDuration() { return state.extras.reduce((sum, e) => sum + e.durationMinutes, 0); }
   function extrasPrice() { return state.extras.reduce((sum, e) => sum + e.price, 0); }
   function addonsDuration() { return state.extraServices.reduce((sum, s) => sum + s.durationMinutes, 0); }
@@ -73,16 +76,17 @@
   function extraBonosDuration() { return state.extraBonos.reduce((sum, b) => sum + ((findServiceById(b.serviceId) || {}).durationMinutes || 0), 0); }
   function extraBonosPrice() { return state.extraBonos.reduce((sum, b) => sum + b.bonoPrice, 0); }
   function totalDuration() {
-    if (state.wantsBono && state.bono) return (state.service ? state.service.durationMinutes : 0) + extraBonosDuration();
-    return (state.service ? state.service.durationMinutes : 0) + extrasDuration() + addonsDuration();
+    const primary = state.service ? state.service.durationMinutes : 0;
+    const modifiers = state.wantsBono ? 0 : extrasDuration();
+    return primary + modifiers + addonsDuration() + extraBonosDuration();
   }
   function totalPrice() {
-    if (state.wantsBono && state.bono) return state.bono.bonoPrice + extraBonosPrice();
-    return (state.service ? state.service.price : 0) + extrasPrice() + addonsPrice();
+    const primary = state.wantsBono && state.bono ? state.bono.bonoPrice : (state.service ? state.service.price : 0);
+    const modifiers = state.wantsBono ? 0 : extrasPrice();
+    return primary + modifiers + addonsPrice() + extraBonosPrice();
   }
   function selectedServiceIds() {
-    if (state.wantsBono) return [state.service.id, ...state.extraBonos.map((b) => b.serviceId)];
-    return [state.service.id, ...state.extraServices.map((s) => s.id)];
+    return [state.service.id, ...state.extraServices.map((s) => s.id), ...state.extraBonos.map((b) => b.serviceId)];
   }
   function findServiceById(id) {
     for (const cat in servicesByCategory) {
@@ -102,6 +106,7 @@
     addonsSection: document.getElementById('booking-addons-section'),
     addonsChips: document.getElementById('booking-addons-chips'),
     addonsSelect: document.getElementById('booking-addons-select'),
+    addonsModeChooser: document.getElementById('booking-addons-mode-chooser'),
     extrasSection: document.getElementById('booking-extras-section'),
     extras: document.getElementById('booking-extras'),
     step1Actions: document.getElementById('booking-step1-actions'),
@@ -144,7 +149,7 @@
 
   // ── Resumen persistente (panel lateral) ──
   function renderSummary() {
-    const { service, extras, extraServices, employee, date, time } = state;
+    const { service, extras, extraServices, extraBonos, employee, date, time } = state;
     if (!service) {
       els.summary.innerHTML = `<p class="booking-summary-empty">${t('chooseToStart')}</p>`;
       return;
@@ -152,24 +157,19 @@
     let html;
     if (state.wantsBono && state.bono) {
       html = `<div class="booking-summary-row"><strong>${t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div>`;
-      state.extraBonos.forEach((b) => {
-        html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div>`;
+    } else {
+      html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
+      extras.forEach((ex) => {
+        html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span></div>`;
       });
-      html += `<div class="booking-summary-meta">${totalDuration()} min · ${t('bonoSessionNote')(state.bono.sessions)}${state.extraBonos.length ? ` · <strong>${totalPrice().toFixed(0)} €</strong>` : ''}</div>`;
-      els.summary.innerHTML = html + (employee ? `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>` : '') + (date && time ? `<div class="booking-summary-line">${new Date(`${date}T12:00:00`).toLocaleDateString(DATE_LOCALE, { weekday: 'long', day: 'numeric', month: 'long' })} ${t('at')} ${time}</div>` : '');
-      return;
     }
-    html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
-    html += `<div class="booking-summary-meta">${service.durationMinutes} min</div>`;
     extraServices.forEach((s) => {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     });
-    extras.forEach((ex) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span></div>`;
+    extraBonos.forEach((b) => {
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div>`;
     });
-    if (extras.length || extraServices.length) {
-      html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong></div>`;
-    }
+    html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong>${state.wantsBono ? ` · ${t('bonoSessionNote')(state.bono.sessions)}` : ''}</div>`;
     if (employee) {
       html += `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>`;
     }
@@ -281,21 +281,16 @@
         state.wantsBono = btn.dataset.bono === '1';
         els.bonoSection.querySelectorAll('.booking-bono-option').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
+        // Los tratamientos añadidos (sueltos o bono) se mantienen igual al
+        // cambiar el principal — solo cambian los "extras" de zona/tiempo,
+        // que no tienen sentido si el principal pasa a ser un bono.
         if (state.wantsBono) {
-          // Al elegir bono, los "extras" (tiempo/zona añadida a la sesión) no
-          // aplican, pero sí se pueden añadir otros bonos a la misma cita.
           state.extras = [];
           els.extrasSection.style.display = 'none';
-          els.addonsSection.style.display = 'block';
-          renderAddonsChips();
-          renderAddonsSelect();
         } else {
-          state.extraBonos = [];
-          els.addonsSection.style.display = 'block';
-          renderAddonsChips();
-          renderAddonsSelect();
           loadExtras();
         }
+        renderAddonsSelect();
         renderSummary();
       });
     });
@@ -319,22 +314,21 @@
   }
 
   // ── "Otros tratamientos" añadidos a la misma cita ──
-  // En modo bono, solo se pueden añadir tratamientos que también tengan
-  // bono disponible (misma cita, cada uno con su propio bono de sesiones).
+  // Se puede añadir cualquier tratamiento, tenga o no bono disponible. Si lo
+  // tiene, se elige con botones (igual que el principal) sesión suelta o
+  // bono antes de añadirlo; si no, se añade directo como sesión suelta.
   function renderAddonsSelect() {
     const usedIds = new Set(selectedServiceIds());
-    els.addonsSelect.innerHTML = `<option value="">${state.wantsBono ? t('addBonoTreatment') : t('addTreatment')}</option>`;
+    els.addonsSelect.innerHTML = `<option value="">${t('addTreatment')}</option>`;
     Object.keys(servicesByCategory).forEach((cat) => {
-      const items = servicesByCategory[cat].filter((s) => !usedIds.has(s.id) && (!state.wantsBono || bonosById[s.id]));
+      const items = servicesByCategory[cat].filter((s) => !usedIds.has(s.id));
       if (!items.length) return;
       const group = document.createElement('optgroup');
       group.label = cat;
       items.forEach((s) => {
         const opt = document.createElement('option');
         opt.value = s.id;
-        const displayPrice = state.wantsBono ? bonosById[s.id].bonoPrice : s.price;
-        const label = state.wantsBono ? `${s.name} — ${t('bonoPackLabel')(bonosById[s.id].sessions)}` : s.name;
-        opt.textContent = `${label} — ${displayPrice > 0 ? displayPrice.toFixed(0) + ' €' : t('free')}`;
+        opt.textContent = `${s.name} — ${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}`;
         group.appendChild(opt);
       });
       els.addonsSelect.appendChild(group);
@@ -343,23 +337,36 @@
 
   function renderAddonsChips() {
     els.addonsChips.innerHTML = '';
-    const list = state.wantsBono ? state.extraBonos : state.extraServices;
-    list.forEach((item) => {
+    state.extraServices.forEach((s) => {
       const chip = document.createElement('span');
       chip.className = 'booking-addon-chip';
       const label = document.createElement('span');
-      label.textContent = state.wantsBono ? `${item.serviceName} — ${t('bonoPackLabel')(item.sessions)}` : item.name;
+      label.textContent = s.name;
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'booking-addon-remove';
       removeBtn.setAttribute('aria-label', t('removeAddon'));
       removeBtn.textContent = '✕';
       removeBtn.addEventListener('click', () => {
-        if (state.wantsBono) {
-          state.extraBonos = state.extraBonos.filter((x) => x.serviceId !== item.serviceId);
-        } else {
-          state.extraServices = state.extraServices.filter((x) => x.id !== item.id);
-        }
+        state.extraServices = state.extraServices.filter((x) => x.id !== s.id);
+        onAddonsChanged();
+      });
+      chip.appendChild(label);
+      chip.appendChild(removeBtn);
+      els.addonsChips.appendChild(chip);
+    });
+    state.extraBonos.forEach((b) => {
+      const chip = document.createElement('span');
+      chip.className = 'booking-addon-chip booking-addon-chip-bono';
+      const label = document.createElement('span');
+      label.textContent = `${b.serviceName} — ${t('bonoPackLabel')(b.sessions)}`;
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'booking-addon-remove';
+      removeBtn.setAttribute('aria-label', t('removeAddon'));
+      removeBtn.textContent = '✕';
+      removeBtn.addEventListener('click', () => {
+        state.extraBonos = state.extraBonos.filter((x) => x.serviceId !== b.serviceId);
         onAddonsChanged();
       });
       chip.appendChild(label);
@@ -375,21 +382,51 @@
     if (!state.wantsBono) loadExtras();
   }
 
+  function hideAddonsModeChooser() {
+    els.addonsModeChooser.style.display = 'none';
+    els.addonsModeChooser.innerHTML = '';
+  }
+
+  function showAddonsModeChooser(svc, bono) {
+    els.addonsModeChooser.style.display = 'block';
+    const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
+    els.addonsModeChooser.innerHTML = `
+      <div class="booking-addons-mode-label">${svc.name}</div>
+      <div class="booking-bono-options">
+        <button type="button" class="booking-bono-option" data-mode="single">
+          <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
+          <span class="booking-bono-option-price">${svc.price.toFixed(0)} €</span>
+        </button>
+        <button type="button" class="booking-bono-option booking-bono-option-pack" data-mode="bono">
+          <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
+          <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
+          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
+        </button>
+      </div>
+    `;
+    els.addonsModeChooser.querySelectorAll('[data-mode]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.mode === 'bono') {
+          state.extraBonos.push(bono);
+        } else {
+          state.extraServices.push(svc);
+        }
+        hideAddonsModeChooser();
+        onAddonsChanged();
+      });
+    });
+  }
+
   els.addonsSelect.addEventListener('change', () => {
     const id = els.addonsSelect.value;
     if (!id) return;
-    if (state.wantsBono) {
-      const bono = bonosById[id];
-      if (bono) {
-        state.extraBonos.push(bono);
-        onAddonsChanged();
-      }
-    } else {
-      const svc = findServiceById(id);
-      if (svc) {
-        state.extraServices.push(svc);
-        onAddonsChanged();
-      }
+    const svc = findServiceById(id);
+    const bono = bonosById[id];
+    if (svc && bono) {
+      showAddonsModeChooser(svc, bono);
+    } else if (svc) {
+      state.extraServices.push(svc);
+      onAddonsChanged();
     }
     els.addonsSelect.value = '';
   });
@@ -691,10 +728,17 @@
     els.submit.disabled = true;
     els.submit.textContent = t('connectingPayment');
 
-    const endpoint = state.wantsBono ? 'bono-checkout' : 'checkout';
-    const body = state.wantsBono
+    // Si hay algún bono de por medio (el principal o algún tratamiento
+    // añadido), se usa bono-checkout, que soporta cualquier mezcla de
+    // sesiones sueltas y bonos. Si no hay ningún bono, sigue el checkout
+    // normal de toda la vida.
+    const hasAnyBono = state.wantsBono || state.extraBonos.length > 0;
+    const endpoint = hasAnyBono ? 'bono-checkout' : 'checkout';
+    const body = hasAnyBono
       ? {
           serviceId: state.service.id,
+          wantsBonoPrimary: state.wantsBono,
+          extraServiceIds: state.extraServices.map((s) => s.id),
           extraBonoServiceIds: state.extraBonos.map((b) => b.serviceId),
           employeeId: state.employee.id,
           date: state.date,
