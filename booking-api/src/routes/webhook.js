@@ -191,7 +191,24 @@ async function handleBonoSessionPayment(session) {
   } catch (e) {
     console.error('No se pudo leer singleItems del metadata:', e);
   }
-  if (!bonoList.length) return;
+  if (!bonoList.length) {
+    // Este webhook solo se dispara para compras de tipo bono_session, que
+    // bonoCheckout.js nunca crea sin al menos un bonoItem — si llegamos aquí
+    // vacíos es que el metadata no se pudo leer (JSON corrupto/truncado), y
+    // la clienta YA ha pagado. Avisamos a la salón por email para que no se
+    // pierda el registro de un pago real sin cita/bono asociados.
+    try {
+      await sendEmail({
+        to: SALON_EMAIL,
+        subject: '⚠️ Pago de bono recibido sin poder registrarlo — revisar manualmente',
+        html: `<p>Se ha recibido un pago (sesión de Stripe: ${session.id}) de tipo bono_session pero no se pudo leer el detalle de los tratamientos del metadata. Revisa el pago en el panel de Stripe y registra la reserva a mano.</p>
+               <p>Cliente: ${clientName || 'desconocido'} · Teléfono: ${clientPhone || '-'} · Email: ${clientEmail || '-'}</p>`,
+      });
+    } catch (e) {
+      console.error('No se pudo enviar el email de alerta de bono sin registrar:', e);
+    }
+    return;
+  }
 
   const discountCents = (session.total_details && session.total_details.amount_discount) || 0;
   const realAmountPaid = typeof session.amount_total === 'number'

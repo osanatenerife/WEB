@@ -650,7 +650,12 @@
     const price = totalPrice();
     els.payOptions.innerHTML = '';
 
-    if (state.wantsBono && state.bono) {
+    // El bloque de pago "bono" (con nota informativa + checkbox de términos)
+    // debe salir siempre que haya ALGÚN bono en el carrito, sea el principal
+    // o uno añadido como extra — no solo cuando el tratamiento principal es
+    // el bono. Si no, un bono comprado solo como "extra" nunca mostraría el
+    // checkbox de condiciones y se compraría sin que la clienta lo aceptase.
+    if ((state.wantsBono && state.bono) || state.extraBonos.length > 0) {
       const depositAmount = round2((price * (service.depositPercent || 30)) / 100);
       state.payChoice = 'deposit';
       els.payOptions.innerHTML = `
@@ -721,7 +726,7 @@
       showError(t('missingBookingData'));
       return;
     }
-    if (state.wantsBono) {
+    if (state.wantsBono || state.extraBonos.length > 0) {
       const termsCheck = document.getElementById('booking-bono-terms-check');
       if (!termsCheck || !termsCheck.checked) {
         showError(t('bonoTermsRequired'));

@@ -66,8 +66,16 @@ router.get('/my-bookings', async (req, res) => {
     ));
     mine.sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
 
-    const movements = await getLoyaltyMovementsForPhone(normalizePhone(phone));
-    const loyaltyBalance = computeLoyaltyBalance(movements);
+    // El saldo de fidelización solo se calcula/devuelve si el teléfono+email
+    // coinciden con al menos una reserva real (mismo criterio que isOwner
+    // para las reservas) — si no, cualquiera que adivine un teléfono podría
+    // ver el saldo de otra clienta aunque el email no coincida.
+    const hasOwnedBooking = all.some((b) => isOwner(b, phone, email));
+    let loyaltyBalance = 0;
+    if (hasOwnedBooking) {
+      const movements = await getLoyaltyMovementsForPhone(normalizePhone(phone));
+      loyaltyBalance = computeLoyaltyBalance(movements);
+    }
 
     res.json({ bookings: mine.map(toPublicBooking), loyaltyBalance, minRedeemAmount: MIN_REDEEM_AMOUNT });
   } catch (err) {

@@ -343,19 +343,54 @@ router.post('/panel/close', async (req, res) => {
     const total = finalAmount !== undefined && finalAmount !== '' ? Number(finalAmount) : onlinePaid;
     let remainder = Math.max(0, round2(total - onlinePaid));
 
-    // Aplicar canje de saldo (si se pide): se resta del resto antes de
+    // Calcular canje de saldo (si se pide): se resta del resto antes de
     // repartirlo en formas de pago, y nunca puede superar ni lo que queda
     // por pagar ni el saldo real disponible de la clienta. Solo vale en
     // tratamientos sueltos (no en sesiones de un bono) y con un mínimo de
-    // MIN_REDEEM_AMOUNT por canje.
+    // MIN_REDEEM_AMOUNT por canje. Solo se CALCULA aquí; el movimiento en el
+    // libro de saldo se escribe más abajo, después de marcar la cita como
+    // cerrada, para que un reintento tras un fallo a mitad de camino no
+    // pueda duplicar el canje (ver nota junto a updateBookingRow).
     let redeemed = 0;
+    let phoneN = '';
     if (!alreadyClosed && !booking.bonoId && redeemAmount && Number(redeemAmount) >= MIN_REDEEM_AMOUNT) {
-      const phoneN = normalizePhone(booking.phone);
+      phoneN = normalizePhone(booking.phone);
       const movements = await getLoyaltyMovementsForPhone(phoneN);
       const balance = computeLoyaltyBalance(movements);
       redeemed = Math.max(0, Math.min(remainder, balance, round2(Number(redeemAmount))));
+      if (redeemed > 0) remainder = round2(remainder - redeemed);
+    }
+
+    const part2 = Math.max(0, Math.min(remainder, round2(Number(remainderAmount2) || 0)));
+    const part1 = round2(remainder - part2);
+
+    // remainingPaidHow del bono solo se rellena al cobrar el resto real
+    // (sesión 1, cuando se hizo la seña) — en las sesiones siguientes
+    // (amountPaid=0, ya cobradas) no hay nada nuevo que cobrar, y sobrescribir
+    // aquí borraría el registro de cómo se cobró el resto en su momento.
+    if (booking.bonoId && String(booking.sessionNumber) === '1') {
+      const bono = await findSessionBonoById(booking.bonoId);
+      if (bono) {
+        await updateSessionBonoRow(bono._sheetRow, bono, { remainingPaidHow: paidHow || '' });
+      }
+    }
+
+    // Escribimos primero la fila de la cita (lo que la marca como "cerrada"
+    // para futuras llamadas) y solo después los movimientos de saldo — así,
+    // si algo falla a mitad de camino y se reintenta, alreadyClosed ya será
+    // true y no se puede duplicar ni el canje ni el ingreso de puntos.
+    // Si ya estaba cerrada (se está corrigiendo un dato), no se toca
+    // redeemedAmount para no borrar un canje ya aplicado la primera vez.
+    await updateBookingRow(booking._sheetRow, booking, {
+      finalAmount: total,
+      remainderPaidHow: paidHow || '',
+      remainderAmount2: part2 || '',
+      remainderPaidHow2: part2 > 0 ? (paidHow2 || '') : '',
+      ...(alreadyClosed ? {} : { redeemedAmount: redeemed || '' }),
+    });
+
+    if (!alreadyClosed) {
       if (redeemed > 0) {
-        remainder = round2(remainder - redeemed);
         await appendLoyaltyMovement({
           date: new Date().toISOString().slice(0, 10),
           phoneNormalized: phoneN,
@@ -371,27 +406,6 @@ router.post('/panel/close', async (req, res) => {
           amount: redeemed,
         });
       }
-    }
-
-    const part2 = Math.max(0, Math.min(remainder, round2(Number(remainderAmount2) || 0)));
-    const part1 = round2(remainder - part2);
-
-    if (booking.bonoId) {
-      const bono = await findSessionBonoById(booking.bonoId);
-      if (bono) {
-        await updateSessionBonoRow(bono._sheetRow, bono, { remainingPaidHow: paidHow || '' });
-      }
-    }
-
-    await updateBookingRow(booking._sheetRow, booking, {
-      finalAmount: total,
-      remainderPaidHow: paidHow || '',
-      remainderAmount2: part2 || '',
-      remainderPaidHow2: part2 > 0 ? (paidHow2 || '') : '',
-      redeemedAmount: redeemed || '',
-    });
-
-    if (!alreadyClosed) {
       await earnLoyalty({ booking, portionAmount: onlinePaid, paidHow: 'tarjeta' });
       await earnLoyalty({ booking, portionAmount: part1, paidHow: paidHow || '' });
       if (part2 > 0) await earnLoyalty({ booking, portionAmount: part2, paidHow: paidHow2 || '' });
@@ -525,6 +539,11 @@ router.post('/panel/no-show', async (req, res) => {
   try {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+    // Evita que un doble clic o un reintento cuente la misma ausencia dos
+    // veces (segundo strike / segunda restauración de sesión de bono).
+    if (booking.status === 'no_show') {
+      return res.json({ ok: true, alreadyMarked: true });
+    }
 
     await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
 

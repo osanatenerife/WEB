@@ -59,6 +59,19 @@ router.post('/bono-checkout', async (req, res) => {
   }
   if (!bonoItems.length) return res.status(400).json({ error: 'No hay ningún bono en esta reserva.' });
 
+  // Stripe limita cada valor de metadata a 500 caracteres. Con muchos
+  // tratamientos combinados el JSON de bonoItems/singleItems podría superar
+  // ese límite — lo comprobamos aquí, antes de bloquear el hueco de
+  // calendario, para dar un error claro en vez de que falle Stripe a mitad
+  // de camino.
+  const bonoItemsMetaCheck = JSON.stringify(bonoItems.map((it) => ({
+    serviceId: it.service.id, bonoId: it.bonoId, sessions: it.bono.sessions, price: it.bono.price,
+  })));
+  const singleItemsMetaCheck = JSON.stringify(singleItems.map((it) => ({ serviceId: it.service.id, price: it.service.price })));
+  if (bonoItemsMetaCheck.length > 480 || singleItemsMetaCheck.length > 480) {
+    return res.status(400).json({ error: 'Demasiados tratamientos combinados en una sola reserva. Divide la compra en dos reservas separadas.' });
+  }
+
   const totalDuration = [...bonoItems, ...singleItems].reduce((sum, it) => sum + it.service.durationMinutes, 0);
   const bonoTotal = round2(bonoItems.reduce((sum, it) => sum + it.bono.price, 0));
   const singleTotal = round2(singleItems.reduce((sum, it) => sum + it.service.price, 0));
@@ -66,8 +79,16 @@ router.post('/bono-checkout', async (req, res) => {
 
   // "full": paga todo completo online (aquí es donde tiene sentido Klarna).
   // "deposit": paga solo la seña sobre el total combinado, resto en el centro.
+  // El % de seña se calcula como el máximo entre todos los tratamientos del
+  // carrito (no solo el principal) para que, si en el futuro se añade un
+  // tratamiento con una seña mayor a la del principal, nunca se cobre de
+  // menos online.
+  const depositPercent = Math.max(
+    primaryService.depositPercent || 30,
+    ...[...bonoItems, ...singleItems].map((it) => it.service.depositPercent || 30)
+  );
   const isFull = paymentChoice === 'full';
-  const amount = isFull ? combinedTotal : round2((combinedTotal * (primaryService.depositPercent || 30)) / 100);
+  const amount = isFull ? combinedTotal : round2((combinedTotal * depositPercent) / 100);
   const paymentType = isFull ? 'total' : 'pagar reserva';
 
   let eventId = null;
