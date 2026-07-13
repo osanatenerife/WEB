@@ -58,4 +58,34 @@ async function sendWhatsAppTemplate({ to, variables }) {
   return data;
 }
 
-module.exports = { sendWhatsAppTemplate, toE164Spain };
+// Manda un SMS normal (no WhatsApp) de aviso interno a Osana — se usa para
+// reenviar al móvil de la empresa las respuestas que las clientas mandan al
+// número automático de recordatorios, ya que ese número no es el mismo con
+// el que Osana usa la app de WhatsApp a diario (ver whatsappIncoming.js).
+// No hace falta plantilla aprobada porque no va dirigido a una clienta.
+async function sendOwnerSms(body) {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_WHATSAPP_FROM;
+  const ownerPhone = process.env.OWNER_PHONE || '+34623725551';
+  if (!sid || !token || !from) return null;
+
+  const fromPlain = from.replace('whatsapp:', '');
+  const params = new URLSearchParams({ To: ownerPhone, From: fromPlain, Body: body.slice(0, 1500) });
+
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params,
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.message || 'Error mandando SMS con Twilio');
+  }
+  return data;
+}
+
+module.exports = { sendWhatsAppTemplate, toE164Spain, sendOwnerSms };
