@@ -157,7 +157,7 @@ normal de un centro como Osana, esto son unos pocos euros al mes.
    "Utility", con este texto de ejemplo (los `{{1}}`, `{{2}}`... son las
    variables que rellena el sistema automáticamente):
 
-   > Hola {{1}}, te recordamos tu cita en Osana el {{2}} a las {{3}} ({{4}}). Para cancelar o cambiar la hora entra en osana.es/mis-reservas.html. ¡Te esperamos!
+   > Buenas tardes {{1}}, le recordamos su cita del día {{2}} a las {{3}} horas en nuestro centro OSANA para {{4}}. {{5}} ¡Le esperamos! 🫶 OSANA
 
    Envíala a aprobar (Meta la revisa, normalmente en minutos u horas).
    Cuando esté aprobada, copia su **ContentSid** (empieza por `HX...`).

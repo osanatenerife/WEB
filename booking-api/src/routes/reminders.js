@@ -19,6 +19,19 @@ function appointmentDateTime(booking) {
   return new Date(localToISO(booking.date, time, hours.timezone));
 }
 
+// Aviso de pago para el recordatorio de WhatsApp: si a la clienta le queda
+// algo pendiente de pagar en el centro, se lo decimos con el importe real;
+// si ya pagó todo online, un aviso distinto para no confundirla.
+function paymentNoteFor(b) {
+  const price = Number(b.price) || 0;
+  const paid = Number(b.amountPaid) || 0;
+  const remainder = Math.max(0, Math.round((price - paid) * 100) / 100);
+  if (remainder > 0) {
+    return `Recuerda: quedan ${remainder.toFixed(2)} € por pagar en el centro (efectivo o Bizum al 623 725 551).`;
+  }
+  return 'Ya tienes el pago completado, ¡solo queda disfrutar de tu cita!';
+}
+
 const EMAIL_STRINGS = {
   es: {
     subject: 'Recordatorio: tu cita en Osana es mañana',
@@ -88,7 +101,7 @@ router.get('/send-reminders', async (req, res) => {
           try {
             await sendWhatsAppTemplate({
               to: b.phone,
-              variables: { 1: b.name || '', 2: dateLabel, 3: b.time, 4: b.serviceName },
+              variables: { 1: b.name || '', 2: dateLabel, 3: b.time, 4: b.serviceName, 5: paymentNoteFor(b) },
             });
           } catch (waErr) {
             console.error(`Error enviando WhatsApp a ${b.phone}:`, waErr.message);
