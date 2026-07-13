@@ -89,29 +89,40 @@ router.get('/send-reminders', async (req, res) => {
       const dateLabel = appointmentDateTime(b).toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
         weekday: 'long', day: 'numeric', month: 'long',
       });
+      // Email y WhatsApp son canales independientes: un fallo en uno (por
+      // ejemplo, un email mal configurado) no debe impedir que el otro se
+      // intente igualmente.
+      let emailOk = true;
       try {
         await sendEmail({
           to: b.email,
           subject: strings.subject,
           html: `<p>${strings.greeting(b.name)}</p>${strings.body(b, dateLabel)}`,
         });
-        // El WhatsApp es un extra: si Twilio no está configurado todavía,
-        // sendWhatsAppTemplate no hace nada; si falla el envío, no debe
-        // impedir que el recordatorio por email cuente como enviado.
-        if (b.phone) {
-          try {
-            await sendWhatsAppTemplate({
-              to: b.phone,
-              variables: { 1: b.name || '', 2: dateLabel, 3: b.time, 4: b.serviceName, 5: paymentNoteFor(b) },
-            });
-          } catch (waErr) {
-            console.error(`Error enviando WhatsApp a ${b.phone}:`, waErr.message);
-          }
+      } catch (emailErr) {
+        emailOk = false;
+        console.error(`Error enviando email a ${b.email}:`, emailErr.message);
+        errors.push({ bookingId: b.bookingId, channel: 'email', error: emailErr.message });
+      }
+      // El WhatsApp es un extra: si Twilio no está configurado todavía,
+      // sendWhatsAppTemplate no hace nada; si falla el envío, no debe
+      // impedir que el recordatorio quede marcado como intentado.
+      if (b.phone) {
+        try {
+          await sendWhatsAppTemplate({
+            to: b.phone,
+            variables: { 1: b.name || '', 2: dateLabel, 3: b.time, 4: b.serviceName, 5: paymentNoteFor(b) },
+          });
+        } catch (waErr) {
+          console.error(`Error enviando WhatsApp a ${b.phone}:`, waErr.message);
+          errors.push({ bookingId: b.bookingId, channel: 'whatsapp', error: waErr.message });
         }
+      }
+      try {
         await updateBookingRow(b._sheetRow, b, { reminderSent: 'sent' });
-        sent++;
+        if (emailOk) sent++;
       } catch (err) {
-        console.error(`Error enviando recordatorio a ${b.email}:`, err.message);
+        console.error(`Error marcando recordatorio como enviado para ${b.bookingId}:`, err.message);
         errors.push({ bookingId: b.bookingId, error: err.message });
       }
     }
