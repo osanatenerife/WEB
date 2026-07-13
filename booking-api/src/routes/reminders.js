@@ -7,12 +7,13 @@ const hours = require('../config/hours');
 
 const router = express.Router();
 
-// Ventana de antelación objetivo: entre 23h y 25h antes de la cita.
+// Ventana de antelación objetivo: entre 47h y 49h antes de la cita (48h,
+// para que coincida con el plazo real de cancelación sin penalización).
 // Como el disparador externo llama a este endpoint cada hora, esta
 // ventana de 2h asegura que ninguna cita se quede sin recordatorio
 // aunque el disparo llegue con algo de retraso.
-const WINDOW_MIN_HOURS = 23;
-const WINDOW_MAX_HOURS = 25;
+const WINDOW_MIN_HOURS = 47;
+const WINDOW_MAX_HOURS = 49;
 
 function appointmentDateTime(booking) {
   const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
@@ -34,7 +35,7 @@ function paymentNoteFor(b) {
 
 const EMAIL_STRINGS = {
   es: {
-    subject: 'Recordatorio: tu cita en Osana es mañana',
+    subject: 'Recordatorio: tu próxima cita en Osana',
     greeting: (name) => `Hola ${name || ''},`.trim(),
     body: (b, dateLabel) => `
       <p>Te recordamos tu cita en <strong>Osana</strong>:</p>
@@ -49,7 +50,7 @@ const EMAIL_STRINGS = {
     `,
   },
   en: {
-    subject: 'Reminder: your Osana appointment is tomorrow',
+    subject: 'Reminder: your upcoming Osana appointment',
     greeting: (name) => `Hi ${name || ''},`.trim(),
     body: (b, dateLabel) => `
       <p>This is a reminder of your appointment at <strong>Osana</strong>:</p>

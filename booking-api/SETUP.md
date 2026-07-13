@@ -136,7 +136,7 @@ Sube este cambio (o dímelo y lo hago yo) y publica la web.
 
 ## Paso 8 — Recordatorio de cita por WhatsApp (opcional)
 
-El código ya está preparado para mandar el recordatorio de 24h también por
+El código ya está preparado para mandar el recordatorio de 48h también por
 WhatsApp además de por email — solo falta crear la cuenta y aprobar la
 plantilla. Precio orientativo: unos **2 céntimos por recordatorio enviado**
 (tasa de Meta + tasa de Twilio), sin cuota fija mensual. Con el volumen
@@ -167,7 +167,7 @@ normal de un centro como Osana, esto son unos pocos euros al mes.
    - `TWILIO_WHATSAPP_FROM` → `whatsapp:+34XXXXXXXXX` (tu número de Twilio)
    - `TWILIO_REMINDER_TEMPLATE_SID` → el ContentSid del paso 4
 6. Guarda y espera a que Render redespliegue. A partir de ahí, cada
-   recordatorio de 24h se manda automáticamente por email **y** WhatsApp,
+   recordatorio de 48h se manda automáticamente por email **y** WhatsApp,
    sin tocar nada más.
 
 > Si no rellenas estas variables, todo sigue funcionando exactamente igual
