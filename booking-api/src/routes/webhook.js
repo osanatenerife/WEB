@@ -83,6 +83,29 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   }
 }
 
+// Aviso interno a Osana cada vez que se confirma una reserva/pago — antes
+// solo se veía en Google Calendar, así que si no se está mirando el
+// calendario en ese momento, una reserva nueva podía pasar desapercibida.
+async function notifySalonNewBooking({ clientName, clientPhone, clientEmail, serviceName, date, time, employeeName, amountPaid, price }) {
+  const total = Number(price) || 0;
+  const paid = Number(amountPaid) || 0;
+  const pending = Math.max(0, round2(total - paid));
+  try {
+    await sendEmail({
+      to: SALON_EMAIL,
+      subject: `📅 Nueva reserva: ${serviceName || ''} — ${date} ${time}`,
+      html: `
+        <p><strong>${escapeHtml(serviceName || '')}</strong></p>
+        <p>${date} a las ${time} · con ${escapeHtml(employeeName || '')}</p>
+        <p>Clienta: ${escapeHtml(clientName || '')} · ${escapeHtml(clientPhone || '')}${clientEmail ? ` · ${escapeHtml(clientEmail)}` : ''}</p>
+        <p>Pagado online: <strong>${paid.toFixed(2)} €</strong>${pending > 0 ? ` · Pendiente en el centro: <strong>${pending.toFixed(2)} €</strong>` : ' (pago completo)'}</p>
+      `,
+    });
+  } catch (e) {
+    console.error('No se pudo mandar el aviso de nueva reserva al salón:', e);
+  }
+}
+
 async function handleBookingPayment(session) {
   const {
     bookingId, calendarId, eventId, serviceId, employeeId, date, time,
@@ -160,6 +183,13 @@ async function handleBookingPayment(session) {
     serviceName: combinedServiceName, date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price, lang,
+  });
+
+  await notifySalonNewBooking({
+    clientName, clientPhone, clientEmail,
+    serviceName: combinedServiceName, date, time,
+    employeeName: employee ? employee.name : '',
+    amountPaid: realAmountPaid, price,
   });
 }
 
@@ -370,6 +400,13 @@ async function handleBonoSessionPayment(session) {
     date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price: combinedTotal, lang,
+  });
+
+  await notifySalonNewBooking({
+    clientName, clientPhone, clientEmail,
+    serviceName: combinedServiceName, date, time,
+    employeeName: employee ? employee.name : '',
+    amountPaid: realAmountPaid, price: combinedTotal,
   });
 }
 
