@@ -4,6 +4,7 @@ const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
 const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone } = require('../lib/sheets');
 const { earnRateFor, computeLoyaltyBalance } = require('../config/loyalty');
+const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
@@ -45,37 +46,80 @@ async function loyaltyBalanceLine(clientPhone, lang) {
   }
 }
 
-async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, date, time, employeeName, amountPaid, price, lang }) {
+function formatDateLabel(dateStr, lang) {
+  try {
+    const d = new Date(`${dateStr}T12:00:00`);
+    return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+  } catch (e) {
+    return dateStr;
+  }
+}
+
+// Puntos ganados por la parte ya pagada online (siempre "tarjeta") — es una
+// estimación en el momento de la reserva, no la cifra final: el resto que
+// se pague en el centro se calcula aparte al cerrar la cita (y puede ganar
+// más si se paga en efectivo).
+function estimatedEarnLine(primaryServiceId, paidOnline, lang) {
+  if (!primaryServiceId || paidOnline <= 0) return '';
+  const category = accountingCategoryFor(primaryServiceId);
+  if (!category) return '';
+  const earned = round2(paidOnline * earnRateFor(category, 'tarjeta'));
+  if (earned <= 0) return '';
+  return lang === 'en'
+    ? `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € earned from this booking</p>`
+    : `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € ganados con esta reserva</p>`;
+}
+
+async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang }) {
   if (!clientEmail) return;
   const isEn = lang === 'en';
   const total = Number(price) || 0;
   const paid = Number(amountPaid) || 0;
   const pending = Math.max(0, round2(total - paid));
-  const pendingLine = pending > 0
-    ? (isEn ? `<p>Remaining to pay at the centre: <strong>${pending.toFixed(2)} €</strong></p>` : `<p>Resto a pagar en el centro: <strong>${pending.toFixed(2)} €</strong></p>`)
-    : '';
+  const dateLabel = formatDateLabel(date, lang);
+  const manageUrl = isEn ? 'https://osana.es/en/mis-reservas.html' : 'https://osana.es/mis-reservas.html';
+
+  const rows = [
+    [isEn ? 'Reason for booking' : 'Motivo de reserva', escapeHtml(serviceName || '')],
+    [isEn ? 'Date' : 'Fecha', escapeHtml(dateLabel)],
+    [isEn ? 'Time' : 'Hora', escapeHtml(time || '')],
+    [isEn ? 'Specialist' : 'Esteticista', escapeHtml(employeeName || '')],
+    [isEn ? 'Paid online' : 'Pagado online', `${paid.toFixed(2)} €`],
+    ...(pending > 0 ? [[isEn ? 'Remaining at the centre' : 'Resto a pagar en el centro', `${pending.toFixed(2)} €`]] : []),
+  ];
+  const rowsHtml = rows.map(([label, value], i) => `
+    <tr>
+      <td style="padding:10px 0;${i < rows.length - 1 ? 'border-bottom:1px solid #e8e2d8;' : ''}color:#8a8178;font-size:13px;">${label}</td>
+      <td style="padding:10px 0;${i < rows.length - 1 ? 'border-bottom:1px solid #e8e2d8;' : ''}text-align:right;font-weight:600;color:#1a1612;font-size:14px;">${value}</td>
+    </tr>`).join('');
+
+  const earnedLine = estimatedEarnLine(primaryServiceId, paid, lang);
   const loyaltyLine = await loyaltyBalanceLine(clientPhone, lang);
-  const html = isEn
-    ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
-        <h2 style="font-size:18px;">Booking confirmed ✓</h2>
-        <p>Hi ${escapeHtml(clientName || '')},</p>
-        <p><b>${escapeHtml(serviceName)}</b><br>${date} at ${time}<br>With ${escapeHtml(employeeName || '')}</p>
-        <p>Paid online: <strong>${paid.toFixed(2)} €</strong></p>
-        ${pendingLine}
-        ${loyaltyLine}
-        <p>Need to cancel or reschedule? Go to <a href="https://osana.es/en/mis-reservas.html">osana.es/en/mis-reservas.html</a>.</p>
-        <p>See you soon!<br>Osana</p>
-      </div>`
-    : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
-        <h2 style="font-size:18px;">Reserva confirmada ✓</h2>
-        <p>Hola ${escapeHtml(clientName || '')},</p>
-        <p><b>${escapeHtml(serviceName)}</b><br>${date} a las ${time}<br>Con ${escapeHtml(employeeName || '')}</p>
-        <p>Pagado online: <strong>${paid.toFixed(2)} €</strong></p>
-        ${pendingLine}
-        ${loyaltyLine}
-        <p>¿Necesitas cancelar o reprogramar? Entra en <a href="https://osana.es/mis-reservas.html">osana.es/mis-reservas.html</a>.</p>
-        <p>¡Te esperamos!<br>Osana</p>
-      </div>`;
+  const loyaltyBlurb = isEn
+    ? 'You earn loyalty balance on every visit (even more paying cash, +2%) — use it as a discount on your next single treatment.'
+    : 'Acumulas saldo de fidelidad en cada visita (más aún pagando en efectivo, +2%) — puedes usarlo como descuento en tu próximo tratamiento suelto.';
+
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;background:#f6eeda;">
+    <div style="background:#1a1612;padding:32px 24px;text-align:center;">
+      <p style="margin:0;color:#ac977e;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Osana</p>
+      <h1 style="margin:10px 0 0;color:#f6eeda;font-size:22px;font-weight:600;">${isEn ? 'Booking confirmed' : 'Reserva confirmada'} ✓</h1>
+    </div>
+    <div style="padding:28px 24px;">
+      <p style="margin:0 0 20px;color:#1a1612;font-size:15px;">${isEn ? 'Hi' : 'Hola'} ${escapeHtml(clientName || '')}, ${isEn ? 'thank you for booking with us. Here are your appointment details:' : 'gracias por confiar en nosotras. Aquí tienes los detalles de tu cita:'}</p>
+      <table style="width:100%;border-collapse:collapse;">${rowsHtml}</table>
+      <div style="text-align:center;margin:28px 0 8px;">
+        <a href="${manageUrl}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${isEn ? 'Manage my booking' : 'Gestionar mi reserva'}</a>
+      </div>
+      <p style="text-align:center;color:#8a8178;font-size:12px;margin:0;">${isEn ? 'Free cancellation or rescheduling up to 48h before.' : 'Puedes cancelar o reprogramar hasta 48h antes sin coste.'}</p>
+    </div>
+    <div style="background:#1a1612;padding:24px;text-align:center;">
+      <p style="margin:0 0 10px;color:#ac977e;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">${isEn ? 'Loyalty program' : 'Programa de fidelidad'}</p>
+      ${earnedLine}
+      ${loyaltyLine.replace(/<p>/, '<p style="margin:0 0 8px;color:#f6eeda;font-size:13px;">').replace('💶 ', '')}
+      <p style="margin:12px 0 0;color:#cbbfae;font-size:11.5px;line-height:1.6;">${loyaltyBlurb}</p>
+    </div>
+  </div>`;
+
   try {
     await sendEmail({ to: clientEmail, subject: isEn ? 'Booking confirmed — Osana' : 'Reserva confirmada — Osana', html });
   } catch (emailErr) {
@@ -180,7 +224,7 @@ async function handleBookingPayment(session) {
 
   await sendBookingConfirmationEmail({
     clientEmail, clientName, clientPhone,
-    serviceName: combinedServiceName, date, time,
+    serviceName: combinedServiceName, primaryServiceId: serviceId, date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price, lang,
   });
@@ -397,6 +441,7 @@ async function handleBonoSessionPayment(session) {
   await sendBookingConfirmationEmail({
     clientEmail, clientName, clientPhone,
     serviceName: combinedServiceName,
+    primaryServiceId: itemsWithShare[0] ? itemsWithShare[0].serviceId : '',
     date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price: combinedTotal, lang,
