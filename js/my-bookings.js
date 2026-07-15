@@ -38,14 +38,14 @@
     loyaltyRules: {
       es: [
         'Se canjea solo en tratamientos sueltos pagados en el centro (no en bonos de sesiones ni bonos regalo).',
-        'Canje mínimo de 10 € y máximo de 50 € por tratamiento.',
+        'Canje mínimo de 10 € por vez.',
         'No se puede canjear más de lo que quede por pagar en la cita, ni más del saldo disponible.',
         'El saldo generado caduca cada 31 de diciembre — la cuenta empieza de cero cada 1 de enero.',
         'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento.',
       ],
       en: [
         'Redeemable only on single treatments paid at the centre (not on session packages or gift vouchers).',
-        'Minimum redemption of €10, maximum of €50 per treatment.',
+        'Minimum redemption of €10 per time.',
         'You can\'t redeem more than what\'s left to pay on the appointment, or more than your available balance.',
         'Balance earned expires every December 31st — the count starts fresh each January 1st.',
         'Not transferable between clients or redeemable for cash — only as a discount on a treatment.',

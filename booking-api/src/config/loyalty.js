@@ -20,9 +20,12 @@ function earnRateFor(category, paidHow) {
 // Canjeable solo en tratamientos sueltos, nunca en bonos ni bono regalo.
 const REDEEMABLE_ON = ['treatment'];
 
-// Umbral mínimo y máximo por canje.
+// Umbral mínimo por canje. Sin tope máximo: llegar a un saldo alto ya
+// implica un gasto real considerable (con la tasa del 4-6%, acumular 50€
+// exige unos 800-900€ gastados en el centro), así que no tiene sentido
+// limitar además cuánto puede canjear de golpe una clienta que ya se lo
+// ha "ganado" con ese gasto.
 const MIN_REDEEM_AMOUNT = 10; // en euros
-const MAX_REDEEM_PER_BOOKING = 50; // en euros, por cita/tratamiento
 
 function round2(n) {
   return Math.round(n * 100) / 100;
@@ -51,7 +54,17 @@ function currentExpiryDate() {
   return new Date(new Date().getFullYear(), 11, 31);
 }
 
+// En diciembre, todo el saldo del año está a punto de caducar de todas
+// formas — así que el mínimo de MIN_REDEEM_AMOUNT no se aplica ese mes, para
+// que nadie pierda 4€ o 5€ sueltos solo por no llegar al mínimo. Esto es
+// una excepción SOLO interna (uso del panel): no se explica en ningún sitio
+// público (web, email) a propósito — se comunica de palabra en el centro,
+// para dar sensación de urgencia de "úsalo antes de que caduque".
+function effectiveMinRedeem() {
+  return new Date().getMonth() === 11 ? 0 : MIN_REDEEM_AMOUNT;
+}
+
 module.exports = {
-  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT, MAX_REDEEM_PER_BOOKING,
-  computeLoyaltyBalance, currentExpiryDate,
+  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT,
+  computeLoyaltyBalance, currentExpiryDate, effectiveMinRedeem,
 };
