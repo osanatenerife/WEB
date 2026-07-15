@@ -9,7 +9,7 @@
 // la comisión de tarjeta, así que tiene sentido devolver parte).
 // ============================================================
 
-const BASE_RATE = { cejas: 0.05, laser: 0.08, corporal: 0.08, facial: 0.08 };
+const BASE_RATE = { cejas: 0.04, laser: 0.04, corporal: 0.04, facial: 0.04 };
 const CASH_BONUS = 0.02; // +2% si esa parte se pagó en efectivo
 
 function earnRateFor(category, paidHow) {
@@ -20,19 +20,19 @@ function earnRateFor(category, paidHow) {
 // Canjeable solo en tratamientos sueltos, nunca en bonos ni bono regalo.
 const REDEEMABLE_ON = ['treatment'];
 
-// Umbral mínimo para poder canjear, y caducidad del saldo acumulado.
+// Umbral mínimo y máximo por canje.
 const MIN_REDEEM_AMOUNT = 10; // en euros
-const BALANCE_VALIDITY_MONTHS = 12;
+const MAX_REDEEM_PER_BOOKING = 50; // en euros, por cita/tratamiento
 
 function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
-// El saldo ganado ('earn') caduca a los BALANCE_VALIDITY_MONTHS; lo
-// canjeado ('redeem') se resta siempre, sin caducidad (ya salió de la cuenta).
+// El saldo ganado ('earn') caduca cada 31 de diciembre — la cuenta empieza
+// de cero cada 1 de enero. Lo canjeado ('redeem') se resta siempre, sin
+// caducidad (ya salió de la cuenta cuando se usó).
 function computeLoyaltyBalance(movements) {
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - BALANCE_VALIDITY_MONTHS);
+  const cutoff = new Date(new Date().getFullYear(), 0, 1); // 1 de enero del año actual
   let balance = 0;
   (movements || []).forEach((m) => {
     const amount = Number(m.amount) || 0;
@@ -46,6 +46,6 @@ function computeLoyaltyBalance(movements) {
 }
 
 module.exports = {
-  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT, BALANCE_VALIDITY_MONTHS,
+  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT, MAX_REDEEM_PER_BOOKING,
   computeLoyaltyBalance,
 };

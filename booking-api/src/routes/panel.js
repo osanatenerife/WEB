@@ -13,7 +13,7 @@ const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { accountingCategoryFor } = require('../config/accountingCategories');
-const { earnRateFor, computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { earnRateFor, computeLoyaltyBalance, MIN_REDEEM_AMOUNT, MAX_REDEEM_PER_BOOKING } = require('../config/loyalty');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -357,7 +357,7 @@ router.post('/panel/close', async (req, res) => {
       phoneN = normalizePhone(booking.phone);
       const movements = await getLoyaltyMovementsForPhone(phoneN);
       const balance = computeLoyaltyBalance(movements);
-      redeemed = Math.max(0, Math.min(remainder, balance, round2(Number(redeemAmount))));
+      redeemed = Math.max(0, Math.min(remainder, balance, MAX_REDEEM_PER_BOOKING, round2(Number(redeemAmount))));
       if (redeemed > 0) remainder = round2(remainder - redeemed);
     }
 
@@ -448,6 +448,9 @@ router.post('/panel/redeem', async (req, res) => {
   }
   if (redeemAmount < MIN_REDEEM_AMOUNT) {
     return res.status(400).json({ error: `El canje mínimo es de ${MIN_REDEEM_AMOUNT} €.` });
+  }
+  if (redeemAmount > MAX_REDEEM_PER_BOOKING) {
+    return res.status(400).json({ error: `El canje máximo por tratamiento es de ${MAX_REDEEM_PER_BOOKING} €.` });
   }
   try {
     const phoneN = normalizePhone(phone);

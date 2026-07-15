@@ -95,9 +95,20 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
 
   const earnedLine = estimatedEarnLine(primaryServiceId, paid, lang);
   const loyaltyLine = await loyaltyBalanceLine(clientPhone, lang);
-  const loyaltyBlurb = isEn
-    ? 'You earn loyalty balance on every visit (even more paying cash, +2%) — use it as a discount on your next single treatment.'
-    : 'Acumulas saldo de fidelidad en cada visita (más aún pagando en efectivo, +2%) — puedes usarlo como descuento en tu próximo tratamiento suelto.';
+  const loyaltyConditions = isEn
+    ? [
+        'Redeemable only on single treatments paid at the centre (not on session packages or gift vouchers).',
+        'Minimum redemption of €10, maximum of €50 per treatment.',
+        'Balance earned expires every December 31st — the count starts fresh each January 1st.',
+        'Not transferable between clients or redeemable for cash — only as a discount on a treatment.',
+      ]
+    : [
+        'Se canjea solo en tratamientos sueltos pagados en el centro (no en bonos de sesiones ni bonos regalo).',
+        'Canje mínimo de 10 € y máximo de 50 € por tratamiento.',
+        'El saldo generado caduca cada 31 de diciembre — la cuenta empieza de cero cada 1 de enero.',
+        'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento.',
+      ];
+  const loyaltyConditionsHtml = `<ul style="margin:10px 0 0;padding:0 0 0 16px;text-align:left;color:#cbbfae;font-size:11px;line-height:1.7;">${loyaltyConditions.map((c) => `<li>${c}</li>`).join('')}</ul>`;
 
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;background:#f6eeda;">
     <div style="background:#1a1612;padding:30px 24px 26px;text-align:center;">
@@ -116,7 +127,7 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
       <p style="margin:0 0 10px;color:#ac977e;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">${isEn ? 'Loyalty program' : 'Programa de fidelidad'}</p>
       ${earnedLine}
       ${loyaltyLine.replace(/<p>/, '<p style="margin:0 0 8px;color:#f6eeda;font-size:13px;">').replace('💶 ', '')}
-      <p style="margin:12px 0 0;color:#cbbfae;font-size:11.5px;line-height:1.6;">${loyaltyBlurb}</p>
+      ${loyaltyConditionsHtml}
     </div>
   </div>`;
 
