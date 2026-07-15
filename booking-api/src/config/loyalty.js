@@ -45,7 +45,13 @@ function computeLoyaltyBalance(movements) {
   return Math.max(0, round2(balance));
 }
 
+// Fecha en la que caduca el saldo actual (siempre el 31 de diciembre del año
+// en curso, ya que solo cuenta lo ganado desde el 1 de enero — ver arriba).
+function currentExpiryDate() {
+  return new Date(new Date().getFullYear(), 11, 31);
+}
+
 module.exports = {
   BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT, MAX_REDEEM_PER_BOOKING,
-  computeLoyaltyBalance,
+  computeLoyaltyBalance, currentExpiryDate,
 };

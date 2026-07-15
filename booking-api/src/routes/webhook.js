@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
 const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone } = require('../lib/sheets');
-const { earnRateFor, computeLoyaltyBalance } = require('../config/loyalty');
+const { earnRateFor, computeLoyaltyBalance, currentExpiryDate } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { sendEmail } = require('../lib/email');
@@ -37,9 +37,12 @@ async function loyaltyBalanceLine(clientPhone, lang) {
     const movements = await getLoyaltyMovementsForPhone(normalizePhone(clientPhone));
     const balance = computeLoyaltyBalance(movements);
     if (balance <= 0) return '';
+    const expiryLabel = currentExpiryDate().toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
+      day: 'numeric', month: 'long', year: 'numeric',
+    });
     return lang === 'en'
-      ? `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre (min. €10 per redemption).</p>`
-      : `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro (canje mínimo de 10 €).</p>`;
+      ? `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre (min. €10, max. €50 per redemption). Expires ${expiryLabel}.</p>`
+      : `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro (canje mínimo 10 €, máximo 50 €). Caduca el ${expiryLabel}.</p>`;
   } catch (e) {
     console.error('No se pudo calcular el saldo para el email de confirmación:', e);
     return '';

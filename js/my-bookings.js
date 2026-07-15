@@ -31,6 +31,10 @@
     with: { es: 'Con', en: 'With' },
     free: { es: 'Gratis', en: 'Free' },
     loyaltyLabel: { es: 'Tu saldo de fidelización', en: 'Your loyalty balance' },
+    loyaltyExpiry: {
+      es: (dateLabel) => `Caduca el ${dateLabel}`,
+      en: (dateLabel) => `Expires ${dateLabel}`,
+    },
     loyaltyRules: {
       es: [
         'Se canjea solo en tratamientos sueltos pagados en el centro (no en bonos de sesiones ni bonos regalo).',
@@ -216,10 +220,13 @@
     if (!loyaltyEl) return;
     if (!balance || balance <= 0) { loyaltyEl.style.display = 'none'; loyaltyEl.innerHTML = ''; return; }
     const rulesHtml = t('loyaltyRules').map((r) => `<li>${r}</li>`).join('');
+    const expiryDate = new Date(new Date().getFullYear(), 11, 31);
+    const expiryLabel = expiryDate.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     loyaltyEl.innerHTML = `
       <div class="mb-loyalty-card">
         <div class="mb-loyalty-label">${t('loyaltyLabel')}</div>
         <div class="mb-loyalty-amount">${balance.toFixed(2)} €</div>
+        <div class="mb-loyalty-expiry">${t('loyaltyExpiry')(expiryLabel)}</div>
         <ul class="mb-loyalty-rules">${rulesHtml}</ul>
       </div>
     `;
