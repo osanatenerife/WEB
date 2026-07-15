@@ -13,7 +13,7 @@ const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { accountingCategoryFor } = require('../config/accountingCategories');
-const { earnRateFor, computeLoyaltyBalance, MIN_REDEEM_AMOUNT, effectiveMinRedeem } = require('../config/loyalty');
+const { earnRateFor, computeLoyaltyBalance } = require('../config/loyalty');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -346,14 +346,14 @@ router.post('/panel/close', async (req, res) => {
     // Calcular canje de saldo (si se pide): se resta del resto antes de
     // repartirlo en formas de pago, y nunca puede superar ni lo que queda
     // por pagar ni el saldo real disponible de la clienta. Solo vale en
-    // tratamientos sueltos (no en sesiones de un bono) y con un mínimo de
-    // MIN_REDEEM_AMOUNT por canje. Solo se CALCULA aquí; el movimiento en el
-    // libro de saldo se escribe más abajo, después de marcar la cita como
-    // cerrada, para que un reintento tras un fallo a mitad de camino no
-    // pueda duplicar el canje (ver nota junto a updateBookingRow).
+    // tratamientos sueltos (no en sesiones de un bono). Solo se CALCULA
+    // aquí; el movimiento en el libro de saldo se escribe más abajo,
+    // después de marcar la cita como cerrada, para que un reintento tras
+    // un fallo a mitad de camino no pueda duplicar el canje (ver nota
+    // junto a updateBookingRow).
     let redeemed = 0;
     let phoneN = '';
-    if (!alreadyClosed && !booking.bonoId && redeemAmount && Number(redeemAmount) >= effectiveMinRedeem()) {
+    if (!alreadyClosed && !booking.bonoId && redeemAmount && Number(redeemAmount) > 0) {
       phoneN = normalizePhone(booking.phone);
       const movements = await getLoyaltyMovementsForPhone(phoneN);
       const balance = computeLoyaltyBalance(movements);
@@ -445,9 +445,6 @@ router.post('/panel/redeem', async (req, res) => {
   const redeemAmount = round2(Number(amount));
   if (!phone || !redeemAmount || redeemAmount <= 0) {
     return res.status(400).json({ error: 'Indica el teléfono de la clienta y el importe a canjear.' });
-  }
-  if (redeemAmount < effectiveMinRedeem()) {
-    return res.status(400).json({ error: `El canje mínimo es de ${MIN_REDEEM_AMOUNT} €.` });
   }
   try {
     const phoneN = normalizePhone(phone);

@@ -7,7 +7,7 @@ const { localToISO, addMinutes } = require('../lib/timezone');
 const hours = require('../config/hours');
 const employees = require('../config/employees');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
-const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { computeLoyaltyBalance } = require('../config/loyalty');
 
 function weeklyScheduleFor(booking) {
   const employee = employees.find((e) => e.id === booking.employeeId);
@@ -77,7 +77,7 @@ router.get('/my-bookings', async (req, res) => {
       loyaltyBalance = computeLoyaltyBalance(movements);
     }
 
-    res.json({ bookings: mine.map(toPublicBooking), loyaltyBalance, minRedeemAmount: MIN_REDEEM_AMOUNT });
+    res.json({ bookings: mine.map(toPublicBooking), loyaltyBalance });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudieron consultar tus reservas.' });

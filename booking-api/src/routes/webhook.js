@@ -41,8 +41,8 @@ async function loyaltyBalanceLine(clientPhone, lang) {
       day: 'numeric', month: 'long', year: 'numeric',
     });
     return lang === 'en'
-      ? `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre (min. €10 per redemption). Expires ${expiryLabel}.</p>`
-      : `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro (canje mínimo 10 €). Caduca el ${expiryLabel}.</p>`;
+      ? `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre. Expires ${expiryLabel}.</p>`
+      : `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro. Caduca el ${expiryLabel}.</p>`;
   } catch (e) {
     console.error('No se pudo calcular el saldo para el email de confirmación:', e);
     return '';
@@ -101,13 +101,11 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   const loyaltyConditions = isEn
     ? [
         'Redeemable only on single treatments paid at the centre (not on session packages or gift vouchers).',
-        'Minimum redemption of €10 per time.',
         'Balance earned expires every December 31st — the count starts fresh each January 1st.',
         'Not transferable between clients or redeemable for cash — only as a discount on a treatment.',
       ]
     : [
         'Se canjea solo en tratamientos sueltos pagados en el centro (no en bonos de sesiones ni bonos regalo).',
-        'Canje mínimo de 10 € por vez.',
         'El saldo generado caduca cada 31 de diciembre — la cuenta empieza de cero cada 1 de enero.',
         'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento.',
       ];
