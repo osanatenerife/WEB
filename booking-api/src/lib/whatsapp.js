@@ -31,10 +31,22 @@ async function sendWhatsAppTemplate({ to, variables }) {
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
   const contentSid = process.env.TWILIO_REMINDER_TEMPLATE_SID;
-  if (!sid || !token || !from || !contentSid) return null; // WhatsApp aún no configurado: se omite en silencio
+  const missing = [
+    !sid && 'TWILIO_ACCOUNT_SID', !token && 'TWILIO_AUTH_TOKEN',
+    !from && 'TWILIO_WHATSAPP_FROM', !contentSid && 'TWILIO_REMINDER_TEMPLATE_SID',
+  ].filter(Boolean);
+  if (missing.length) {
+    // Antes esto devolvía null en silencio (para no bloquear el resto de
+    // recordatorios mientras Twilio no estaba configurado todavía). Ahora
+    // que Twilio SÍ debería estar activo, lanzamos un error descriptivo:
+    // reminders.js ya trata los fallos de WhatsApp como no bloqueantes, así
+    // que esto no rompe nada y hace visible el problema real en el JSON de
+    // respuesta en vez de fallar callado.
+    throw new Error(`Faltan variables de Twilio en Render: ${missing.join(', ')}`);
+  }
 
   const phone = toE164Spain(to);
-  if (!phone) return null;
+  if (!phone) throw new Error(`No se pudo convertir el teléfono "${to}" a formato internacional`);
 
   const body = new URLSearchParams({
     To: `whatsapp:${phone}`,
