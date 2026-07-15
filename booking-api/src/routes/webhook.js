@@ -100,9 +100,9 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
     : 'Acumulas saldo de fidelidad en cada visita (más aún pagando en efectivo, +2%) — puedes usarlo como descuento en tu próximo tratamiento suelto.';
 
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;background:#f6eeda;">
-    <div style="background:#1a1612;padding:32px 24px;text-align:center;">
-      <p style="margin:0;color:#ac977e;font-size:11px;letter-spacing:3px;text-transform:uppercase;">Osana</p>
-      <h1 style="margin:10px 0 0;color:#f6eeda;font-size:22px;font-weight:600;">${isEn ? 'Booking confirmed' : 'Reserva confirmada'} ✓</h1>
+    <div style="background:#1a1612;padding:30px 24px 26px;text-align:center;">
+      <img src="https://osana.es/images/logo-full-blanco.png" alt="Osana" style="height:36px;width:auto;display:inline-block;margin:0 0 16px;border:0;">
+      <h1 style="margin:0;color:#f6eeda;font-size:20px;font-weight:600;">${isEn ? 'Booking confirmed' : 'Reserva confirmada'} ✓</h1>
     </div>
     <div style="padding:28px 24px;">
       <p style="margin:0 0 20px;color:#1a1612;font-size:15px;">${isEn ? 'Hi' : 'Hola'} ${escapeHtml(clientName || '')}, ${isEn ? 'thank you for booking with us. Here are your appointment details:' : 'gracias por confiar en nosotras. Aquí tienes los detalles de tu cita:'}</p>
