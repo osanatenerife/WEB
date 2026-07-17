@@ -12,11 +12,8 @@ const router = express.Router();
 // Como el disparador externo llama a este endpoint cada hora, esta
 // ventana de 2h asegura que ninguna cita se quede sin recordatorio
 // aunque el disparo llegue con algo de retraso.
-// TEMPORAL: bajado a 23-25h para probar hoy mismo el envío de WhatsApp con
-// una cita de mañana (sin depender de que haya hueco el domingo). Volver a
-// 47-49h en cuanto se confirme que el WhatsApp llega bien.
-const WINDOW_MIN_HOURS = 23;
-const WINDOW_MAX_HOURS = 25;
+const WINDOW_MIN_HOURS = 47;
+const WINDOW_MAX_HOURS = 49;
 
 function appointmentDateTime(booking) {
   const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
