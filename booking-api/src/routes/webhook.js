@@ -100,11 +100,15 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   const loyaltyLine = await loyaltyBalanceLine(clientPhone, lang);
   const loyaltyConditions = isEn
     ? [
+        'You earn 4% of your purchases, +2% extra if you pay in cash.',
+        'Minimum redemption amount: €10.',
         'Redeemable only on single treatments paid at the centre (not on session packages or gift vouchers).',
         'Balance earned expires every December 31st — the count starts fresh each January 1st.',
         'Not transferable between clients or redeemable for cash — only as a discount on a treatment.',
       ]
     : [
+        'Se acumula un 4% de tus compras, + 2% extra si pagas en efectivo.',
+        'Importe mínimo de canje: 10 €.',
         'Se canjea solo en tratamientos sueltos pagados en el centro (no en bonos de sesiones ni bonos regalo).',
         'El saldo generado caduca cada 31 de diciembre — la cuenta empieza de cero cada 1 de enero.',
         'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento.',

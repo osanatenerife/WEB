@@ -20,6 +20,9 @@ function earnRateFor(category, paidHow) {
 // Canjeable solo en tratamientos sueltos, nunca en bonos ni bono regalo.
 const REDEEMABLE_ON = ['treatment'];
 
+// Importe mínimo por canje. Sin tope máximo.
+const MIN_REDEEM_AMOUNT = 10; // en euros
+
 function round2(n) {
   return Math.round(n * 100) / 100;
 }
@@ -48,6 +51,6 @@ function currentExpiryDate() {
 }
 
 module.exports = {
-  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON,
+  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT,
   computeLoyaltyBalance, currentExpiryDate,
 };

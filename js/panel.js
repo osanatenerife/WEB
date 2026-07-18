@@ -568,7 +568,7 @@
         </div>
         ${balance > 0 ? `
         <div class="panel-field-row">
-          <div class="panel-field"><label>Aplicar saldo de fidelización (€) — disponible: ${balance.toFixed(2)} €</label><input type="number" step="0.01" class="pf-redeem" max="${balance}"></div>
+          <div class="panel-field"><label>Aplicar saldo de fidelización (€) — disponible: ${balance.toFixed(2)} € (mínimo 10 €)</label><input type="number" step="0.01" class="pf-redeem" min="10" max="${balance}"></div>
         </div>` : ''}
         <label class="panel-split-toggle"><input type="checkbox" class="pf-split"> El resto se pagó dividido en dos formas de pago</label>
         <div class="panel-field-row pf-split-row" style="display:none;">

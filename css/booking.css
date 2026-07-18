@@ -213,10 +213,13 @@ body.reserva-page .page-offset { padding-top: 92px; }
 .booking-pay-note { font-size: 12.5px; color: var(--txt-mid); line-height: 1.6; }
 .booking-cancel-note { margin-top: 12px; font-size: 11.5px; color: var(--txt-soft); }
 .booking-pay-option {
-  display: flex; align-items: center; gap: 10px; padding: 12px 14px; font-size: 12.5px;
-  border: 1px solid var(--line); margin-bottom: 8px; cursor: pointer;
+  display: flex; align-items: center; gap: 10px; padding: 14px 16px; font-size: 12.5px;
+  border: 1.5px solid var(--line); background: var(--cream); margin-bottom: 8px; cursor: pointer;
+  border-radius: 3px; transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
-.booking-pay-option:has(input:checked) { border-color: var(--brown); background: var(--cream); }
+.booking-pay-option:hover { border-color: var(--brown); }
+.booking-pay-option:has(input:checked) { border-color: var(--gold); background: var(--dark); color: var(--cream2); }
+.booking-pay-option:has(input:checked) strong { color: var(--gold); }
 
 /* ── Bono de sesiones (selector destacado, sin precios tachados) ── */
 .booking-bono-section {
@@ -291,13 +294,16 @@ body.reserva-page .page-offset { padding-top: 92px; }
 .mybooking-price { font-size: 14px; color: var(--brown); font-weight: 600; white-space: nowrap; }
 .mybooking-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
 .mybooking-actions button {
-  font-family: 'Raleway', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.14em;
-  text-transform: uppercase; padding: 11px 20px; border: 1px solid var(--line); background: transparent;
-  color: var(--txt); cursor: pointer; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
+  font-family: 'Raleway', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 12px 22px; border: 1.5px solid var(--brown); background: var(--cream);
+  color: var(--brown); cursor: pointer; border-radius: 2px; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
 }
-.mybooking-actions button:hover { border-color: var(--brown); color: var(--brown); transform: translateY(-2px); }
-.mybooking-actions button.mybooking-cancel-btn:hover { border-color: #a33322; color: #a33322; }
-.mybooking-actions button:disabled { opacity: 0.4; cursor: default; transform: none; }
+.mybooking-actions button:hover { background: var(--brown); color: #fff; transform: translateY(-2px); box-shadow: 0 8px 18px rgba(20,16,12,0.14); }
+.mybooking-actions button.mybooking-cancel-btn { border-color: #a33322; color: #a33322; background: transparent; }
+.mybooking-actions button.mybooking-cancel-btn:hover { background: #a33322; color: #fff; }
+.mybooking-actions button.mybooking-addtreatment-btn { border-color: var(--gold); background: var(--gold); color: var(--dark); font-weight: 700; }
+.mybooking-actions button.mybooking-addtreatment-btn:hover { background: var(--dark); color: var(--gold); border-color: var(--dark); }
+.mybooking-actions button:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
 .mybooking-reschedule-panel { margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--line); display: none; }
 .mybooking-reschedule-panel.open { display: block; }
 .mybooking-reschedule-panel input[type="date"] {
@@ -308,9 +314,11 @@ body.reserva-page .page-offset { padding-top: 92px; }
 .mybooking-addtreatment-panel.open { display: block; }
 .mybooking-addtreatment-note { font-size: 12px; color: var(--txt-soft); line-height: 1.6; margin-bottom: 12px; }
 .mb-addon-select {
-  font-family: 'Raleway', sans-serif; font-size: 13px; padding: 12px 14px;
-  border: 1px solid var(--line); background: var(--cream); width: 100%; margin-bottom: 12px;
+  font-family: 'Raleway', sans-serif; font-size: 13px; padding: 13px 14px;
+  border: 1.5px solid var(--brown); border-radius: 2px; background: var(--cream); color: var(--txt);
+  width: 100%; margin-bottom: 12px; cursor: pointer;
 }
+.mb-addon-select:focus { outline: none; border-color: var(--gold); }
 .mb-addon-pay-options { margin-bottom: 12px; }
 .mb-addon-confirm-btn { font-size: 11px; padding: 13px 28px; }
 .mybooking-empty, .mybooking-loading { text-align: center; padding: 48px 20px; color: var(--txt-soft); font-size: 13px; }
