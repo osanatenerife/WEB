@@ -304,6 +304,15 @@ body.reserva-page .page-offset { padding-top: 92px; }
   font-family: 'Raleway', sans-serif; font-size: 14px; padding: 12px 14px;
   border: 1px solid var(--line); background: var(--cream); width: 100%; max-width: 220px; margin-bottom: 14px;
 }
+.mybooking-addtreatment-panel { margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--line); display: none; }
+.mybooking-addtreatment-panel.open { display: block; }
+.mybooking-addtreatment-note { font-size: 12px; color: var(--txt-soft); line-height: 1.6; margin-bottom: 12px; }
+.mb-addon-select {
+  font-family: 'Raleway', sans-serif; font-size: 13px; padding: 12px 14px;
+  border: 1px solid var(--line); background: var(--cream); width: 100%; margin-bottom: 12px;
+}
+.mb-addon-pay-options { margin-bottom: 12px; }
+.mb-addon-confirm-btn { font-size: 11px; padding: 13px 28px; }
 .mybooking-empty, .mybooking-loading { text-align: center; padding: 48px 20px; color: var(--txt-soft); font-size: 13px; }
 .mybooking-notice { font-size: 12.5px; padding: 14px 18px; background: var(--cream2); margin-bottom: 16px; line-height: 1.6; }
 .mybooking-status-note { font-size: 11px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; display: inline-block; }

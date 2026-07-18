@@ -23,6 +23,16 @@
     cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 48h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 48h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
     cancel: { es: 'Cancelar cita', en: 'Cancel appointment' },
     reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time' },
+    addTreatment: { es: 'Añadir tratamiento', en: 'Add treatment' },
+    addTreatmentPlaceholder: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
+    payDepositOnly: { es: 'Pagar seña ahora', en: 'Pay deposit now' },
+    payFullNow: { es: 'Pagar todo ahora', en: 'Pay in full now' },
+    restAtCenterParen: { es: '(resto en el centro)', en: '(rest at the centre)' },
+    fullRequired: { es: 'Este tratamiento se paga completo online:', en: 'This treatment is paid in full online:' },
+    depositRequired: { es: 'Seña obligatoria online:', en: 'Mandatory deposit online:' },
+    confirmAndPay: { es: 'Pagar y añadir', en: 'Pay and add' },
+    connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…' },
+    addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
@@ -82,8 +92,10 @@
         <div class="mybooking-actions">
           <button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>
           <button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>
+          <button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>
         </div>
         <div class="mybooking-reschedule-panel"></div>
+        <div class="mybooking-addtreatment-panel"></div>
       </div>
     `;
   }
@@ -140,6 +152,127 @@
       if (willOpen && !panel.dataset.wired) {
         wireReschedulePanel(b, panel);
         panel.dataset.wired = '1';
+      }
+    });
+    const addBtn = card.querySelector('.mybooking-addtreatment-btn');
+    const addPanel = card.querySelector('.mybooking-addtreatment-panel');
+    addBtn.addEventListener('click', () => {
+      const willOpen = !addPanel.classList.contains('open');
+      addPanel.classList.toggle('open', willOpen);
+      if (willOpen && !addPanel.dataset.wired) {
+        wireAddTreatmentPanel(b, addPanel);
+        addPanel.dataset.wired = '1';
+      }
+    });
+  }
+
+  // ── Añadir un tratamiento a una cita ya confirmada ──
+  let servicesCache = null;
+  async function loadServicesOnce() {
+    if (servicesCache) return servicesCache;
+    const res = await fetch(`${BOOKING_API_BASE}/services?lang=${LANG}`);
+    const data = await res.json();
+    servicesCache = data.services || [];
+    return servicesCache;
+  }
+
+  function round2(n) { return Math.round(n * 100) / 100; }
+
+  function computeAddonAmount(service, paymentChoice) {
+    const { paymentPolicy, depositPercent, price } = service;
+    if (paymentPolicy === 'full_required') return { amount: price, type: 'total' };
+    if (paymentPolicy === 'deposit_required') return { amount: round2((price * depositPercent) / 100), type: 'deposit' };
+    if (paymentChoice === 'full') return { amount: price, type: 'total' };
+    return { amount: round2((price * (depositPercent || 30)) / 100), type: 'deposit' };
+  }
+
+  async function wireAddTreatmentPanel(b, panel) {
+    panel.innerHTML = `<p class="booking-slot-message">${t('loading')}</p>`;
+    let services;
+    try {
+      services = await loadServicesOnce();
+    } catch (e) {
+      panel.innerHTML = `<p class="mybooking-status-note">${t('genericError')}</p>`;
+      return;
+    }
+    const byCategory = {};
+    services.forEach((s) => {
+      (byCategory[s.category] = byCategory[s.category] || []).push(s);
+    });
+    const optionsHtml = Object.keys(byCategory).map((cat) => `
+      <optgroup label="${cat}">
+        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price.toFixed(0)} €</option>`).join('')}
+      </optgroup>
+    `).join('');
+
+    panel.innerHTML = `
+      <p class="mybooking-addtreatment-note">${t('addTreatmentNote')}</p>
+      <select class="mb-addon-select">
+        <option value="">${t('addTreatmentPlaceholder')}</option>
+        ${optionsHtml}
+      </select>
+      <div class="mb-addon-pay-options"></div>
+      <button type="button" class="mb-addon-confirm-btn btn-primary" style="display:none;">${t('confirmAndPay')}</button>
+    `;
+
+    const select = panel.querySelector('.mb-addon-select');
+    const payOptionsEl = panel.querySelector('.mb-addon-pay-options');
+    const confirmBtn = panel.querySelector('.mb-addon-confirm-btn');
+    let chosenPayChoice = 'deposit';
+
+    select.addEventListener('change', () => {
+      const service = services.find((s) => s.id === select.value);
+      if (!service) {
+        payOptionsEl.innerHTML = '';
+        confirmBtn.style.display = 'none';
+        return;
+      }
+      chosenPayChoice = 'deposit';
+      const depositAmount = computeAddonAmount(service, 'deposit').amount;
+      if (service.paymentPolicy === 'full_required') {
+        payOptionsEl.innerHTML = `<p class="booking-pay-note">${t('fullRequired')} <strong>${service.price.toFixed(2)} €</strong></p>`;
+        chosenPayChoice = 'full';
+      } else if (service.paymentPolicy === 'deposit_required') {
+        payOptionsEl.innerHTML = `<p class="booking-pay-note">${t('depositRequired')} <strong>${depositAmount.toFixed(2)} €</strong></p>`;
+      } else {
+        payOptionsEl.innerHTML = `
+          <label class="booking-pay-option">
+            <input type="radio" name="mb-addon-pay-${b.bookingId}" value="deposit" checked>
+            <span>${t('payDepositOnly')} <strong>${depositAmount.toFixed(2)} €</strong> ${t('restAtCenterParen')}</span>
+          </label>
+          <label class="booking-pay-option">
+            <input type="radio" name="mb-addon-pay-${b.bookingId}" value="full">
+            <span>${t('payFullNow')} <strong>${service.price.toFixed(2)} €</strong></span>
+          </label>
+        `;
+        payOptionsEl.querySelectorAll('input[type="radio"]').forEach((r) => {
+          r.addEventListener('change', () => { chosenPayChoice = r.value; });
+        });
+      }
+      confirmBtn.style.display = 'inline-block';
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+      const service = services.find((s) => s.id === select.value);
+      if (!service) return;
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = t('connectingPayment');
+      try {
+        const res = await fetch(`${BOOKING_API_BASE}/my-bookings/add-treatment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            bookingId: b.bookingId, phone: currentPhone, email: currentEmail,
+            serviceId: service.id, paymentChoice: chosenPayChoice, lang: LANG,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t('genericError'));
+        window.location.href = data.url;
+      } catch (e) {
+        alert(e.message);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = t('confirmAndPay');
       }
     });
   }

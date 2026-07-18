@@ -21,6 +21,7 @@ const birthdaysRouter = require('./src/routes/birthdays');
 const bonoCheckoutRouter = require('./src/routes/bonoCheckout');
 const panelRouter = require('./src/routes/panel');
 const whatsappIncomingRouter = require('./src/routes/whatsappIncoming');
+const addTreatmentRouter = require('./src/routes/addTreatment');
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api', birthdaysRouter);
 app.use('/api', bonoCheckoutRouter);
 app.use('/api', panelRouter);
 app.use('/api', whatsappIncomingRouter);
+app.use('/api', addTreatmentRouter);
 
 app.get('/', (req, res) => {
   res.json({ ok: true, service: 'osana-booking-api' });

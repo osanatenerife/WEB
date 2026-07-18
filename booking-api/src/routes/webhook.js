@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone } = require('../lib/sheets');
+const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
 const { earnRateFor, computeLoyaltyBalance, currentExpiryDate } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
@@ -615,6 +615,72 @@ async function handleGiftPayment(session) {
   }
 }
 
+// Confirmar un tratamiento añadido a una cita ya existente (ver
+// routes/addTreatment.js) — el hueco de calendario ya se extendió al crear
+// la sesión de Stripe; aquí solo queda dejarlo bien reflejado en la Sheet,
+// actualizar el resumen del evento y avisar por email.
+async function handleAddonTreatmentPayment(session) {
+  const { bookingId, calendarId, eventId, serviceId, addedDuration, addedPrice, amount, paymentType, lang } = session.metadata || {};
+  const realAmountPaid = typeof session.amount_total === 'number'
+    ? round2(session.amount_total / 100)
+    : Number(amount) || 0;
+
+  const booking = await findBookingById(bookingId);
+  if (!booking) {
+    console.error('No se encontró la reserva original al confirmar un tratamiento añadido:', bookingId);
+    return;
+  }
+  const service = services.find((s) => s.id === serviceId);
+  const addedName = service ? service.name : serviceId;
+  const combinedServiceName = `${booking.serviceName} + ${addedName}`;
+  const combinedServiceId = [booking.serviceId, serviceId].filter(Boolean).join(',');
+  const newDuration = (Number(booking.durationMinutes) || 0) + (Number(addedDuration) || 0);
+  const newPrice = round2((Number(booking.price) || 0) + (Number(addedPrice) || 0));
+  const newAmountPaid = round2((Number(booking.amountPaid) || 0) + realAmountPaid);
+
+  const current = await getEvent(calendarId, eventId).catch(() => null);
+  const newDescription = current
+    ? `${current.description || ''}\n\n✅ Tratamiento añadido: ${addedName} — ${realAmountPaid.toFixed(2)} € (${paymentType}) recibido correctamente por Stripe.`
+    : undefined;
+  await updateEvent(calendarId, eventId, {
+    summary: `✅ Confirmada — ${combinedServiceName} — ${booking.name || ''}`.trim(),
+    ...(newDescription ? { description: newDescription } : {}),
+  });
+
+  await updateBookingRow(booking._sheetRow, booking, {
+    serviceName: combinedServiceName,
+    serviceId: combinedServiceId,
+    durationMinutes: newDuration,
+    price: newPrice,
+    amountPaid: newAmountPaid,
+  });
+
+  const isEn = lang === 'en';
+  if (booking.email) {
+    try {
+      await sendEmail({
+        to: booking.email,
+        subject: isEn ? 'Treatment added to your booking — Osana' : 'Tratamiento añadido a tu reserva — Osana',
+        html: isEn
+          ? `<p>Hi ${escapeHtml(booking.name || '')},</p><p>We've added <strong>${escapeHtml(addedName)}</strong> to your appointment on ${booking.date} at ${booking.time}.</p><p>Paid now: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>See you soon!<br>Osana</p>`
+          : `<p>Hola ${escapeHtml(booking.name || '')},</p><p>Hemos añadido <strong>${escapeHtml(addedName)}</strong> a tu cita del ${booking.date} a las ${booking.time}.</p><p>Pagado ahora: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>¡Te esperamos!<br>Osana</p>`,
+      });
+    } catch (emailErr) {
+      console.error('No se pudo enviar el email de tratamiento añadido:', emailErr);
+    }
+  }
+
+  try {
+    await sendEmail({
+      to: SALON_EMAIL,
+      subject: `➕ Tratamiento añadido: ${addedName} — ${booking.date} ${booking.time}`,
+      html: `<p><strong>${escapeHtml(addedName)}</strong> añadido a la cita de ${escapeHtml(booking.name || '')} (${booking.date} a las ${booking.time}).</p><p>Pagado ahora: <strong>${realAmountPaid.toFixed(2)} €</strong> (${paymentType})</p>`,
+    });
+  } catch (notifyErr) {
+    console.error('No se pudo mandar el aviso de tratamiento añadido al salón:', notifyErr);
+  }
+}
+
 // OJO: esta ruta necesita el body en crudo (raw), no en JSON.
 // Se monta con express.raw() en server.js antes del parser JSON global.
 router.post('/webhook/stripe', async (req, res) => {
@@ -636,6 +702,8 @@ router.post('/webhook/stripe', async (req, res) => {
         await handleBonoSessionPayment(session);
       } else if (sessionType === 'custom_quote') {
         await handleCustomQuotePayment(session);
+      } else if (sessionType === 'addon_treatment') {
+        await handleAddonTreatmentPayment(session);
       } else {
         await handleBookingPayment(session);
       }
@@ -643,10 +711,16 @@ router.post('/webhook/stripe', async (req, res) => {
 
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object;
-      const { calendarId, eventId } = session.metadata || {};
+      const { calendarId, eventId, type: sessionType, originalEndISO } = session.metadata || {};
       if (calendarId && eventId) {
-        // No se pagó a tiempo: liberamos el hueco bloqueado
-        await deleteEvent(calendarId, eventId);
+        if (sessionType === 'addon_treatment' && originalEndISO) {
+          // No se pagó a tiempo: revertimos solo la ampliación del hueco,
+          // la cita original (ya confirmada antes) se queda tal cual.
+          await updateEvent(calendarId, eventId, { end: { dateTime: originalEndISO } }).catch(() => {});
+        } else {
+          // No se pagó a tiempo: liberamos el hueco bloqueado
+          await deleteEvent(calendarId, eventId);
+        }
       }
     }
 

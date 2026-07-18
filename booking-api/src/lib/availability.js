@@ -59,4 +59,24 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
   return slots;
 }
 
-module.exports = { getAvailableSlots, MIN_LEAD_MINUTES };
+/**
+ * Comprueba si un rango exacto de tiempo está libre para una empleada —
+ * usado para ampliar una cita ya confirmada con un tratamiento añadido
+ * justo a continuación (no busca huecos, valida uno concreto).
+ */
+async function isRangeFree(dateStr, calendarId, startISO, endISO, weeklySchedule) {
+  if (isClosureDate(dateStr)) return false;
+  const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+  const daySchedule = (weeklySchedule || hours.weekly)[weekday];
+  if (!daySchedule || daySchedule.closed) return false;
+
+  const dayEndISO = localToISO(dateStr, daySchedule.close, hours.timezone);
+  if (new Date(endISO).getTime() > new Date(dayEndISO).getTime()) return false; // se saldría del horario
+
+  const busy = await getBusyIntervals(calendarId, startISO, endISO);
+  const startMs = new Date(startISO).getTime();
+  const endMs = new Date(endISO).getTime();
+  return !busy.some((b) => overlaps(startMs, endMs, new Date(b.start).getTime(), new Date(b.end).getTime()));
+}
+
+module.exports = { getAvailableSlots, isRangeFree, MIN_LEAD_MINUTES };
