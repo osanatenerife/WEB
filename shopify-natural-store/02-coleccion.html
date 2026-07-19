@@ -10,25 +10,26 @@
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600&family=Jost:wght@300;400;500;600&display=swap');
 
   .nb-coll {
-    --cream: #F7F3EA;
-    --beige: #EAE0CC;
-    --beige-dark: #D8C6A1;
-    --brown: #5B4636;
-    --brown-dark: #3E2F24;
-    --terracotta: #B97452;
-    --sage: #8A9678;
+    --cream: #F8F5EE;
+    --beige: #EBE0C9;
+    --beige-dark: #CBB48C;
+    --brown: #6B5843;
+    --brown-dark: #241C15;
+    --terracotta: #A6812C;
+    --sage: #A6812C;
     font-family: 'Jost', sans-serif;
     color: var(--brown-dark);
     background: var(--cream);
   }
   .nb-coll * { box-sizing: border-box; }
-  .nb-coll h1, .nb-coll h2 { font-family: 'Fraunces', serif; font-weight: 500; margin: 0 0 0.4em; color: var(--brown-dark); }
-  .nb-coll p { line-height: 1.7; color: var(--brown); }
-  .nb-coll .nb-container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .nb-coll h1, .nb-coll h2 { font-family: 'Fraunces', serif; font-weight: 400; margin: 0 0 0.4em; color: var(--brown-dark); }
+  .nb-coll p { line-height: 1.75; color: var(--brown); }
+  .nb-coll .nb-container { max-width: 1220px; margin: 0 auto; padding: 0 32px; }
   .nb-coll .nb-eyebrow {
-    display: inline-block; font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase;
-    color: var(--sage); margin-bottom: 14px;
+    display: inline-flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase;
+    color: var(--sage); margin-bottom: 16px;
   }
+  .nb-coll .nb-eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--sage); }
 
   /* Cabecera de colección */
   .nb-coll-hero {
@@ -68,20 +69,21 @@
   /* Banner promocional intermedio (opcional, colocar entre bloques de producto) */
   .nb-coll-banner {
     margin: 70px 0;
-    border-radius: 22px;
     overflow: hidden;
     position: relative;
-    min-height: 260px;
+    min-height: 300px;
     display: flex; align-items: center;
-    background: linear-gradient(180deg, rgba(62,47,36,0.1), rgba(62,47,36,0.6)),
+    background: linear-gradient(180deg, rgba(20,15,10,0.15), rgba(20,15,10,0.65)),
       url('https://images.unsplash.com/photo-1556228453-efd6c1ff04f6?auto=format&fit=crop&w=1400&q=80') center/cover no-repeat;
   }
-  .nb-coll-banner-inner { padding: 40px; color: var(--cream); max-width: 460px; }
-  .nb-coll-banner h2 { color: var(--cream); font-size: 28px; }
+  .nb-coll-banner-inner { padding: 50px; color: var(--cream); max-width: 460px; }
+  .nb-coll-banner h2 { color: var(--cream); font-size: 30px; font-weight: 400; }
   .nb-coll-banner a {
-    display: inline-block; margin-top: 14px; padding: 12px 28px; border: 1px solid var(--cream);
-    border-radius: 999px; color: var(--cream); text-decoration: none; font-size: 13px; letter-spacing: 0.1em;
+    display: inline-block; margin-top: 16px; padding: 14px 32px; border: 1px solid var(--cream);
+    color: var(--cream); text-decoration: none; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    transition: all 0.35s ease;
   }
+  .nb-coll-banner a:hover { background: var(--cream); color: var(--brown-dark); }
 
   @media (max-width: 700px) {
     .nb-coll-strip { gap: 18px; }

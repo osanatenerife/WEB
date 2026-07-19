@@ -12,22 +12,23 @@
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600&family=Jost:wght@300;400;500;600&display=swap');
 
   .nb-contact {
-    --cream: #F7F3EA;
-    --beige: #EAE0CC;
-    --beige-dark: #D8C6A1;
-    --brown: #5B4636;
-    --brown-dark: #3E2F24;
-    --terracotta: #B97452;
-    --sage: #8A9678;
+    --cream: #F8F5EE;
+    --beige: #EBE0C9;
+    --beige-dark: #CBB48C;
+    --brown: #6B5843;
+    --brown-dark: #241C15;
+    --terracotta: #A6812C;
+    --sage: #A6812C;
     font-family: 'Jost', sans-serif;
     color: var(--brown-dark);
     background: var(--cream);
   }
   .nb-contact * { box-sizing: border-box; }
-  .nb-contact h1, .nb-contact h2 { font-family: 'Fraunces', serif; font-weight: 500; margin: 0 0 0.5em; }
-  .nb-contact p { line-height: 1.7; color: var(--brown); }
-  .nb-contact .nb-container { max-width: 1100px; margin: 0 auto; padding: 90px 24px; }
-  .nb-contact .nb-eyebrow { display: inline-block; font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sage); margin-bottom: 14px; }
+  .nb-contact h1, .nb-contact h2 { font-family: 'Fraunces', serif; font-weight: 400; margin: 0 0 0.5em; }
+  .nb-contact p { line-height: 1.75; color: var(--brown); }
+  .nb-contact .nb-container { max-width: 1100px; margin: 0 auto; padding: 110px 24px; }
+  .nb-contact .nb-eyebrow { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--sage); margin-bottom: 16px; }
+  .nb-contact .nb-eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--sage); }
 
   .nb-contact-head { text-align: center; max-width: 560px; margin: 0 auto 60px; }
   .nb-contact-head h1 { font-size: clamp(30px, 5vw, 46px); }
@@ -41,22 +42,22 @@
   .nb-contact-info p { font-size: 14px; margin: 0; }
   .nb-contact-info a { color: var(--brown); }
 
-  .nb-contact-form { background: var(--beige); border-radius: 22px; padding: 40px; }
-  .nb-contact-form label { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; color: var(--brown-dark); }
-  .nb-contact-form .field { margin-bottom: 20px; }
+  .nb-contact-form { background: var(--beige); padding: 44px; }
+  .nb-contact-form label { display: block; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; color: var(--brown-dark); }
+  .nb-contact-form .field { margin-bottom: 22px; }
   .nb-contact-form input, .nb-contact-form textarea {
-    width: 100%; padding: 13px 16px; border-radius: 10px; border: 1px solid var(--beige-dark);
+    width: 100%; padding: 13px 16px; border-radius: 1px; border: 1px solid var(--beige-dark);
     background: var(--cream); font-family: 'Jost', sans-serif; font-size: 14px; color: var(--brown-dark);
   }
-  .nb-contact-form input:focus, .nb-contact-form textarea:focus { outline: 2px solid var(--sage); }
+  .nb-contact-form input:focus, .nb-contact-form textarea:focus { outline: 1px solid var(--sage); }
   .nb-contact-form textarea { min-height: 130px; resize: vertical; }
   .nb-contact-form button {
-    width: 100%; padding: 15px; background: var(--brown-dark); color: var(--cream); border: none;
-    border-radius: 999px; font-family: 'Jost', sans-serif; font-size: 13px; letter-spacing: 0.15em;
-    text-transform: uppercase; cursor: pointer; transition: opacity 0.3s ease;
+    width: 100%; padding: 16px; background: var(--brown-dark); color: var(--cream); border: 1px solid var(--brown-dark);
+    border-radius: 1px; font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: 0.2em;
+    text-transform: uppercase; cursor: pointer; transition: all 0.35s ease;
   }
-  .nb-contact-form button:hover { opacity: 0.85; }
-  .nb-contact-success { background: var(--sage); color: var(--cream); padding: 16px; border-radius: 12px; text-align: center; }
+  .nb-contact-form button:hover { background: transparent; color: var(--brown-dark); }
+  .nb-contact-success { background: var(--brown-dark); color: var(--cream); padding: 18px; text-align: center; }
 
   .nb-faq { margin-top: 20px; border-top: 1px solid var(--beige-dark); }
   .nb-faq details { border-bottom: 1px solid var(--beige-dark); padding: 16px 2px; }

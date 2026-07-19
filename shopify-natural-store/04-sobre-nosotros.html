@@ -10,19 +10,19 @@
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Jost:wght@300;400;500;600&display=swap');
 
   .nb-about {
-    --cream: #F7F3EA;
-    --beige: #EAE0CC;
-    --beige-dark: #D8C6A1;
-    --brown: #5B4636;
-    --brown-dark: #3E2F24;
-    --terracotta: #B97452;
-    --sage: #8A9678;
+    --cream: #F8F5EE;
+    --beige: #EBE0C9;
+    --beige-dark: #CBB48C;
+    --brown: #6B5843;
+    --brown-dark: #241C15;
+    --terracotta: #A6812C;
+    --sage: #A6812C;
     font-family: 'Jost', sans-serif;
     color: var(--brown-dark);
     background: var(--cream);
   }
   .nb-about * { box-sizing: border-box; }
-  .nb-about h1, .nb-about h2 { font-family: 'Fraunces', serif; font-weight: 500; margin: 0 0 0.5em; }
+  .nb-about h1, .nb-about h2 { font-family: 'Fraunces', serif; font-weight: 400; margin: 0 0 0.5em; }
   .nb-about p { line-height: 1.75; color: var(--brown); }
   .nb-about .nb-container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
   .nb-about .nb-eyebrow { display: inline-block; font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sage); margin-bottom: 14px; }
@@ -61,12 +61,14 @@
   .nb-process-steps h3 { font-family: 'Fraunces', serif; font-size: 16px; color: var(--cream); margin: 0 0 8px; }
   .nb-process-steps p { font-size: 13px; color: var(--beige); margin: 0; }
 
-  .nb-about-cta { text-align: center; padding: 110px 0; }
-  .nb-about-cta h2 { font-size: clamp(26px, 4vw, 38px); }
+  .nb-about-cta { text-align: center; padding: 130px 0; }
+  .nb-about-cta h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 400; }
   .nb-about-cta a {
-    display: inline-block; margin-top: 20px; padding: 15px 36px; background: var(--brown-dark); color: var(--cream);
-    text-decoration: none; border-radius: 999px; font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase;
+    display: inline-block; margin-top: 22px; padding: 17px 42px; background: var(--brown-dark); color: var(--cream);
+    text-decoration: none; border: 1px solid var(--brown-dark); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    transition: all 0.35s ease;
   }
+  .nb-about-cta a:hover { background: transparent; color: var(--brown-dark); }
 
   @media (max-width: 900px) {
     .nb-about-mission { grid-template-columns: 1fr; }

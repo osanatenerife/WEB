@@ -40,6 +40,24 @@ Para cada archivo de este paquete:
 
 Estas fuentes se cargan automáticamente desde Google Fonts dentro de cada bloque, así que no tienes que instalar nada.
 
+## Cómo gestionar tus productos (sin tocar código)
+
+La página de Inicio (`01-home.html`) ya **no** muestra productos de ejemplo fijos: tira en directo de tu catálogo real. Todo se gestiona desde el panel:
+
+1. **Admin → Productos → Añadir producto.**
+2. Rellena **título**, **descripción** (editor de texto enriquecido — esto es lo que se muestra en `03-producto.html`), **precio**, sube las **fotos** y, si aplica, las **variantes** (talla, tamaño, aroma...).
+3. Guarda y publica el producto (asegúrate de que esté disponible en el canal "Tienda online").
+4. Automáticamente aparecerá:
+   - En la cuadrícula "Más vendidos" del Inicio, con su foto, precio y botón de compra ya funcionando.
+   - En la página de Tienda/Colección (`02-coleccion.html`), en la cuadrícula nativa del tema.
+   - En su propia ficha de producto (`03-producto.html` añade el contenido extra — ingredientes, modo de uso — debajo de la info que ya gestiona Shopify).
+
+No necesitas copiar/pegar código por cada producto nuevo.
+
+**Añadir al carrito:** el botón "+ Añadir al carrito" que aparece al pasar el ratón sobre la foto en el Inicio usa el formulario nativo de Shopify (`{% form 'product', product %}`), igual que el botón de la propia ficha de producto — añade la primera variante disponible directamente al carrito de verdad, sin necesidad de ninguna app.
+
+**Marcar un producto como "Nuevo":** añade la etiqueta (tag) `nuevo` al producto desde Admin → Productos → tu producto → Etiquetas, y la insignia aparecerá sola en su tarjeta.
+
 ## Consejos
 
 - Cambia los textos entre corchetes `[ASÍ]` por los tuyos (nombre de marca, textos, enlaces).

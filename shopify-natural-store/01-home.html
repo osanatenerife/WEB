@@ -1,25 +1,39 @@
 <!-- ============================================================
-  PÁGINA: INICIO (Home)
+  PÁGINA: INICIO (Home) — v2 "editorial de lujo"
   Pega esto en un bloque "Liquid personalizado" en el editor de temas.
   Puedes pegarlo todo de una vez, o dividirlo por cada <!-- SECCIÓN --> en
   varios bloques distintos si prefieres poder reordenarlos por separado.
+
+  IMPORTANTE — Productos: la sección "Colección destacada" de más abajo
+  YA NO es una lista fija de ejemplo. Tira en directo de tu catálogo real
+  de Shopify (la colección automática "Todos los productos"). Tú solo
+  añades/editas productos desde Admin → Productos, y aparecerán aquí
+  solos, con su foto, precio y botón "Añadir al carrito" funcionando de
+  verdad (usa el sistema nativo de carrito de Shopify).
+
+  Si quieres mostrar una colección concreta en vez de "Todos los
+  productos" (por ejemplo solo "Rostro"), cambia más abajo:
+    collections['all']   →   collections['rostro']
+  usando el handle (parte de la URL) de tu colección.
+
+  Para que aparezca la etiqueta "Nuevo" sobre un producto, añádele la
+  etiqueta (tag) "nuevo" desde Admin → Productos → [tu producto] → Etiquetas.
 ============================================================ -->
 
 <style>
-  /* ---------- Sistema de diseño (colores y tipografías de marca) ---------- */
+  /* ---------- Sistema de diseño ---------- */
   @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Jost:wght@300;400;500;600&display=swap');
 
   .nb-home {
-    --cream: #F7F3EA;
-    --beige: #EAE0CC;
-    --beige-dark: #D8C6A1;
-    --brown: #5B4636;
-    --brown-dark: #3E2F24;
-    --terracotta: #B97452;
-    --sage: #8A9678;
+    --cream: #F8F5EE;
+    --beige: #EBE0C9;
+    --beige-dark: #CBB48C;
+    --stone: #6B5843;
+    --ink: #241C15;
+    --gold: #A6812C;
     --white: #FFFFFF;
     font-family: 'Jost', sans-serif;
-    color: var(--brown-dark);
+    color: var(--ink);
     background: var(--cream);
     overflow-x: hidden;
   }
@@ -27,167 +41,170 @@
   .nb-home h1, .nb-home h2, .nb-home h3 {
     font-family: 'Fraunces', serif;
     font-weight: 500;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.005em;
     margin: 0 0 0.5em;
-    color: var(--brown-dark);
+    color: var(--ink);
   }
-  .nb-home p { line-height: 1.7; color: var(--brown); }
-  .nb-home .nb-container {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0 24px;
-  }
+  .nb-home p { line-height: 1.75; color: var(--stone); }
+  .nb-home .nb-container { max-width: 1220px; margin: 0 auto; padding: 0 32px; }
   .nb-home .nb-eyebrow {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-family: 'Jost', sans-serif;
-    font-size: 12px;
-    letter-spacing: 0.25em;
+    font-size: 11px;
+    letter-spacing: 0.32em;
     text-transform: uppercase;
-    color: var(--sage);
-    margin-bottom: 14px;
+    color: var(--gold);
+    margin-bottom: 18px;
   }
+  .nb-home .nb-eyebrow::before { content: ''; width: 22px; height: 1px; background: var(--gold); }
+
+  /* Botones — rectangulares, finos, tipografía espaciada: lectura "boutique", no "app" */
   .nb-home .nb-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 15px 36px;
-    background: var(--brown-dark);
+    gap: 10px;
+    padding: 17px 42px;
+    background: var(--ink);
     color: var(--cream);
     text-decoration: none;
     font-family: 'Jost', sans-serif;
-    font-size: 13px;
-    letter-spacing: 0.15em;
+    font-size: 12px;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    border-radius: 999px;
-    transition: all 0.35s ease;
-    border: 1px solid var(--brown-dark);
+    border-radius: 1px;
+    transition: all 0.4s cubic-bezier(.22,.61,.36,1);
+    border: 1px solid var(--ink);
+    cursor: pointer;
   }
-  .nb-home .nb-btn:hover { background: transparent; color: var(--brown-dark); }
-  .nb-home .nb-btn.nb-btn-outline {
-    background: transparent;
-    color: var(--brown-dark);
-    border: 1px solid var(--brown-dark);
-  }
-  .nb-home .nb-btn.nb-btn-outline:hover { background: var(--brown-dark); color: var(--cream); }
-  .nb-home .nb-btn.nb-btn-light { border-color: var(--cream); color: var(--cream); }
-  .nb-home .nb-btn.nb-btn-light:hover { background: var(--cream); color: var(--brown-dark); }
+  .nb-home .nb-btn:hover { background: var(--cream); color: var(--ink); letter-spacing: 0.26em; }
+  .nb-home .nb-btn.nb-btn-outline { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+  .nb-home .nb-btn.nb-btn-outline:hover { background: var(--ink); color: var(--cream); }
+  .nb-home .nb-btn.nb-btn-light { border-color: var(--cream); color: var(--cream); background: transparent; }
+  .nb-home .nb-btn.nb-btn-light:hover { background: var(--cream); color: var(--ink); }
+
+  /* Animación de aparición al hacer scroll */
+  .nb-reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.9s ease, transform 0.9s cubic-bezier(.22,.61,.36,1); }
+  .nb-reveal.is-visible { opacity: 1; transform: translateY(0); }
 
   /* ---------- Hero ---------- */
   .nb-hero {
     position: relative;
-    min-height: 92vh;
+    min-height: 96vh;
     display: flex;
     align-items: center;
-    background: linear-gradient(180deg, rgba(62,47,36,0.15), rgba(62,47,36,0.55)),
-      url('https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
+    background: linear-gradient(180deg, rgba(20,15,10,0.28), rgba(20,15,10,0.62)),
+      url('https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?auto=format&fit=crop&w=1800&q=80') center/cover no-repeat;
   }
-  .nb-hero-content { max-width: 620px; padding: 0 24px; margin: 0 auto; text-align: center; color: var(--cream); }
-  .nb-hero .nb-eyebrow { color: var(--beige); }
-  .nb-hero h1 { font-size: clamp(38px, 6vw, 64px); color: var(--cream); line-height: 1.1; }
-  .nb-hero p { color: var(--beige); font-size: 17px; max-width: 480px; margin: 18px auto 32px; }
+  .nb-hero-content { max-width: 660px; padding: 0 24px; margin: 0 auto; text-align: center; color: var(--cream); }
+  .nb-hero .nb-eyebrow { color: var(--beige); justify-content: center; }
+  .nb-hero .nb-eyebrow::before, .nb-hero .nb-eyebrow::after { content: ''; width: 22px; height: 1px; background: var(--gold); }
+  .nb-hero h1 { font-size: clamp(40px, 6.4vw, 72px); color: var(--cream); line-height: 1.08; font-weight: 400; }
+  .nb-hero h1 em { font-style: italic; color: var(--beige); }
+  .nb-hero p { color: var(--beige); font-size: 17px; max-width: 460px; margin: 22px auto 36px; }
+  .nb-hero-scroll {
+    position: absolute; bottom: 34px; left: 50%; transform: translateX(-50%);
+    color: var(--beige); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .nb-hero-scroll span { width: 1px; height: 34px; background: linear-gradient(var(--gold), transparent); }
 
   /* ---------- Barra de valores ---------- */
-  .nb-values {
-    background: var(--beige);
-    padding: 34px 0;
-  }
-  .nb-values-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 24px;
-    text-align: center;
-  }
+  .nb-values { background: var(--ink); padding: 30px 0; }
+  .nb-values-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; text-align: center; }
   .nb-values-grid .nb-value { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-  .nb-values-grid svg { width: 30px; height: 30px; stroke: var(--brown-dark); }
-  .nb-values-grid span { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brown-dark); }
+  .nb-values-grid svg { width: 26px; height: 26px; stroke: var(--gold); }
+  .nb-values-grid span { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cream); }
 
   /* ---------- Sección intro / filosofía ---------- */
-  .nb-intro { padding: 110px 0; text-align: center; }
-  .nb-intro .nb-container { max-width: 760px; }
-  .nb-intro h2 { font-size: clamp(28px, 4vw, 42px); }
+  .nb-intro { padding: 150px 0 130px; text-align: center; }
+  .nb-intro .nb-container { max-width: 720px; }
+  .nb-intro .nb-eyebrow { justify-content: center; }
+  .nb-intro .nb-eyebrow::after { content: ''; width: 22px; height: 1px; background: var(--gold); }
+  .nb-intro h2 { font-size: clamp(30px, 4.2vw, 46px); font-weight: 400; }
+  .nb-intro h2 em { font-style: italic; color: var(--gold); }
   .nb-intro p { font-size: 18px; }
 
-  /* ---------- Colección destacada ---------- */
-  .nb-featured { padding: 20px 0 110px; }
-  .nb-featured-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 46px; flex-wrap: wrap; gap: 16px; }
-  .nb-featured-head h2 { font-size: clamp(26px, 3.5vw, 38px); margin: 0; }
-  .nb-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 28px;
-  }
+  /* ---------- Colección destacada (PRODUCTOS REALES) ---------- */
+  .nb-featured { padding: 20px 0 140px; }
+  .nb-featured-head { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 56px; flex-wrap: wrap; gap: 16px; }
+  .nb-featured-head h2 { font-size: clamp(28px, 3.6vw, 42px); margin: 0; font-weight: 400; }
+  .nb-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 34px; }
   .nb-card { text-decoration: none; color: inherit; display: block; }
   .nb-card-img {
     position: relative;
     aspect-ratio: 3/4;
-    border-radius: 18px;
     overflow: hidden;
     background: var(--beige);
-    margin-bottom: 16px;
+    margin-bottom: 20px;
   }
-  .nb-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s ease; }
-  .nb-card:hover .nb-card-img img { transform: scale(1.06); }
+  .nb-card-img img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.8s cubic-bezier(.22,.61,.36,1); }
+  .nb-card:hover .nb-card-img img { transform: scale(1.055); }
   .nb-card-tag {
-    position: absolute; top: 14px; left: 14px;
-    background: var(--cream); color: var(--brown-dark);
-    font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-    padding: 5px 12px; border-radius: 999px;
+    position: absolute; top: 16px; left: 16px;
+    background: var(--cream); color: var(--ink);
+    font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 6px 12px;
   }
-  .nb-card h3 { font-size: 17px; margin-bottom: 4px; }
-  .nb-card .nb-price { font-family: 'Jost', sans-serif; color: var(--terracotta); font-size: 14px; letter-spacing: 0.02em; }
+  .nb-card-quickadd {
+    position: absolute; left: 16px; right: 16px; bottom: 16px;
+    background: var(--ink); color: var(--cream); border: none;
+    padding: 13px; font-family: 'Jost', sans-serif; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+    cursor: pointer; opacity: 0; transform: translateY(10px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .nb-card-img:hover .nb-card-quickadd,
+  .nb-card-quickadd:focus { opacity: 1; transform: translateY(0); }
+  .nb-card-quickadd:hover { background: var(--gold); }
+  .nb-card h3 { font-size: 17px; margin-bottom: 6px; font-weight: 400; }
+  .nb-card .nb-price { font-family: 'Jost', sans-serif; color: var(--gold); font-size: 14px; letter-spacing: 0.03em; }
+  .nb-empty-state {
+    grid-column: 1 / -1; text-align: center; padding: 60px 20px; border: 1px dashed var(--beige-dark);
+  }
+  .nb-empty-state p { margin: 0; }
 
   /* ---------- Historia de marca ---------- */
-  .nb-story {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: center;
-    gap: 60px;
-    padding: 40px 0 110px;
-  }
-  .nb-story-img { aspect-ratio: 4/5; border-radius: 22px; overflow: hidden; }
+  .nb-story { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 80px; padding: 40px 0 150px; }
+  .nb-story-img { aspect-ratio: 4/5; overflow: hidden; }
   .nb-story-img img { width: 100%; height: 100%; object-fit: cover; }
-  .nb-story-text h2 { font-size: clamp(28px, 4vw, 40px); }
-  .nb-story-text p { font-size: 16px; margin-bottom: 28px; }
+  .nb-story-text h2 { font-size: clamp(30px, 4.2vw, 44px); font-weight: 400; }
+  .nb-story-text h2 em { font-style: italic; color: var(--gold); }
+  .nb-story-text p { font-size: 16px; margin-bottom: 32px; }
 
   /* ---------- Testimonios ---------- */
-  .nb-testimonials { background: var(--brown-dark); color: var(--cream); padding: 100px 0; text-align: center; }
-  .nb-testimonials .nb-eyebrow { color: var(--beige-dark); }
-  .nb-testimonials-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 40px;
-    margin-top: 50px;
-    text-align: left;
-  }
-  .nb-testimonial p { color: var(--beige); font-style: italic; font-size: 15px; }
-  .nb-testimonial strong { display: block; margin-top: 16px; color: var(--cream); font-style: normal; font-family: 'Fraunces', serif; }
-  .nb-stars { color: var(--terracotta); letter-spacing: 3px; margin-bottom: 14px; display: block; }
+  .nb-testimonials { background: var(--ink); color: var(--cream); padding: 130px 0; text-align: center; }
+  .nb-testimonials .nb-eyebrow { color: var(--gold); justify-content: center; }
+  .nb-testimonials .nb-eyebrow::after { content: ''; width: 22px; height: 1px; background: var(--gold); }
+  .nb-testimonials h2 { color: var(--cream); font-weight: 400; }
+  .nb-testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 50px; margin-top: 60px; text-align: left; }
+  .nb-testimonial { border-top: 1px solid rgba(248,245,238,0.15); padding-top: 24px; }
+  .nb-testimonial p { color: var(--beige); font-style: italic; font-size: 15px; font-family: 'Fraunces', serif; }
+  .nb-testimonial strong { display: block; margin-top: 18px; color: var(--cream); font-style: normal; font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .nb-stars { color: var(--gold); letter-spacing: 3px; margin-bottom: 14px; display: block; font-size: 13px; }
 
   /* ---------- Newsletter ---------- */
-  .nb-newsletter { padding: 110px 0; text-align: center; }
+  .nb-newsletter { padding: 140px 0 150px; text-align: center; }
   .nb-newsletter .nb-container { max-width: 560px; }
-  .nb-newsletter h2 { font-size: clamp(26px, 4vw, 36px); }
-  .nb-newsletter form { display: flex; gap: 10px; margin-top: 30px; }
+  .nb-newsletter .nb-eyebrow { justify-content: center; }
+  .nb-newsletter .nb-eyebrow::after { content: ''; width: 22px; height: 1px; background: var(--gold); }
+  .nb-newsletter h2 { font-size: clamp(28px, 4vw, 40px); font-weight: 400; }
+  .nb-newsletter form { display: flex; gap: 0; margin-top: 34px; border-bottom: 1px solid var(--ink); padding-bottom: 4px; }
   .nb-newsletter input[type="email"] {
-    flex: 1;
-    padding: 15px 20px;
-    border-radius: 999px;
-    border: 1px solid var(--beige-dark);
-    background: var(--white);
-    font-family: 'Jost', sans-serif;
-    font-size: 14px;
-    color: var(--brown-dark);
+    flex: 1; padding: 14px 4px; border: none; background: transparent;
+    font-family: 'Jost', sans-serif; font-size: 14px; color: var(--ink);
   }
-  .nb-newsletter input[type="email"]:focus { outline: 2px solid var(--sage); }
-  .nb-newsletter .nb-btn { border: none; cursor: pointer; }
+  .nb-newsletter input[type="email"]:focus { outline: none; }
+  .nb-newsletter input[type="email"]::placeholder { color: var(--stone); }
+  .nb-newsletter .nb-btn { border: none; padding: 14px 4px; background: transparent; color: var(--ink); letter-spacing: 0.2em; }
+  .nb-newsletter .nb-btn:hover { color: var(--gold); background: transparent; letter-spacing: 0.26em; }
 
   @media (max-width: 900px) {
     .nb-values-grid { grid-template-columns: repeat(2, 1fr); }
     .nb-grid { grid-template-columns: repeat(2, 1fr); }
-    .nb-story { grid-template-columns: 1fr; }
+    .nb-story { grid-template-columns: 1fr; gap: 40px; }
     .nb-story-img { order: -1; }
-    .nb-testimonials-grid { grid-template-columns: 1fr; }
-    .nb-newsletter form { flex-direction: column; }
+    .nb-testimonials-grid { grid-template-columns: 1fr; gap: 36px; }
   }
 </style>
 
@@ -195,31 +212,32 @@
 
   <!-- SECCIÓN: Hero -->
   <section class="nb-hero">
-    <div class="nb-hero-content">
-      <span class="nb-eyebrow">Cosmética & bienestar natural</span>
-      <h1>Naturaleza pura, para cada piel</h1>
-      <p>Fórmulas botánicas, sin género ni etiquetas — pensadas para quien busca cuidarse con ingredientes reales.</p>
+    <div class="nb-hero-content nb-reveal">
+      <span class="nb-eyebrow">Cosmética &amp; bienestar natural</span>
+      <h1>Naturaleza pura,<br><em>para cada piel</em></h1>
+      <p>Fórmulas botánicas de autor, sin género ni etiquetas — creadas para quien busca cuidarse con ingredientes reales.</p>
       <a href="/collections/all" class="nb-btn nb-btn-light">Descubrir la colección</a>
     </div>
+    <div class="nb-hero-scroll"><span></span>Scroll</div>
   </section>
 
   <!-- SECCIÓN: Barra de valores -->
   <section class="nb-values">
     <div class="nb-container nb-values-grid">
       <div class="nb-value">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 2C8 6 4 9 4 14a8 8 0 0016 0c0-5-4-8-8-12z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.3"><path d="M12 2C8 6 4 9 4 14a8 8 0 0016 0c0-5-4-8-8-12z"/></svg>
         <span>100% Natural</span>
       </div>
       <div class="nb-value">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M3 12l2-8h14l2 8M3 12v7a1 1 0 001 1h16a1 1 0 001-1v-7M3 12h18"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.3"><path d="M3 12l2-8h14l2 8M3 12v7a1 1 0 001 1h16a1 1 0 001-1v-7M3 12h18"/></svg>
         <span>Packaging reciclable</span>
       </div>
       <div class="nb-value">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.6 1.2 4.5 2.4C11.4 5.2 12.8 4 15 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.3"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.6 1.2 4.5 2.4C11.4 5.2 12.8 4 15 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9z"/></svg>
         <span>Cruelty free</span>
       </div>
       <div class="nb-value">
-        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.3"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
         <span>Envío en 24/48h</span>
       </div>
     </div>
@@ -227,68 +245,67 @@
 
   <!-- SECCIÓN: Filosofía / intro -->
   <section class="nb-intro">
-    <div class="nb-container">
+    <div class="nb-container nb-reveal">
       <span class="nb-eyebrow">Nuestra filosofía</span>
-      <h2>Menos ingredientes, más resultados</h2>
+      <h2>Menos ingredientes,<br><em>más resultados</em></h2>
       <p>Creemos en fórmulas honestas: extractos vegetales, aceites prensados en frío y activos reconocibles. Sin humo, sin promesas vacías — solo lo que tu piel necesita, hecho para cualquier persona que quiera cuidarse mejor.</p>
     </div>
   </section>
 
-  <!-- SECCIÓN: Colección destacada -->
+  <!-- SECCIÓN: Colección destacada — PRODUCTOS REALES DE TU TIENDA -->
   <section class="nb-featured">
     <div class="nb-container">
-      <div class="nb-featured-head">
+      <div class="nb-featured-head nb-reveal">
         <div>
           <span class="nb-eyebrow">Más vendidos</span>
-          <h2>Los favoritos de la comunidad</h2>
+          <h2>Los favoritos<br>de la comunidad</h2>
         </div>
         <a href="/collections/all" class="nb-btn nb-btn-outline">Ver todo</a>
       </div>
 
-      <!-- Puedes sustituir esta cuadrícula por la sección nativa "Colección destacada" de Shopify si prefieres que muestre tus productos reales automáticamente. Esta versión es un escaparate editorial fijo. -->
       <div class="nb-grid">
-        <a href="/collections/all" class="nb-card">
-          <div class="nb-card-img">
-            <span class="nb-card-tag">Bestseller</span>
-            <img src="https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80" alt="Aceite facial natural">
+        {% assign nb_products = collections['all'].products %}
+        {% for product in nb_products limit: 4 %}
+          <div class="nb-card nb-reveal">
+            <a href="{{ product.url }}" style="text-decoration:none; color:inherit;">
+              <div class="nb-card-img">
+                {% if product.compare_at_price > product.price %}
+                  <span class="nb-card-tag">Oferta</span>
+                {% elsif product.tags contains 'nuevo' %}
+                  <span class="nb-card-tag">Nuevo</span>
+                {% endif %}
+                <img src="{{ product.featured_image | image_url: width: 700 }}" alt="{{ product.featured_image.alt | default: product.title | escape }}" loading="lazy">
+              </div>
+            </a>
+            <!-- Botón de compra rápida: añade la primera variante disponible directamente al carrito -->
+            {% form 'product', product %}
+              <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+              <button type="submit" class="nb-card-quickadd" {% if product.selected_or_first_available_variant.available == false %}disabled{% endif %}>
+                {% if product.selected_or_first_available_variant.available %}+ Añadir al carrito{% else %}Agotado{% endif %}
+              </button>
+            {% endform %}
+            <a href="{{ product.url }}" style="text-decoration:none; color:inherit;">
+              <h3>{{ product.title }}</h3>
+              <span class="nb-price">{{ product.price | money }}</span>
+            </a>
           </div>
-          <h3>Aceite facial botánico</h3>
-          <span class="nb-price">24,90 €</span>
-        </a>
-        <a href="/collections/all" class="nb-card">
-          <div class="nb-card-img">
-            <img src="https://images.unsplash.com/photo-1585232351009-aa87416fca90?auto=format&fit=crop&w=600&q=80" alt="Jabón natural artesanal">
+        {% else %}
+          <div class="nb-empty-state">
+            <p>Todavía no tienes productos publicados. Ve a <strong>Admin → Productos → Añadir producto</strong> y aparecerán aquí automáticamente, con foto, precio y botón de compra ya funcionando.</p>
           </div>
-          <h3>Jabón de avena y karité</h3>
-          <span class="nb-price">9,50 €</span>
-        </a>
-        <a href="/collections/all" class="nb-card">
-          <div class="nb-card-img">
-            <span class="nb-card-tag">Nuevo</span>
-            <img src="https://images.unsplash.com/photo-1598662957563-ee4965d4d72c?auto=format&fit=crop&w=600&q=80" alt="Bálsamo corporal">
-          </div>
-          <h3>Bálsamo corporal calmante</h3>
-          <span class="nb-price">18,00 €</span>
-        </a>
-        <a href="/collections/all" class="nb-card">
-          <div class="nb-card-img">
-            <img src="https://images.unsplash.com/photo-1631729371254-42c2892f0e6e?auto=format&fit=crop&w=600&q=80" alt="Champú sólido natural">
-          </div>
-          <h3>Champú sólido neutro</h3>
-          <span class="nb-price">13,90 €</span>
-        </a>
+        {% endfor %}
       </div>
     </div>
   </section>
 
   <!-- SECCIÓN: Historia de marca -->
   <section class="nb-container nb-story">
-    <div class="nb-story-img">
-      <img src="https://images.unsplash.com/photo-1600857062241-98e5dba7f214?auto=format&fit=crop&w=900&q=80" alt="Elaboración artesanal de cosmética natural">
+    <div class="nb-story-img nb-reveal">
+      <img src="https://images.unsplash.com/photo-1600857062241-98e5dba7f214?auto=format&fit=crop&w=1000&q=80" alt="Elaboración artesanal de cosmética natural">
     </div>
-    <div class="nb-story-text">
+    <div class="nb-story-text nb-reveal">
       <span class="nb-eyebrow">Nuestra historia</span>
-      <h2>Hecho a mano, pensado para todos</h2>
+      <h2>Hecho a mano,<br><em>pensado para todos</em></h2>
       <p>Nacimos de la idea de que cuidarse no debería tener género ni complicaciones. Cada producto se elabora en pequeños lotes, con materias primas locales y procesos respetuosos, para que sientas la diferencia desde el primer uso.</p>
       <a href="/pages/sobre-nosotros" class="nb-btn nb-btn-outline">Conoce nuestra historia</a>
     </div>
@@ -296,24 +313,24 @@
 
   <!-- SECCIÓN: Testimonios -->
   <section class="nb-testimonials">
-    <div class="nb-container">
+    <div class="nb-container nb-reveal">
       <span class="nb-eyebrow">Opiniones</span>
       <h2>Lo que dice nuestra comunidad</h2>
       <div class="nb-testimonials-grid">
         <div class="nb-testimonial">
           <span class="nb-stars">★★★★★</span>
           <p>"Textura increíble y un olor muy natural, nada empalagoso. Lo uso yo y también mi pareja."</p>
-          <strong>— Marta G.</strong>
+          <strong>Marta G.</strong>
         </div>
         <div class="nb-testimonial">
           <span class="nb-stars">★★★★★</span>
           <p>"Por fin una marca de cosmética que no está pensada solo 'para ellas'. Calidad premium de verdad."</p>
-          <strong>— Daniel R.</strong>
+          <strong>Daniel R.</strong>
         </div>
         <div class="nb-testimonial">
           <span class="nb-stars">★★★★★</span>
           <p>"El packaging es precioso y se nota que los ingredientes son de verdad. Repetiré seguro."</p>
-          <strong>— Laura P.</strong>
+          <strong>Laura P.</strong>
         </div>
       </div>
     </div>
@@ -321,14 +338,14 @@
 
   <!-- SECCIÓN: Newsletter -->
   <section class="nb-newsletter">
-    <div class="nb-container">
+    <div class="nb-container nb-reveal">
       <span class="nb-eyebrow">Únete</span>
       <h2>Un 10% de descuento en tu primer pedido</h2>
       <p>Suscríbete y recibe novedades, consejos de cuidado natural y ofertas exclusivas.</p>
 
       {% form 'customer' %}
         {% if form.posted_successfully? %}
-          <p style="color: var(--sage); margin-top: 16px;">¡Gracias por suscribirte!</p>
+          <p style="color: var(--gold); margin-top: 16px;">Gracias por suscribirte.</p>
         {% else %}
           <input type="hidden" name="contact[tags]" value="newsletter">
           <input type="email" name="contact[email]" placeholder="Tu email" required>
@@ -339,3 +356,24 @@
   </section>
 
 </div>
+
+<script>
+  (function () {
+    if (window.__nbRevealInit) return;
+    window.__nbRevealInit = true;
+    var els = document.querySelectorAll('.nb-reveal');
+    if (!('IntersectionObserver' in window) || !els.length) {
+      els.forEach(function (el) { el.classList.add('is-visible'); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          io.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    els.forEach(function (el) { io.observe(el); });
+  })();
+</script>
