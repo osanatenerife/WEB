@@ -1,0 +1,147 @@
+<!-- ============================================================
+  PÁGINA: CONTACTO (Contact)
+  1. Ve a Shopify Admin → Tienda online → Páginas → Añadir página.
+  2. Título: "Contacto". Guarda (crea la URL /pages/contacto).
+  3. Ve a Personalizar el tema, selecciona esta página en el desplegable.
+  4. Añade una sección "Liquid personalizado" y pega todo este código.
+  El formulario usa el sistema de formularios nativo de Shopify: los
+  mensajes llegan directamente al email de tu tienda, sin configuración extra.
+============================================================ -->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600&family=Jost:wght@300;400;500;600&display=swap');
+
+  .nb-contact {
+    --cream: #F7F3EA;
+    --beige: #EAE0CC;
+    --beige-dark: #D8C6A1;
+    --brown: #5B4636;
+    --brown-dark: #3E2F24;
+    --terracotta: #B97452;
+    --sage: #8A9678;
+    font-family: 'Jost', sans-serif;
+    color: var(--brown-dark);
+    background: var(--cream);
+  }
+  .nb-contact * { box-sizing: border-box; }
+  .nb-contact h1, .nb-contact h2 { font-family: 'Fraunces', serif; font-weight: 500; margin: 0 0 0.5em; }
+  .nb-contact p { line-height: 1.7; color: var(--brown); }
+  .nb-contact .nb-container { max-width: 1100px; margin: 0 auto; padding: 90px 24px; }
+  .nb-contact .nb-eyebrow { display: inline-block; font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sage); margin-bottom: 14px; }
+
+  .nb-contact-head { text-align: center; max-width: 560px; margin: 0 auto 60px; }
+  .nb-contact-head h1 { font-size: clamp(30px, 5vw, 46px); }
+
+  .nb-contact-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+  }
+
+  .nb-contact-info .nb-info-item { margin-bottom: 26px; }
+  .nb-contact-info h3 { font-family: 'Fraunces', serif; font-size: 16px; margin: 0 0 6px; }
+  .nb-contact-info p { font-size: 14px; margin: 0; }
+  .nb-contact-info a { color: var(--brown); }
+
+  .nb-contact-form { background: var(--beige); border-radius: 22px; padding: 40px; }
+  .nb-contact-form label { display: block; font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 6px; color: var(--brown-dark); }
+  .nb-contact-form .field { margin-bottom: 20px; }
+  .nb-contact-form input, .nb-contact-form textarea {
+    width: 100%; padding: 13px 16px; border-radius: 10px; border: 1px solid var(--beige-dark);
+    background: var(--cream); font-family: 'Jost', sans-serif; font-size: 14px; color: var(--brown-dark);
+  }
+  .nb-contact-form input:focus, .nb-contact-form textarea:focus { outline: 2px solid var(--sage); }
+  .nb-contact-form textarea { min-height: 130px; resize: vertical; }
+  .nb-contact-form button {
+    width: 100%; padding: 15px; background: var(--brown-dark); color: var(--cream); border: none;
+    border-radius: 999px; font-family: 'Jost', sans-serif; font-size: 13px; letter-spacing: 0.15em;
+    text-transform: uppercase; cursor: pointer; transition: opacity 0.3s ease;
+  }
+  .nb-contact-form button:hover { opacity: 0.85; }
+  .nb-contact-success { background: var(--sage); color: var(--cream); padding: 16px; border-radius: 12px; text-align: center; }
+
+  .nb-faq { margin-top: 20px; border-top: 1px solid var(--beige-dark); }
+  .nb-faq details { border-bottom: 1px solid var(--beige-dark); padding: 16px 2px; }
+  .nb-faq summary { cursor: pointer; font-family: 'Fraunces', serif; font-size: 16px; list-style: none; display: flex; justify-content: space-between; }
+  .nb-faq summary::-webkit-details-marker { display: none; }
+  .nb-faq summary::after { content: '+'; color: var(--terracotta); font-size: 20px; }
+  .nb-faq details[open] summary::after { content: '–'; }
+  .nb-faq p { font-size: 14px; padding-top: 10px; margin: 0; }
+
+  @media (max-width: 900px) {
+    .nb-contact-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="nb-contact">
+  <div class="nb-container">
+
+    <!-- SECCIÓN: Cabecera -->
+    <div class="nb-contact-head">
+      <span class="nb-eyebrow">Contacto</span>
+      <h1>Hablemos</h1>
+      <p>¿Dudas sobre un producto, tu pedido o quieres colaborar con nosotros? Escríbenos, te respondemos en menos de 24h.</p>
+    </div>
+
+    <div class="nb-contact-grid">
+
+      <!-- SECCIÓN: Información de contacto -->
+      <div class="nb-contact-info">
+        <div class="nb-info-item">
+          <h3>Email</h3>
+          <p><a href="mailto:hola@tumarca.com">hola@tumarca.com</a></p>
+        </div>
+        <div class="nb-info-item">
+          <h3>Teléfono / WhatsApp</h3>
+          <p><a href="tel:+34600000000">+34 600 000 000</a></p>
+        </div>
+        <div class="nb-info-item">
+          <h3>Horario de atención</h3>
+          <p>Lunes a viernes, 9:00–18:00h</p>
+        </div>
+        <div class="nb-info-item">
+          <h3>Envíos</h3>
+          <p>Entrega en 24/48h a toda España. Envío gratuito a partir de 40€.</p>
+        </div>
+      </div>
+
+      <!-- SECCIÓN: Formulario (nativo de Shopify) -->
+      <div class="nb-contact-form">
+        {% form 'contact' %}
+          {% if form.posted_successfully? %}
+            <div class="nb-contact-success">¡Gracias! Hemos recibido tu mensaje y te responderemos pronto.</div>
+          {% else %}
+            <div class="field">
+              <label for="ContactName">Nombre</label>
+              <input type="text" id="ContactName" name="contact[name]" required>
+            </div>
+            <div class="field">
+              <label for="ContactEmail">Email</label>
+              <input type="email" id="ContactEmail" name="contact[email]" required>
+            </div>
+            <div class="field">
+              <label for="ContactMessage">Mensaje</label>
+              <textarea id="ContactMessage" name="contact[body]" required></textarea>
+            </div>
+            <button type="submit">Enviar mensaje</button>
+          {% endif %}
+        {% endform %}
+      </div>
+    </div>
+
+    <!-- SECCIÓN: Preguntas frecuentes -->
+    <div class="nb-faq">
+      <details open>
+        <summary>¿Cuánto tarda mi pedido en llegar?</summary>
+        <p>Entre 24 y 48 horas laborables para envíos a península. Islas y otros destinos, 3-5 días.</p>
+      </details>
+      <details>
+        <summary>¿Puedo devolver un producto?</summary>
+        <p>Sí, dispones de 30 días desde la recepción para devoluciones gratuitas.</p>
+      </details>
+      <details>
+        <summary>¿Vuestros productos son aptos para todo tipo de piel?</summary>
+        <p>Sí, todas nuestras fórmulas están testadas dermatológicamente y son aptas para pieles sensibles.</p>
+      </details>
+    </div>
+
+  </div>
+</div>

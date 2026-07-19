@@ -1,0 +1,116 @@
+<!-- ============================================================
+  PÁGINA: FICHA DE PRODUCTO (Product)
+  Pega esto en un bloque "Liquid personalizado" DENTRO de la plantilla de
+  producto, DEBAJO del bloque nativo de "Información del producto"
+  (título, precio, variantes, botón añadir al carrito). Este bloque NO
+  sustituye el botón de compra — lo complementa con contenido de marca.
+  Al estar en la plantilla de producto, tiene acceso al objeto {{ product }}.
+============================================================ -->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600&family=Jost:wght@300;400;500;600&display=swap');
+
+  .nb-prod {
+    --cream: #F7F3EA;
+    --beige: #EAE0CC;
+    --beige-dark: #D8C6A1;
+    --brown: #5B4636;
+    --brown-dark: #3E2F24;
+    --terracotta: #B97452;
+    --sage: #8A9678;
+    font-family: 'Jost', sans-serif;
+    color: var(--brown-dark);
+  }
+  .nb-prod * { box-sizing: border-box; }
+  .nb-prod h2, .nb-prod h3 { font-family: 'Fraunces', serif; font-weight: 500; margin: 0 0 0.5em; }
+  .nb-prod p, .nb-prod li { line-height: 1.7; color: var(--brown); }
+  .nb-prod .nb-container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  /* Iconos de confianza justo bajo el botón de compra */
+  .nb-prod-trust {
+    display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+    padding: 20px 0; margin: 30px 0; border-top: 1px solid var(--beige-dark); border-bottom: 1px solid var(--beige-dark);
+  }
+  .nb-prod-trust span { font-size: 12px; letter-spacing: 0.05em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+  .nb-prod-trust span::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--terracotta); }
+
+  /* Acordeón: Ingredientes / Modo de uso / Envío */
+  .nb-accordion { margin: 50px 0; border-top: 1px solid var(--beige-dark); }
+  .nb-accordion details { border-bottom: 1px solid var(--beige-dark); padding: 18px 4px; }
+  .nb-accordion summary {
+    cursor: pointer; font-family: 'Fraunces', serif; font-size: 18px; list-style: none;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .nb-accordion summary::-webkit-details-marker { display: none; }
+  .nb-accordion summary::after { content: '+'; font-size: 22px; color: var(--terracotta); transition: transform 0.3s ease; }
+  .nb-accordion details[open] summary::after { content: '–'; }
+  .nb-accordion .nb-accordion-body { padding-top: 12px; font-size: 15px; }
+
+  /* Banda de beneficios tipo iconografía */
+  .nb-prod-benefits {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    text-align: center; margin: 60px 0;
+  }
+  .nb-prod-benefits div { padding: 24px; background: var(--beige); border-radius: 16px; }
+  .nb-prod-benefits svg { width: 26px; height: 26px; stroke: var(--brown-dark); margin-bottom: 10px; }
+  .nb-prod-benefits p { font-size: 13px; margin: 0; color: var(--brown-dark); }
+
+  @media (max-width: 640px) {
+    .nb-prod-benefits { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="nb-prod nb-container">
+
+  <!-- SECCIÓN: Iconos de confianza -->
+  <div class="nb-prod-trust">
+    <span>Ingredientes naturales</span>
+    <span>Envío 24/48h</span>
+    <span>Devolución gratuita</span>
+  </div>
+
+  <!-- SECCIÓN: Beneficios clave -->
+  <div class="nb-prod-benefits">
+    <div>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 2C8 6 4 9 4 14a8 8 0 0016 0c0-5-4-8-8-12z"/></svg>
+      <p>Origen vegetal certificado</p>
+    </div>
+    <div>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+      <p>Testado dermatológicamente</p>
+    </div>
+    <div>
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M3 12l2-8h14l2 8M3 12v7a1 1 0 001 1h16a1 1 0 001-1v-7M3 12h18"/></svg>
+      <p>Envase reciclable</p>
+    </div>
+  </div>
+
+  <!-- SECCIÓN: Acordeón de detalles del producto -->
+  <div class="nb-accordion">
+    <details open>
+      <summary>Descripción</summary>
+      <div class="nb-accordion-body">
+        {{ product.description | default: "Fórmula botánica de textura ligera, elaborada en pequeños lotes con ingredientes de origen natural. Apta para todo tipo de piel." }}
+      </div>
+    </details>
+    <details>
+      <summary>Ingredientes</summary>
+      <div class="nb-accordion-body">
+        <p>[Sustituye este texto por el listado INCI real de tu producto]. Aqua, Glycerin, Aloe Barbadensis Leaf Juice, Simmondsia Chinensis (Jojoba) Seed Oil, Tocopherol...</p>
+      </div>
+    </details>
+    <details>
+      <summary>Modo de uso</summary>
+      <div class="nb-accordion-body">
+        <p>Aplica una pequeña cantidad sobre la piel limpia, mañana y noche, con movimientos suaves hasta su completa absorción.</p>
+      </div>
+    </details>
+    <details>
+      <summary>Envío y devoluciones</summary>
+      <div class="nb-accordion-body">
+        <p>Envío en 24/48h a península. Devoluciones gratuitas hasta 30 días desde la recepción del pedido.</p>
+      </div>
+    </details>
+  </div>
+
+</div>

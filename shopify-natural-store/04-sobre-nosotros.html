@@ -1,0 +1,157 @@
+<!-- ============================================================
+  PÁGINA: SOBRE NOSOTROS (About)
+  1. Ve a Shopify Admin → Tienda online → Páginas → Añadir página.
+  2. Título: "Sobre nosotros". Guarda (esto crea la URL /pages/sobre-nosotros).
+  3. Ve a Personalizar el tema, selecciona esta página nueva en el desplegable.
+  4. Añade una sección "Liquid personalizado" y pega todo este código.
+============================================================ -->
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Jost:wght@300;400;500;600&display=swap');
+
+  .nb-about {
+    --cream: #F7F3EA;
+    --beige: #EAE0CC;
+    --beige-dark: #D8C6A1;
+    --brown: #5B4636;
+    --brown-dark: #3E2F24;
+    --terracotta: #B97452;
+    --sage: #8A9678;
+    font-family: 'Jost', sans-serif;
+    color: var(--brown-dark);
+    background: var(--cream);
+  }
+  .nb-about * { box-sizing: border-box; }
+  .nb-about h1, .nb-about h2 { font-family: 'Fraunces', serif; font-weight: 500; margin: 0 0 0.5em; }
+  .nb-about p { line-height: 1.75; color: var(--brown); }
+  .nb-about .nb-container { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .nb-about .nb-eyebrow { display: inline-block; font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--sage); margin-bottom: 14px; }
+
+  .nb-about-hero {
+    position: relative; min-height: 60vh; display: flex; align-items: center;
+    background: linear-gradient(180deg, rgba(62,47,36,0.2), rgba(62,47,36,0.55)),
+      url('https://images.unsplash.com/photo-1600180758890-6b94519a8ba6?auto=format&fit=crop&w=1600&q=80') center/cover no-repeat;
+  }
+  .nb-about-hero-inner { max-width: 640px; margin: 0 auto; text-align: center; color: var(--cream); padding: 0 24px; }
+  .nb-about-hero h1 { color: var(--cream); font-size: clamp(32px, 5vw, 52px); }
+  .nb-about-hero p { color: var(--beige); }
+
+  .nb-about-mission { padding: 100px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+  .nb-about-mission img { width: 100%; aspect-ratio: 4/5; object-fit: cover; border-radius: 22px; }
+  .nb-about-mission h2 { font-size: clamp(26px, 4vw, 38px); }
+
+  .nb-values-cards {
+    padding: 0 0 100px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px;
+  }
+  .nb-values-cards .nb-vc { background: var(--beige); border-radius: 18px; padding: 34px; text-align: left; }
+  .nb-values-cards svg { width: 28px; height: 28px; stroke: var(--brown-dark); margin-bottom: 16px; }
+  .nb-values-cards h3 { font-family: 'Fraunces', serif; font-size: 19px; margin: 0 0 10px; }
+  .nb-values-cards p { font-size: 14px; margin: 0; }
+
+  .nb-about-process { background: var(--brown-dark); color: var(--cream); padding: 100px 0; }
+  .nb-about-process .nb-eyebrow { color: var(--beige-dark); }
+  .nb-about-process h2 { color: var(--cream); text-align: center; font-size: clamp(26px, 4vw, 38px); margin-bottom: 60px; }
+  .nb-process-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; text-align: center; }
+  .nb-process-steps .step-num {
+    width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--beige-dark);
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;
+    font-family: 'Fraunces', serif;
+  }
+  .nb-process-steps h3 { font-family: 'Fraunces', serif; font-size: 16px; color: var(--cream); margin: 0 0 8px; }
+  .nb-process-steps p { font-size: 13px; color: var(--beige); margin: 0; }
+
+  .nb-about-cta { text-align: center; padding: 110px 0; }
+  .nb-about-cta h2 { font-size: clamp(26px, 4vw, 38px); }
+  .nb-about-cta a {
+    display: inline-block; margin-top: 20px; padding: 15px 36px; background: var(--brown-dark); color: var(--cream);
+    text-decoration: none; border-radius: 999px; font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase;
+  }
+
+  @media (max-width: 900px) {
+    .nb-about-mission { grid-template-columns: 1fr; }
+    .nb-about-mission img { order: -1; }
+    .nb-values-cards { grid-template-columns: 1fr; }
+    .nb-process-steps { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+
+<div class="nb-about">
+
+  <!-- SECCIÓN: Hero -->
+  <section class="nb-about-hero">
+    <div class="nb-about-hero-inner">
+      <span class="nb-eyebrow">Nuestra historia</span>
+      <h1>Cuidarse, sin etiquetas</h1>
+      <p>Somos una marca de cosmética natural nacida para que cualquier persona pueda cuidar su piel con ingredientes reales, sin distinción de género ni promesas imposibles.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN: Misión -->
+  <section class="nb-container nb-about-mission">
+    <div>
+      <span class="nb-eyebrow">Quiénes somos</span>
+      <h2>Naturaleza, ciencia y sencillez</h2>
+      <p>Todo empezó en un pequeño taller, mezclando aceites y extractos con la idea de crear productos honestos: pocos ingredientes, todos con un propósito. Hoy seguimos elaborando cada lote a mano, cuidando cada detalle desde la materia prima hasta el envase.</p>
+      <p>Diseñamos cada producto pensando en la piel, no en el género — porque el buen cuidado no debería tener que elegir un pasillo.</p>
+    </div>
+    <img src="https://images.unsplash.com/photo-1585652757141-8b5b7d716e39?auto=format&fit=crop&w=900&q=80" alt="Elaboración artesanal">
+  </section>
+
+  <!-- SECCIÓN: Valores -->
+  <section class="nb-container nb-values-cards">
+    <div class="nb-vc">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 2C8 6 4 9 4 14a8 8 0 0016 0c0-5-4-8-8-12z"/></svg>
+      <h3>Ingredientes reales</h3>
+      <p>Sin listas interminables ni componentes que no reconoces. Materias primas trazables y de origen natural.</p>
+    </div>
+    <div class="nb-vc">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M3 12l2-8h14l2 8M3 12v7a1 1 0 001 1h16a1 1 0 001-1v-7M3 12h18"/></svg>
+      <h3>Packaging consciente</h3>
+      <p>Envases reciclables o rellenables, minimizando el plástico en cada paso de producción.</p>
+    </div>
+    <div class="nb-vc">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 21s-7-4.5-9.5-9C.5 8 2 4 6 4c2.2 0 3.6 1.2 4.5 2.4C11.4 5.2 12.8 4 15 4c4 0 5.5 4 3.5 8-2.5 4.5-9.5 9-9.5 9z"/></svg>
+      <h3>Cruelty free</h3>
+      <p>Nunca testamos en animales. Nuestro compromiso es 100% verificable.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN: Proceso -->
+  <section class="nb-about-process">
+    <div class="nb-container">
+      <span class="nb-eyebrow" style="display:block; text-align:center;">Cómo lo hacemos</span>
+      <h2>De la planta al frasco</h2>
+      <div class="nb-process-steps">
+        <div>
+          <div class="step-num">01</div>
+          <h3>Selección</h3>
+          <p>Elegimos extractos y aceites de proveedores locales certificados.</p>
+        </div>
+        <div>
+          <div class="step-num">02</div>
+          <h3>Formulación</h3>
+          <p>Desarrollamos cada fórmula con dermatólogos y cosmetólogos.</p>
+        </div>
+        <div>
+          <div class="step-num">03</div>
+          <h3>Elaboración</h3>
+          <p>Producción en pequeños lotes, cuidando cada detalle a mano.</p>
+        </div>
+        <div>
+          <div class="step-num">04</div>
+          <h3>Envío</h3>
+          <p>Empaquetado consciente y envío rápido a toda España.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECCIÓN: CTA final -->
+  <section class="nb-about-cta nb-container">
+    <span class="nb-eyebrow">¿Lista/o para probar?</span>
+    <h2>Descubre la colección completa</h2>
+    <a href="/collections/all">Ir a la tienda</a>
+  </section>
+
+</div>
