@@ -37,7 +37,7 @@
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
     addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
     removeAddon: { es: 'Quitar', en: 'Remove' },
-    bonoTitle: { es: 'Ahorra con bonos de 3 sesiones', en: 'Save with 3-session packages' },
+    bonoTitle: { es: 'Ahorra con nuestros bonos de sesiones', en: 'Save with our session packages' },
     bonoPerSession: { es: (n) => `= ${n} € / sesión`, en: (n) => `= €${n} / session` },
     bonoSingleLabel: { es: 'Solo esta sesión', en: 'Just this session' },
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package` },
@@ -242,45 +242,57 @@
       const res = await fetch(`${BOOKING_API_BASE}/bonos?lang=${LANG}`);
       const data = await res.json();
       bonosById = {};
-      (data.bonos || []).forEach((b) => { bonosById[b.serviceId] = b; });
+      (data.bonos || []).forEach((b) => {
+        if (!bonosById[b.serviceId]) bonosById[b.serviceId] = [];
+        bonosById[b.serviceId].push(b);
+      });
+      Object.values(bonosById).forEach((tiers) => tiers.sort((a, b) => a.sessions - b.sessions));
     } catch (e) {
       bonosById = {}; // si falla, simplemente no se ofrece bono — no bloquea la reserva normal
     }
   }
 
   function renderBonoSection() {
-    const bono = state.service ? bonosById[state.service.id] : null;
-    if (!bono) {
+    const tiers = state.service ? bonosById[state.service.id] : null;
+    if (!tiers || !tiers.length) {
       els.bonoSection.style.display = 'none';
       els.bonoSection.innerHTML = '';
       state.wantsBono = false;
       state.bono = null;
       return;
     }
-    state.bono = bono;
-    const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
-    els.bonoSection.style.display = 'block';
-    els.bonoSection.innerHTML = `
-      <div class="booking-bono-title">✦ ${t('bonoTitle')}</div>
-      <div class="booking-bono-options">
-        <button type="button" class="booking-bono-option${!state.wantsBono ? ' selected' : ''}" data-bono="0">
-          <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
-          <span class="booking-bono-option-price">${bono.singleSessionPrice.toFixed(0)} €</span>
-        </button>
-        <button type="button" class="booking-bono-option booking-bono-option-pack${state.wantsBono ? ' selected' : ''}" data-bono="1">
+    state.bono = tiers[0];
+    const singlePrice = tiers[0].singleSessionPrice;
+    const tierButtons = tiers.map((bono, i) => {
+      const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
+      return `
+        <button type="button" class="booking-bono-option booking-bono-option-pack${i === 0 ? ' selected' : ''}" data-bono="${i}">
           <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
           <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
           <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
           <span class="booking-bono-option-per-session">${t('bonoPerSession')((bono.bonoPrice / bono.sessions).toFixed(0))}</span>
         </button>
+      `;
+    }).join('');
+    els.bonoSection.style.display = 'block';
+    els.bonoSection.innerHTML = `
+      <div class="booking-bono-title">✦ ${t('bonoTitle')}</div>
+      <div class="booking-bono-options">
+        <button type="button" class="booking-bono-option${!state.wantsBono ? ' selected' : ''}" data-bono="single">
+          <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
+          <span class="booking-bono-option-price">${singlePrice.toFixed(0)} €</span>
+        </button>
+        ${tierButtons}
       </div>
-      <p class="booking-bono-note">${t('bonoSessionNote')(bono.sessions)}</p>
+      <p class="booking-bono-note">${t('bonoSessionNote')(state.bono.sessions)}</p>
     `;
     els.bonoSection.querySelectorAll('.booking-bono-option').forEach((btn) => {
       btn.addEventListener('click', () => {
-        state.wantsBono = btn.dataset.bono === '1';
+        state.wantsBono = btn.dataset.bono !== 'single';
+        if (state.wantsBono) state.bono = tiers[Number(btn.dataset.bono)];
         els.bonoSection.querySelectorAll('.booking-bono-option').forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
+        els.bonoSection.querySelector('.booking-bono-note').textContent = t('bonoSessionNote')(state.bono.sessions);
         // Los tratamientos añadidos (sueltos o bono) se mantienen igual al
         // cambiar el principal — solo cambian los "extras" de zona/tiempo,
         // que no tienen sentido si el principal pasa a ser un bono.
@@ -387,9 +399,18 @@
     els.addonsModeChooser.innerHTML = '';
   }
 
-  function showAddonsModeChooser(svc, bono) {
+  function showAddonsModeChooser(svc, tiers) {
     els.addonsModeChooser.style.display = 'block';
-    const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
+    const tierButtons = tiers.map((bono, i) => {
+      const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
+      return `
+        <button type="button" class="booking-bono-option booking-bono-option-pack" data-mode="bono" data-tier="${i}">
+          <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
+          <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
+          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
+        </button>
+      `;
+    }).join('');
     els.addonsModeChooser.innerHTML = `
       <div class="booking-addons-mode-label">${svc.name}</div>
       <div class="booking-bono-options">
@@ -397,17 +418,13 @@
           <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
           <span class="booking-bono-option-price">${svc.price.toFixed(0)} €</span>
         </button>
-        <button type="button" class="booking-bono-option booking-bono-option-pack" data-mode="bono">
-          <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
-          <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
-          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
-        </button>
+        ${tierButtons}
       </div>
     `;
     els.addonsModeChooser.querySelectorAll('[data-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (btn.dataset.mode === 'bono') {
-          state.extraBonos.push(bono);
+          state.extraBonos.push(tiers[Number(btn.dataset.tier)]);
         } else {
           state.extraServices.push(svc);
         }
@@ -421,9 +438,9 @@
     const id = els.addonsSelect.value;
     if (!id) return;
     const svc = findServiceById(id);
-    const bono = bonosById[id];
-    if (svc && bono) {
-      showAddonsModeChooser(svc, bono);
+    const tiers = bonosById[id];
+    if (svc && tiers && tiers.length) {
+      showAddonsModeChooser(svc, tiers);
     } else if (svc) {
       state.extraServices.push(svc);
       onAddonsChanged();
@@ -747,8 +764,9 @@
       ? {
           serviceId: state.service.id,
           wantsBonoPrimary: state.wantsBono,
+          primaryBonoSessions: state.wantsBono && state.bono ? state.bono.sessions : undefined,
           extraServiceIds: state.extraServices.map((s) => s.id),
-          extraBonoServiceIds: state.extraBonos.map((b) => b.serviceId),
+          extraBonoSelections: state.extraBonos.map((b) => ({ serviceId: b.serviceId, sessions: b.sessions })),
           employeeId: state.employee.id,
           date: state.date,
           time: state.time,

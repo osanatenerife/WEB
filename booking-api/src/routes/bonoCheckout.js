@@ -18,7 +18,8 @@ function round2(n) {
 
 router.post('/bono-checkout', async (req, res) => {
   const {
-    serviceId, wantsBonoPrimary, extraServiceIds, extraBonoServiceIds, employeeId, date, time,
+    serviceId, wantsBonoPrimary, primaryBonoSessions, extraServiceIds, extraBonoSelections,
+    employeeId, date, time,
     clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, lang,
   } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
@@ -34,10 +35,13 @@ router.post('/bono-checkout', async (req, res) => {
 
   // Cualquier combinación libre: el tratamiento principal y cada tratamiento
   // añadido puede ser sesión suelta o bono, indistintamente (p.ej. bono de
-  // pierna + masaje suelto + bono de corporal, todo en la misma cita).
-  const bonoServiceIds = [
-    ...(wantsBonoPrimary ? [serviceId] : []),
-    ...(Array.isArray(extraBonoServiceIds) ? extraBonoServiceIds : []),
+  // pierna + masaje suelto + bono de corporal, todo en la misma cita). Un
+  // mismo tratamiento puede tener varios bonos disponibles (p.ej. 5 o 10
+  // sesiones) — por eso se identifica cada uno por serviceId + nº de
+  // sesiones, no solo por serviceId.
+  const bonoSelections = [
+    ...(wantsBonoPrimary ? [{ serviceId, sessions: primaryBonoSessions }] : []),
+    ...(Array.isArray(extraBonoSelections) ? extraBonoSelections : []),
   ];
   const singleServiceIds = [
     ...(wantsBonoPrimary ? [] : [serviceId]),
@@ -45,9 +49,9 @@ router.post('/bono-checkout', async (req, res) => {
   ];
 
   const bonoItems = [];
-  for (const id of bonoServiceIds) {
-    const bono = bonos.find((b) => b.serviceId === id);
-    const service = services.find((s) => s.id === id);
+  for (const sel of bonoSelections) {
+    const bono = bonos.find((b) => b.serviceId === sel.serviceId && Number(b.sessions) === Number(sel.sessions));
+    const service = services.find((s) => s.id === sel.serviceId);
     if (!bono || !service) return res.status(404).json({ error: 'Bono no encontrado para uno de los tratamientos elegidos.' });
     bonoItems.push({ service, bono, bonoId: crypto.randomUUID() });
   }
