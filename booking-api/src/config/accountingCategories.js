@@ -13,7 +13,6 @@ const LASER = [
   'laser-medias-piernas', 'laser-brazos', 'laser-pecho-abdomen', 'laser-espalda',
   'laser-piernas-completas', 'laser-cuerpo-completo',
   'radiofrecuencia-facial', 'hollywood-peel', 'fotorejuvenecimiento-ipl',
-  'fotorejuvenecimiento-corporal',
   'tatuaje-talla-s', 'tatuaje-talla-m', 'tatuaje-talla-l', 'tatuaje-talla-xl',
   'eliminacion-micropigmentacion',
 ];

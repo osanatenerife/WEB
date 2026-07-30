@@ -35,7 +35,6 @@ module.exports = [
   { serviceId: 'radiofrecuencia-corporal', sessions: 6, price: 330 },
   { serviceId: 'maderoterapia', sessions: 5, price: 365 },
   { serviceId: 'maderoterapia', sessions: 10, price: 650 },
-  { serviceId: 'fotorejuvenecimiento-corporal', sessions: 3, price: 320 },
 
   // ── Masajes & Rituales Essentia ──
   { serviceId: 'drenaje-linfatico-50', sessions: 5, price: 450 },
