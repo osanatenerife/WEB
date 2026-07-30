@@ -78,7 +78,7 @@ module.exports = [
   // ── 05 · CORPORALES ──
   { id: 'presoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Presoterapia', nameEn: 'Pressotherapy', durationMinutes: 30, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'radiofrecuencia-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Radiofrecuencia corporal', nameEn: 'Body radiofrequency', durationMinutes: 45, price: 65, paymentPolicy: 'deposit_or_full', depositPercent: 30 }, // [ESTIMADO] duración
-  { id: 'maderoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Maderoterapia · 55 min', nameEn: 'Wood therapy · 55 min', durationMinutes: 55, price: 90, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'maderoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Maderoterapia · 55 min', nameEn: 'Wood therapy · 55 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'fotorejuvenecimiento-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Fotorejuvenecimiento corporal', nameEn: 'Body photorejuvenation', durationMinutes: 45, price: 150, paymentPolicy: 'deposit_or_full', depositPercent: 30 }, // [ESTIMADO] duración
 
   // ── 06 · MASAJES & RITUALES ESSENTIA ── (duración incluida en el propio nombre)
