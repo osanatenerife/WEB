@@ -28,29 +28,28 @@ function escapeXml(str) {
 
 // Reparto simple de texto en líneas según un nº aproximado de caracteres
 // por línea (no es medición real de píxeles, pero es suficiente para
-// nombres/mensajes cortos con estas fuentes y tamaños fijos).
+// nombres/mensajes cortos con estas fuentes y tamaños fijos). Primero
+// reparte TODO el texto en tantas líneas naturales como haga falta, y solo
+// si sobran líneas por encima de maxLines se recorta la última con "...".
 function wrapText(text, maxCharsPerLine, maxLines) {
   const words = String(text || '').trim().split(/\s+/).filter(Boolean);
-  const lines = [];
+  const allLines = [];
   let current = '';
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
     if (candidate.length > maxCharsPerLine && current) {
-      lines.push(current);
+      allLines.push(current);
       current = word;
     } else {
       current = candidate;
     }
-    if (lines.length === maxLines) break;
   }
-  if (current && lines.length < maxLines) lines.push(current);
-  if (lines.length === maxLines) {
-    const last = lines[maxLines - 1];
-    const consumed = lines.slice(0, -1).join(' ').length + last.length;
-    if (consumed < String(text || '').trim().length) {
-      lines[maxLines - 1] = last.replace(/.{3}$/, '...');
-    }
-  }
+  if (current) allLines.push(current);
+
+  if (allLines.length <= maxLines) return allLines;
+
+  const lines = allLines.slice(0, maxLines);
+  lines[maxLines - 1] = lines[maxLines - 1].replace(/.{3}$/, '...');
   return lines;
 }
 
