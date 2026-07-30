@@ -26,6 +26,8 @@
     quoteSlot: document.getElementById('panel-quote-slot'),
     importToggle: document.getElementById('panel-import-toggle'),
     importSlot: document.getElementById('panel-import-slot'),
+    agendaToggle: document.getElementById('panel-agenda-toggle'),
+    agendaSlot: document.getElementById('panel-agenda-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -455,6 +457,108 @@
     const month = d.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase().replace('.', '');
     return { day, month };
   }
+  function fmtDateShort(dateStr) {
+    const p = fmtDateParts(dateStr);
+    return `${p.day} ${p.month}`;
+  }
+
+  function jumpToClient(phone) {
+    els.agendaSlot.innerHTML = '';
+    els.searchInput.value = phone || '';
+    doSearch();
+    els.searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  // ── Agenda: panel de control con todo lo que necesita atención ──
+  els.agendaToggle.addEventListener('click', async () => {
+    if (els.agendaSlot.innerHTML) { els.agendaSlot.innerHTML = ''; return; }
+    els.agendaSlot.innerHTML = '<div class="panel-new-appt"><p class="panel-status">Cargando agenda…</p></div>';
+    try {
+      const data = await panelFetch('/panel/agenda?days=7');
+      renderAgenda(data);
+    } catch (e) {
+      if (e.message === 'unauthorized') return;
+      els.agendaSlot.innerHTML = `<div class="panel-new-appt"><p class="panel-error" style="display:block;">${e.message}</p></div>`;
+    }
+  });
+
+  function agendaSection(title, emptyMsg, rowsHtml) {
+    return `
+      <div class="panel-section-label">${title}</div>
+      ${rowsHtml || `<p class="panel-status">${emptyMsg}</p>`}
+    `;
+  }
+  function agendaRow(mainHtml, phone, extraButtonsHtml) {
+    return `
+      <div class="panel-agenda-row">
+        <div>${mainHtml}</div>
+        <div class="actions">
+          ${extraButtonsHtml || ''}
+          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm agenda-search-btn" data-phone="${phone || ''}">Ver ficha</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAgenda(data) {
+    const unclosedHtml = data.unclosedBookings.map((b) => agendaRow(
+      `<b>${b.name || '(sin nombre)'}</b> — ${b.serviceName} · ${fmtDateShort(b.date)} ${b.time} · ${b.employeeName || ''}`,
+      b.phone,
+    )).join('');
+
+    const upcomingHtml = data.upcomingBookings.map((b) => agendaRow(
+      `<b>${b.name || '(sin nombre)'}</b> — ${b.serviceName} · ${fmtDateShort(b.date)} ${b.time} · ${b.employeeName || ''}`,
+      b.phone,
+    )).join('');
+
+    const followupsHtml = data.dueFollowups.map((f) => agendaRow(
+      `<b>${f.clientName || '(sin nombre)'}</b> — vence ${fmtDateShort(f.dueDate)}${f.note ? ` · ${f.note}` : ''}`,
+      f.clientPhone,
+      `<button type="button" class="panel-btn panel-btn-primary panel-btn-sm agenda-followup-done" data-id="${f.followupId}">Hecho ✓</button>`,
+    )).join('');
+
+    const bonoPendingHtml = data.pendingBonoSessions.map((bono) => agendaRow(
+      `<b>${bono.clientName || '(sin nombre)'}</b> — ${bono.serviceName} (${bono.sessionsUsed}/${bono.totalSessions} usadas)`,
+      bono.clientPhone,
+    )).join('');
+
+    const bonoExpiringHtml = data.expiringBonos.map((bono) => agendaRow(
+      `<b>${bono.clientName || '(sin nombre)'}</b> — ${bono.serviceName} (${bono.sessionsRemaining} sesiones sin usar) · caduca ${fmtDateShort(bono.expiryDate)}`,
+      bono.clientPhone,
+    )).join('');
+
+    const quotesHtml = data.unpaidQuotes.map((q) => agendaRow(
+      `<b>${q.clientName || '(sin nombre)'}</b> — ${q.description} · ${Number(q.amount).toFixed(2)} €`,
+      q.clientPhone,
+    )).join('');
+
+    els.agendaSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Agenda — próximos 7 días</div>
+        ${agendaSection('🔴 Citas sin cerrar', 'No hay citas pendientes de cerrar.', unclosedHtml)}
+        ${agendaSection('📅 Próximas citas (7 días)', 'No hay citas en los próximos días.', upcomingHtml)}
+        ${agendaSection('🔔 Seguimientos que se acercan', 'No hay seguimientos pendientes.', followupsHtml)}
+        ${agendaSection('🎟️ Bonos con sesión por agendar', 'No hay bonos pendientes de agendar.', bonoPendingHtml)}
+        ${agendaSection('⏳ Bonos cerca de caducar (30 días)', 'No hay bonos por caducar.', bonoExpiringHtml)}
+        ${agendaSection('🧾 Presupuestos sin pagar', 'No hay presupuestos pendientes de pago.', quotesHtml)}
+      </div>
+    `;
+
+    els.agendaSlot.querySelectorAll('.agenda-search-btn').forEach((btn) => {
+      btn.addEventListener('click', () => jumpToClient(btn.dataset.phone));
+    });
+    els.agendaSlot.querySelectorAll('.agenda-followup-done').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await panelFetch('/panel/followup-done', { method: 'POST', body: JSON.stringify({ followupId: btn.dataset.id }) });
+          btn.closest('.panel-agenda-row').remove();
+        } catch (e) {
+          btn.disabled = false;
+        }
+      });
+    });
+  }
 
   function renderClient(client) {
     const wrap = document.createElement('div');
@@ -476,8 +580,10 @@
         <div class="panel-client-loyalty">
           <span class="panel-pill">💶 Saldo: ${balance.toFixed(2)} €</span>
           ${balance > 0 ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-redeem-toggle">Canjear saldo</button>' : ''}
+          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-followup-toggle">🔔 Marcar seguimiento</button>
         </div>
         <div class="panel-redeem-slot"></div>
+        <div class="panel-followup-slot"></div>
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
@@ -490,6 +596,8 @@
       redeemBtn.addEventListener('click', () => toggleRedeem(wrap, client, balance));
     }
 
+    wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
+
     const bonosContainer = wrap.querySelector('.panel-bonos');
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
 
@@ -497,6 +605,50 @@
     client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client)));
 
     els.results.appendChild(wrap);
+  }
+
+  function toggleFollowup(clientEl, client) {
+    const slot = clientEl.querySelector('.panel-followup-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Marcar seguimiento de ${client.name || 'esta clienta'}</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Plazo</label>
+            <select class="fu-timeframe">
+              <option value="3dias">En 3 días</option>
+              <option value="1semana">En 1 semana</option>
+              <option value="1mes">En 1 mes</option>
+              <option value="3meses">En 3 meses</option>
+            </select>
+          </div>
+          <div class="panel-field"><label>Nota (opcional)</label><input type="text" class="fu-note" placeholder="Ej. preguntar cómo le fue el tratamiento"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-followup">Guardar seguimiento</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const timeframeSelect = slot.querySelector('.fu-timeframe');
+    const noteInput = slot.querySelector('.fu-note');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-followup').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/followup', {
+          method: 'POST',
+          body: JSON.stringify({
+            clientName: client.name, clientPhone: client.phone, clientEmail: client.email,
+            note: noteInput.value.trim(), timeframe: timeframeSelect.value,
+          }),
+        });
+        slot.innerHTML = '<p class="panel-status">Seguimiento guardado ✓ — aparecerá en la Agenda cuando se acerque la fecha.</p>';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   }
 
   function toggleRedeem(clientEl, client, balance) {

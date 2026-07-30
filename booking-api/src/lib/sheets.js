@@ -670,6 +670,89 @@ async function updateQuoteRow(sheetRow, updates) {
   });
 }
 
+// ============================================================
+// Seguimientos de clientas — recordatorios que el equipo marca a mano
+// ("llamar en 1 semana", "preguntar cómo le fue el tratamiento"...) con
+// un plazo y una nota opcional, para que aparezcan en la agenda cuando
+// se acerque la fecha.
+// ============================================================
+
+const FOLLOWUP_TAB_TITLE = 'Seguimientos';
+const FOLLOWUP_COLUMNS = [
+  'followupId', 'createdAt', 'clientName', 'clientPhone', 'clientEmail',
+  'note', 'dueDate', 'status',
+];
+const FOLLOWUP_LAST_COL = colLetter(FOLLOWUP_COLUMNS.length);
+
+let followupTabReady = false;
+async function ensureFollowupTab() {
+  if (followupTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === FOLLOWUP_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: FOLLOWUP_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${FOLLOWUP_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [FOLLOWUP_COLUMNS] },
+  });
+  followupTabReady = true;
+}
+
+function followupObjectToRow(obj) {
+  return FOLLOWUP_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+function followupRowToObject(row, index) {
+  const obj = {};
+  FOLLOWUP_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  obj._sheetRow = index + 2;
+  return obj;
+}
+
+async function appendFollowup(followup) {
+  await ensureFollowupTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${FOLLOWUP_TAB_TITLE}'!A:${FOLLOWUP_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [followupObjectToRow(followup)] },
+  });
+}
+
+async function getAllFollowups() {
+  await ensureFollowupTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${FOLLOWUP_TAB_TITLE}'!A:${FOLLOWUP_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(followupRowToObject);
+}
+
+async function updateFollowupRow(sheetRow, updates) {
+  await ensureFollowupTab();
+  const sheets = getSheetsClient();
+  const current = await getAllFollowups();
+  const existing = current.find((f) => f._sheetRow === sheetRow) || {};
+  const merged = { ...existing, ...updates };
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${FOLLOWUP_TAB_TITLE}'!A${sheetRow}:${FOLLOWUP_LAST_COL}${sheetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [followupObjectToRow(merged)] },
+  });
+}
+
 module.exports = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
   getAllBirthdayRecords, upsertBirthdayRecord,
@@ -677,5 +760,6 @@ module.exports = {
   getAllStrikeRecords, upsertStrikeRecord,
   appendLoyaltyMovement, getLoyaltyMovementsForPhone, getAllLoyaltyMovements,
   appendProductSale, getAllProductSales,
+  appendFollowup, getAllFollowups, updateFollowupRow,
   appendCustomQuote, getAllCustomQuotes, updateQuoteRow,
 };

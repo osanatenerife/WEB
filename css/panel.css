@@ -55,6 +55,12 @@ body {
 
 .panel-section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin: 30px 0 12px; }
 
+/* ── Agenda row ── */
+.panel-agenda-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; flex-wrap: wrap; }
+.panel-agenda-row:last-child { border-bottom: none; }
+.panel-agenda-row > div:first-child { flex: 1; min-width: 200px; }
+.panel-agenda-row .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
 /* ── Bono card ── */
 .panel-bono { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; margin-bottom: 10px; }
 .panel-bono-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }

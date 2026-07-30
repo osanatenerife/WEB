@@ -6,6 +6,7 @@ const {
   appendLoyaltyMovement, appendProductSale, getAllProductSales,
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
   appendCustomQuote, getAllCustomQuotes,
+  appendFollowup, getAllFollowups, updateFollowupRow,
 } = require('../lib/sheets');
 const { createBookingEvent, updateEvent, getEvent, listEvents } = require('../lib/googleCalendar');
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
@@ -841,6 +842,124 @@ router.post('/panel/custom-quote', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo generar el link de pago.' });
+  }
+});
+
+// ── Seguimientos de clientas ──
+const FOLLOWUP_DAYS_BY_TIMEFRAME = {
+  '3dias': 3, '1semana': 7, '1mes': 30, '3meses': 90,
+};
+
+router.post('/panel/followup', async (req, res) => {
+  const { clientName, clientPhone, clientEmail, note, timeframe } = req.body || {};
+  const days = FOLLOWUP_DAYS_BY_TIMEFRAME[timeframe];
+  if (!clientName || !days) {
+    return res.status(400).json({ error: 'Indica al menos el nombre de la clienta y el plazo.' });
+  }
+  try {
+    const due = new Date();
+    due.setDate(due.getDate() + days);
+    await appendFollowup({
+      followupId: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      clientName, clientPhone: clientPhone || '', clientEmail: clientEmail || '',
+      note: note || '',
+      dueDate: due.toISOString().slice(0, 10),
+      status: 'pending',
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo guardar el seguimiento.' });
+  }
+});
+
+router.post('/panel/followup-done', async (req, res) => {
+  const { followupId } = req.body || {};
+  if (!followupId) return res.status(400).json({ error: 'Falta el identificador del seguimiento.' });
+  try {
+    const all = await getAllFollowups();
+    const followup = all.find((f) => f.followupId === followupId);
+    if (!followup) return res.status(404).json({ error: 'No se ha encontrado ese seguimiento.' });
+    await updateFollowupRow(followup._sheetRow, { status: 'done' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo marcar como hecho.' });
+  }
+});
+
+// ── Agenda / panel de control: todo lo que necesita atención de un
+// vistazo — citas sin cerrar, agenda de los próximos días, seguimientos
+// pendientes, bonos con sesión por agendar, bonos cerca de caducar y
+// presupuestos sin pagar.
+router.get('/panel/agenda', async (req, res) => {
+  const days = Math.max(1, Number(req.query.days) || 7);
+  try {
+    const [bookings, sessionBonos, customQuotes, followups] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllCustomQuotes(), getAllFollowups(),
+    ]);
+    const now = Date.now();
+    const rangeEndMs = now + days * 24 * 60 * 60 * 1000;
+    const expiringWindowMs = now + 30 * 24 * 60 * 60 * 1000;
+
+    const unclosedBookings = bookings
+      .filter((b) => b.status === 'confirmed' && (b.finalAmount === undefined || b.finalAmount === '')
+        && appointmentDateTime(b).getTime() < now)
+      .sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
+
+    const upcomingBookings = bookings
+      .filter((b) => b.status === 'confirmed' && appointmentDateTime(b).getTime() >= now
+        && appointmentDateTime(b).getTime() <= rangeEndMs)
+      .sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
+
+    const pendingBonoSessions = sessionBonos
+      .filter((bono) => bono.status === 'active' && Number(bono.sessionsRemaining) > 0
+        && !bookings.some((b) => b.bonoId === bono.bonoId && b.status === 'confirmed'
+          && appointmentDateTime(b).getTime() >= now));
+
+    const expiringBonos = sessionBonos
+      .filter((bono) => bono.status === 'active' && bono.expiryDate
+        && new Date(bono.expiryDate).getTime() >= now && new Date(bono.expiryDate).getTime() <= expiringWindowMs)
+      .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate));
+
+    const unpaidQuotes = customQuotes
+      .filter((q) => q.status === 'pending')
+      .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    const dueFollowups = followups
+      .filter((f) => f.status !== 'done' && new Date(`${f.dueDate}T12:00:00`).getTime() <= rangeEndMs)
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+    res.json({
+      unclosedBookings: unclosedBookings.map((b) => ({
+        bookingId: b.bookingId, name: b.name, phone: b.phone, serviceName: b.serviceName,
+        date: b.date, time: b.time, employeeName: b.employeeName,
+      })),
+      upcomingBookings: upcomingBookings.map((b) => ({
+        bookingId: b.bookingId, name: b.name, phone: b.phone, serviceName: b.serviceName,
+        date: b.date, time: b.time, employeeName: b.employeeName,
+      })),
+      pendingBonoSessions: pendingBonoSessions.map((bono) => ({
+        bonoId: bono.bonoId, clientName: bono.clientName, clientPhone: bono.clientPhone,
+        serviceName: bono.serviceName, sessionsUsed: bono.sessionsUsed, totalSessions: bono.totalSessions,
+      })),
+      expiringBonos: expiringBonos.map((bono) => ({
+        bonoId: bono.bonoId, clientName: bono.clientName, clientPhone: bono.clientPhone,
+        serviceName: bono.serviceName, sessionsRemaining: bono.sessionsRemaining, expiryDate: bono.expiryDate,
+      })),
+      unpaidQuotes: unpaidQuotes.map((q) => ({
+        quoteId: q.quoteId, clientName: q.clientName, clientPhone: q.clientPhone,
+        description: q.description, amount: q.amount, createdAt: q.createdAt,
+      })),
+      dueFollowups: dueFollowups.map((f) => ({
+        followupId: f.followupId, clientName: f.clientName, clientPhone: f.clientPhone,
+        note: f.note, dueDate: f.dueDate,
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo cargar la agenda.' });
   }
 });
 
