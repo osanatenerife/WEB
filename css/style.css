@@ -807,6 +807,12 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
 
   .ptable { display: block; width: 100%; }
   .ptable thead { display: none; }
+  /* Las tablas de 3 columnas (1 sesión / varias sesiones) sí necesitan
+     cabecera en móvil — si no, los dos números de precio quedan sin
+     etiqueta y no se sabe cuál es cuál. */
+  .ptable[data-cols="3"] thead { display: block; }
+  .ptable[data-cols="3"] thead tr { display: grid; grid-template-columns: 1fr auto auto; gap: 0 12px; padding-bottom: 8px; }
+  .ptable[data-cols="3"] thead th { display: block; font-size: 9px; padding: 0; border: none; }
   .ptable tbody { display: block; width: 100%; }
   .ptable tbody tr { display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid var(--line); gap: 4px; }
   .ptable tbody tr:last-child { border-bottom: none; }

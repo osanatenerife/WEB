@@ -62,13 +62,13 @@ module.exports = [
   { id: 'mesoterapia-virtual', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Mesoterapia virtual', nameEn: 'Virtual mesotherapy', durationMinutes: 60, price: 85, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'fotorejuvenecimiento-ipl', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Fotorejuvenecimiento (IPL)', nameEn: 'Photorejuvenation (IPL)', durationMinutes: 60, price: 100, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'exosomas-dermapen', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Exosomas + PDRN con Dermapen PRO', nameEn: 'Exosomes + PDRN with Dermapen PRO', durationMinutes: 60, price: 140, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'ritual-basic-skin', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Ritual Piel Esencial (limpieza + dermaplaning)', nameEn: 'Ritual Basic Skin (cleansing + dermaplaning)', durationMinutes: 90, price: 75, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'ritual-relaxing', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Ritual Hidratación Relax (dermaplaning + hidratación + masaje)', nameEn: 'Ritual Hidra-Relax (dermaplaning + hydration + massage)', durationMinutes: 90, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'ritual-basic-skin', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Ritual Esencial (limpieza + dermaplaning)', nameEn: 'Ritual Basic Skin (cleansing + dermaplaning)', durationMinutes: 90, price: 75, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'ritual-relaxing', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Ritual Hidratante Intensivo (dermaplaning + hidratación + masaje)', nameEn: 'Ritual Hidra-Relax (dermaplaning + hydration + massage)', durationMinutes: 90, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'ritual-flash-lifting', category: 'Faciales & Aparatología', categoryEn: 'Facials & Devices', name: 'Ritual Lifting Exprés (limpieza + radiofrecuencia + maderoterapia)', nameEn: 'Ritual Flash Lifting (cleansing + radiofrequency + wood therapy)', durationMinutes: 100, price: 110, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
 
   // ── 04 · PROGRAMAS FACIALES ── (todos 1h40 min, según indicaste)
   { id: 'programa-periocular', category: 'Programas Faciales', categoryEn: 'Facial Programs', name: 'Programa Periocular', nameEn: 'Periocular Program', durationMinutes: 100, price: 250, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'programa-glow-skin', category: 'Programas Faciales', categoryEn: 'Facial Programs', name: 'Programa Piel Luminosa', nameEn: 'Glow Skin Program', durationMinutes: 100, price: 310, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'programa-glow-skin', category: 'Programas Faciales', categoryEn: 'Facial Programs', name: 'Programa Piel Radiante', nameEn: 'Glow Skin Program', durationMinutes: 100, price: 310, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'programa-anti-aging', category: 'Programas Faciales', categoryEn: 'Facial Programs', name: 'Programa Antiedad', nameEn: 'Anti-Aging Program', durationMinutes: 100, price: 430, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'programa-control-acne', category: 'Programas Faciales', categoryEn: 'Facial Programs', name: 'Programa Control Acné', nameEn: 'Acne Control Program', durationMinutes: 100, price: 460, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   // "Programa Melasma Slow" y "Programa Melasma Intensive" son precio "a consultar" en la
@@ -76,8 +76,8 @@ module.exports = [
   // Si me das un precio (aunque sea orientativo) los añado igual que los demás.
 
   // ── 05 · CORPORALES ──
-  { id: 'presoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Presoterapia', nameEn: 'Pressotherapy', durationMinutes: 30, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'radiofrecuencia-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Radiofrecuencia corporal', nameEn: 'Body radiofrequency', durationMinutes: 45, price: 65, paymentPolicy: 'deposit_or_full', depositPercent: 30 }, // [ESTIMADO] duración
+  { id: 'presoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Presoterapia', nameEn: 'Pressotherapy', durationMinutes: 30, price: 30, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'radiofrecuencia-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Radiofrecuencia corporal', nameEn: 'Body radiofrequency', durationMinutes: 30, price: 70, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'maderoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Maderoterapia · 55 min', nameEn: 'Wood therapy · 55 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'fotorejuvenecimiento-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Fotorejuvenecimiento corporal', nameEn: 'Body photorejuvenation', durationMinutes: 45, price: 150, paymentPolicy: 'deposit_or_full', depositPercent: 30 }, // [ESTIMADO] duración
 

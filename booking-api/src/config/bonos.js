@@ -29,8 +29,8 @@ module.exports = [
   { serviceId: 'laser-cuerpo-completo', sessions: 3, price: 460 },
 
   // ── Corporales ──
-  { serviceId: 'presoterapia', sessions: 3, price: 60 },
-  { serviceId: 'radiofrecuencia-corporal', sessions: 3, price: 170 },
+  { serviceId: 'presoterapia', sessions: 3, price: 75 },
+  { serviceId: 'radiofrecuencia-corporal', sessions: 3, price: 185 },
   { serviceId: 'maderoterapia', sessions: 5, price: 360 },
   { serviceId: 'maderoterapia', sessions: 8, price: 499 },
   { serviceId: 'fotorejuvenecimiento-corporal', sessions: 3, price: 320 },
