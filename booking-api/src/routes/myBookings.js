@@ -72,12 +72,25 @@ router.get('/my-bookings', async (req, res) => {
     // ver el saldo de otra clienta aunque el email no coincida.
     const hasOwnedBooking = all.some((b) => isOwner(b, phone, email));
     let loyaltyBalance = 0;
+    let loyaltyHistory = [];
     if (hasOwnedBooking) {
       const movements = await getLoyaltyMovementsForPhone(normalizePhone(phone));
       loyaltyBalance = computeLoyaltyBalance(movements);
+      // Historial visible aunque el saldo actual sea 0 (p.ej. tras canjear
+      // todo) — así la clienta siempre puede ver qué ganó y qué canjeó.
+      loyaltyHistory = movements
+        .slice()
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 30)
+        .map((m) => ({
+          date: m.date,
+          type: m.type,
+          serviceName: m.serviceName || '',
+          amount: Number(m.amount) || 0,
+        }));
     }
 
-    res.json({ bookings: mine.map(toPublicBooking), loyaltyBalance });
+    res.json({ bookings: mine.map(toPublicBooking), loyaltyBalance, loyaltyHistory });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudieron consultar tus reservas.' });

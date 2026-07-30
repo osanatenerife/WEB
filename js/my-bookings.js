@@ -40,7 +40,15 @@
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
     with: { es: 'Con', en: 'With' },
     free: { es: 'Gratis', en: 'Free' },
+    totalLabel: { es: 'Total', en: 'Total' },
+    paidLabel: { es: 'Pagado', en: 'Paid' },
+    pendingLabel: { es: 'Pendiente en el centro', en: 'Pending at the centre' },
+    pointsFromPaid: { es: (n) => `+${n} € de saldo por lo ya pagado`, en: (n) => `+€${n} balance earned from what's already paid` },
     loyaltyLabel: { es: 'Tu saldo de fidelización', en: 'Your loyalty balance' },
+    loyaltyHistoryTitle: { es: 'Historial de saldo', en: 'Balance history' },
+    loyaltyHistoryToggle: { es: 'Ver historial', en: 'View history' },
+    loyaltyEarnLine: { es: (amount, service, date) => `+${amount} € · ${service} · ${date}`, en: (amount, service, date) => `+€${amount} · ${service} · ${date}` },
+    loyaltyRedeemLine: { es: (amount, service, date) => `−${amount} € canjeados · ${service} · ${date}`, en: (amount, service, date) => `−€${amount} redeemed · ${service} · ${date}` },
     loyaltyExpiry: {
       es: (dateLabel) => `Caduca el ${dateLabel}`,
       en: (dateLabel) => `Expires ${dateLabel}`,
@@ -82,6 +90,16 @@
   }
 
   function cardHtml(b) {
+    const pending = round2(Math.max(0, (Number(b.price) || 0) - (Number(b.amountPaid) || 0)));
+    const pointsFromPaid = round2((Number(b.amountPaid) || 0) * 0.04);
+    const breakdownHtml = b.price > 0 ? `
+      <div class="mybooking-breakdown">
+        <span>${t('totalLabel')}: <strong>${b.price.toFixed(2)} €</strong></span>
+        <span>${t('paidLabel')}: <strong>${(Number(b.amountPaid) || 0).toFixed(2)} €</strong></span>
+        ${pending > 0 ? `<span>${t('pendingLabel')}: <strong>${pending.toFixed(2)} €</strong></span>` : ''}
+      </div>
+      ${pointsFromPaid > 0 ? `<div class="mybooking-points-note">${t('pointsFromPaid')(pointsFromPaid.toFixed(2))}</div>` : ''}
+    ` : '';
     return `
       <div class="mybooking-card" data-booking-id="${b.bookingId}">
         <div class="mybooking-top">
@@ -91,6 +109,7 @@
           </div>
           <div class="mybooking-price">${b.amountPaid > 0 ? b.amountPaid.toFixed(0) + ' €' : t('free')}</div>
         </div>
+        ${breakdownHtml}
         <div class="mybooking-actions">
           <button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>
           <button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>
@@ -349,21 +368,41 @@
     }
   }
 
-  function renderLoyalty(balance) {
+  function renderLoyalty(balance, history) {
     if (!loyaltyEl) return;
-    if (!balance || balance <= 0) { loyaltyEl.style.display = 'none'; loyaltyEl.innerHTML = ''; return; }
+    const hasHistory = Array.isArray(history) && history.length > 0;
+    if ((!balance || balance <= 0) && !hasHistory) { loyaltyEl.style.display = 'none'; loyaltyEl.innerHTML = ''; return; }
     const rulesHtml = t('loyaltyRules').map((r) => `<li>${r}</li>`).join('');
     const expiryDate = new Date(new Date().getFullYear(), 11, 31);
     const expiryLabel = expiryDate.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const historyItemsHtml = hasHistory ? history.map((m) => {
+      const dateLabel = new Date(`${m.date}T12:00:00`).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'es-ES', { day: 'numeric', month: 'short' });
+      const amount = Math.abs(m.amount).toFixed(2);
+      return `<li class="mb-loyalty-history-item ${m.type === 'redeem' ? 'is-redeem' : 'is-earn'}">${
+        m.type === 'redeem' ? t('loyaltyRedeemLine')(amount, m.serviceName, dateLabel) : t('loyaltyEarnLine')(amount, m.serviceName, dateLabel)
+      }</li>`;
+    }).join('') : '';
     loyaltyEl.innerHTML = `
       <div class="mb-loyalty-card">
         <div class="mb-loyalty-label">${t('loyaltyLabel')}</div>
-        <div class="mb-loyalty-amount">${balance.toFixed(2)} €</div>
+        <div class="mb-loyalty-amount">${(balance || 0).toFixed(2)} €</div>
         <div class="mb-loyalty-expiry">${t('loyaltyExpiry')(expiryLabel)}</div>
         <ul class="mb-loyalty-rules">${rulesHtml}</ul>
+        ${hasHistory ? `
+          <button type="button" class="mb-loyalty-history-toggle">${t('loyaltyHistoryToggle')}</button>
+          <div class="mb-loyalty-history-panel">
+            <div class="mb-loyalty-history-title">${t('loyaltyHistoryTitle')}</div>
+            <ul class="mb-loyalty-history-list">${historyItemsHtml}</ul>
+          </div>
+        ` : ''}
       </div>
     `;
     loyaltyEl.style.display = 'block';
+    const historyToggle = loyaltyEl.querySelector('.mb-loyalty-history-toggle');
+    const historyPanel = loyaltyEl.querySelector('.mb-loyalty-history-panel');
+    if (historyToggle) {
+      historyToggle.addEventListener('click', () => historyPanel.classList.toggle('open'));
+    }
   }
 
   async function loadBookings() {
@@ -375,7 +414,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));
       renderBookings(data.bookings);
-      renderLoyalty(data.loyaltyBalance);
+      renderLoyalty(data.loyaltyBalance, data.loyaltyHistory);
     } catch (e) {
       resultsEl.innerHTML = '';
       showError(e.message);
