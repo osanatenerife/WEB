@@ -28,6 +28,9 @@ module.exports = [
   { serviceId: 'laser-piernas-completas', sessions: 3, price: 185 },
   { serviceId: 'laser-cuerpo-completo', sessions: 3, price: 460 },
 
+  // ── Faciales (bono solo disponible al reservar, no se lista en servicios.html) ──
+  { serviceId: 'hollywood-peel', sessions: 3, price: 180 },
+
   // ── Corporales ──
   { serviceId: 'presoterapia', sessions: 3, price: 75 },
   { serviceId: 'presoterapia', sessions: 6, price: 120 },

@@ -79,7 +79,7 @@ module.exports = [
   { id: 'presoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Presoterapia', nameEn: 'Pressotherapy', durationMinutes: 30, price: 30, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'radiofrecuencia-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Radiofrecuencia corporal', nameEn: 'Body radiofrequency', durationMinutes: 30, price: 70, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'maderoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Maderoterapia · 55 min', nameEn: 'Wood therapy · 55 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'drenaje-linfatico-50', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Drenaje linfático avanzado · 50 min', nameEn: 'Advanced lymphatic drainage · 50 min', durationMinutes: 50, price: 100, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'drenaje-linfatico-50', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Drenaje linfático avanzado Essentia · 50 min', nameEn: 'Essentia advanced lymphatic drainage · 50 min', durationMinutes: 50, price: 100, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
 
   // ── 06 · MASAJES & RITUALES ESSENTIA ── (duración incluida en el propio nombre)
   { id: 'masaje-antiestres-50', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Masaje antiestrés Essentia · 50 min', nameEn: 'Essentia anti-stress massage · 50 min', durationMinutes: 50, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
