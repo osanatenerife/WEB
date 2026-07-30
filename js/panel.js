@@ -24,6 +24,8 @@
     reportSlot: document.getElementById('panel-report-slot'),
     quoteToggle: document.getElementById('panel-quote-toggle'),
     quoteSlot: document.getElementById('panel-quote-slot'),
+    importToggle: document.getElementById('panel-import-toggle'),
+    importSlot: document.getElementById('panel-import-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -286,6 +288,123 @@
           resultEl.querySelector('.pq-link-out').select();
           navigator.clipboard.writeText(data.url);
         });
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+      ev.target.disabled = false;
+    });
+  });
+
+  // ── Añadir reserva manual: da de alta en la Sheet una cita que ya existe
+  // en el calendario de Google (reservada por teléfono/en persona), para
+  // que la clienta pueda gestionarla luego desde "Mis Reservas" ──
+  let importServicesCache = null;
+  async function loadImportServicesOnce() {
+    if (importServicesCache) return importServicesCache;
+    const res = await fetch(`${BOOKING_API_BASE}/services?lang=es`);
+    const data = await res.json();
+    importServicesCache = data.services || [];
+    return importServicesCache;
+  }
+
+  els.importToggle.addEventListener('click', async () => {
+    if (els.importSlot.innerHTML) { els.importSlot.innerHTML = ''; return; }
+    els.importSlot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
+    const allServices = await loadImportServicesOnce();
+    const byCategory = {};
+    allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
+    const serviceOptions = Object.keys(byCategory).map((cat) => `
+      <optgroup label="${cat}">
+        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
+      </optgroup>
+    `).join('');
+
+    els.importSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Añadir reserva manual (cita ya existente en el calendario)</div>
+        <p class="panel-status" style="margin-bottom:10px;">El evento tiene que existir YA en el calendario de Google de la profesional — aquí solo se busca y se enlaza con una fila nueva para que la clienta pueda verla en "Mis Reservas".</p>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Nombre de la clienta</label><input type="text" class="pi-name"></div>
+          <div class="panel-field"><label>Teléfono</label><input type="text" class="pi-phone"></div>
+          <div class="panel-field"><label>Email</label><input type="email" class="pi-email"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Tratamiento</label>
+            <select class="pi-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select>
+          </div>
+          <div class="panel-field"><label>Profesional</label><select class="pi-employee"><option value="">Elige un tratamiento primero…</option></select></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Fecha</label><input type="date" class="pi-date"></div>
+          <div class="panel-field"><label>Hora</label><input type="time" class="pi-time"></div>
+          <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="pi-birthdate"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Precio (€)</label><input type="number" step="0.01" class="pi-price"></div>
+          <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="pi-paid" value="0"></div>
+          <div class="panel-field"><label>Notas (opcional)</label><input type="text" class="pi-notes"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-import">Buscar evento y dar de alta</button>
+        <p class="panel-error" style="display:none;"></p>
+        <p class="panel-status pi-result" style="display:none;"></p>
+      </div>
+    `;
+    const slot = els.importSlot;
+    const nameInput = slot.querySelector('.pi-name');
+    const phoneInput = slot.querySelector('.pi-phone');
+    const emailInput = slot.querySelector('.pi-email');
+    const serviceSelect = slot.querySelector('.pi-service');
+    const employeeSelect = slot.querySelector('.pi-employee');
+    const dateInput = slot.querySelector('.pi-date');
+    const timeInput = slot.querySelector('.pi-time');
+    const birthdateInput = slot.querySelector('.pi-birthdate');
+    const priceInput = slot.querySelector('.pi-price');
+    const paidInput = slot.querySelector('.pi-paid');
+    const notesInput = slot.querySelector('.pi-notes');
+    const errorEl = slot.querySelector('.panel-error');
+    const resultEl = slot.querySelector('.pi-result');
+
+    serviceSelect.addEventListener('change', async () => {
+      const svc = allServices.find((s) => s.id === serviceSelect.value);
+      priceInput.value = svc ? svc.price : '';
+      employeeSelect.innerHTML = '<option value="">Cargando…</option>';
+      if (!serviceSelect.value) {
+        employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
+        return;
+      }
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceSelect.value)}`);
+      const data = await res.json();
+      employeeSelect.innerHTML = '<option value="">Elige una profesional…</option>'
+        + (data.employees || []).map((e) => `<option value="${e.id}">${e.name}</option>`).join('');
+    });
+
+    slot.querySelector('.panel-confirm-import').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      resultEl.style.display = 'none';
+      if (!nameInput.value.trim() || !phoneInput.value.trim() || !emailInput.value.trim()
+        || !serviceSelect.value || !employeeSelect.value || !dateInput.value || !timeInput.value) {
+        errorEl.textContent = 'Completa nombre, teléfono, email, tratamiento, profesional, fecha y hora.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        const data = await panelFetch('/panel/import-legacy-booking', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: nameInput.value.trim(), phone: phoneInput.value.trim(), email: emailInput.value.trim(),
+            birthdate: birthdateInput.value || '', serviceId: serviceSelect.value, employeeId: employeeSelect.value,
+            date: dateInput.value, time: timeInput.value,
+            price: priceInput.value, amountPaid: paidInput.value, notes: notesInput.value.trim(),
+          }),
+        });
+        resultEl.textContent = `Reserva dada de alta ✓ (id: ${data.bookingId}). La clienta ya puede verla en "Mis Reservas" con su teléfono y email.`;
+        resultEl.style.display = 'block';
+        [nameInput, phoneInput, emailInput, dateInput, timeInput, birthdateInput, priceInput, notesInput].forEach((i) => { i.value = ''; });
+        paidInput.value = '0';
+        serviceSelect.value = '';
+        employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

@@ -7,7 +7,7 @@ const {
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
   appendCustomQuote, getAllCustomQuotes,
 } = require('../lib/sheets');
-const { createBookingEvent, updateEvent, getEvent } = require('../lib/googleCalendar');
+const { createBookingEvent, updateEvent, getEvent, listEvents } = require('../lib/googleCalendar');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
@@ -277,6 +277,81 @@ router.post('/panel/book-session', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo agendar la sesión.' });
+  }
+});
+
+// ── Dar de alta a mano una cita ya existente (reservada por teléfono/en
+// persona antes de o al margen de la web) para que la clienta pueda
+// gestionarla desde "Mis Reservas". El evento de calendario debe existir
+// YA en el calendario de la profesional — aquí solo lo buscamos y lo
+// enlazamos con una fila nueva en la Sheet, nunca creamos un evento nuevo
+// (evita duplicar la cita en el calendario).
+const IMPORT_MATCH_TOLERANCE_MIN = 20;
+
+router.post('/panel/import-legacy-booking', async (req, res) => {
+  const {
+    name, phone, email, birthdate, serviceId, employeeId, date, time,
+    price, amountPaid, notes,
+  } = req.body || {};
+  if (!name || !phone || !email || !serviceId || !employeeId || !date || !time) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, teléfono, email, tratamiento, profesional, fecha y hora).' });
+  }
+  try {
+    const service = services.find((s) => s.id === serviceId);
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!service) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
+    if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
+
+    const timeNorm = time.length === 5 ? time : `${time}:00`;
+    const startISO = localToISO(date, timeNorm, hours.timezone);
+    const durationMinutes = service.durationMinutes;
+
+    const dayStartISO = localToISO(date, '00:00', hours.timezone);
+    const dayEndISO = localToISO(date, '23:59', hours.timezone);
+    const dayEvents = await listEvents(employee.calendarId, dayStartISO, dayEndISO);
+
+    const targetMs = new Date(startISO).getTime();
+    let best = null;
+    let bestDiff = Infinity;
+    dayEvents.forEach((ev) => {
+      if (!ev.start || !ev.start.dateTime) return; // ignora eventos de día completo
+      const diff = Math.abs(new Date(ev.start.dateTime).getTime() - targetMs);
+      if (diff < bestDiff) { bestDiff = diff; best = ev; }
+    });
+    if (!best || bestDiff > IMPORT_MATCH_TOLERANCE_MIN * 60 * 1000) {
+      return res.status(404).json({
+        error: `No se ha encontrado ningún evento en el calendario de ${employee.name} el ${date} cerca de las ${timeNorm}. Comprueba la fecha/hora o créalo primero en el calendario de Google.`,
+      });
+    }
+
+    const bookingId = crypto.randomUUID();
+    await appendBooking({
+      bookingId,
+      createdAt: new Date().toISOString(),
+      status: 'confirmed',
+      name, phone, email,
+      serviceId, serviceName: service.name,
+      employeeId, employeeName: employee.name,
+      calendarId: employee.calendarId,
+      eventId: best.id,
+      date, time: timeNorm,
+      durationMinutes,
+      price: price !== undefined && price !== '' ? Number(price) : service.price,
+      amountPaid: amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0,
+      paymentType: '',
+      paymentIntentId: '',
+      lang: 'es',
+      reminderSent: '',
+      birthdate: birthdate || '',
+      bonoId: '',
+      sessionNumber: '',
+      notes: notes || 'Alta manual de cita ya existente.',
+    });
+
+    res.json({ ok: true, bookingId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo dar de alta la reserva.' });
   }
 });
 

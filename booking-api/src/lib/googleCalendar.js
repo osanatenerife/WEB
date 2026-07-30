@@ -90,6 +90,21 @@ async function getEvent(calendarId, eventId) {
   return res.data;
 }
 
+// Lista eventos reales (con id, no solo huecos ocupados) en un rango — se usa
+// para encontrar el evento de una cita ya existente en el calendario (creada
+// a mano) y enlazarla con una reserva dada de alta manualmente en la Sheet.
+async function listEvents(calendarId, timeMinISO, timeMaxISO) {
+  const calendar = getCalendarClient();
+  const res = await calendar.events.list({
+    calendarId,
+    timeMin: timeMinISO,
+    timeMax: timeMaxISO,
+    singleEvents: true,
+    orderBy: 'startTime',
+  });
+  return res.data.items || [];
+}
+
 async function updateEvent(calendarId, eventId, patch) {
   const calendar = getCalendarClient();
   const res = await calendar.events.patch({ calendarId, eventId, requestBody: patch });
@@ -106,4 +121,4 @@ async function deleteEvent(calendarId, eventId) {
   }
 }
 
-module.exports = { getBusyIntervals, createBookingEvent, getEvent, updateEvent, deleteEvent, getAuth };
+module.exports = { getBusyIntervals, createBookingEvent, getEvent, listEvents, updateEvent, deleteEvent, getAuth };
