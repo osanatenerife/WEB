@@ -20,7 +20,7 @@ const LASER = [
 
 const CORPORAL = [
   'presoterapia', 'radiofrecuencia-corporal', 'maderoterapia',
-  'masaje-antiestres-50', 'kobido-lifting-facial', 'masaje-terapeutico-45',
+  'masaje-antiestres-50', 'kobido-facial', 'lifting-facial', 'masaje-terapeutico-45',
   'masaje-deportivo-45', 'drenaje-linfatico-50', 'masaje-prenatal-50',
   'ritual-reparador-solar-70', 'ritual-essentia-80',
 ];

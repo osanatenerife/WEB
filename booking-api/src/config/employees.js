@@ -21,10 +21,10 @@
 const services = require('./services');
 
 // Solo Anna hace estos tratamientos (kobido/lifting facial y maderoterapia)
-const especialidadesAnna = ['kobido-lifting-facial', 'maderoterapia'];
+const especialidadesAnna = ['kobido-facial', 'lifting-facial', 'maderoterapia'];
 
-// El resto de "Masajes & Rituales Essentia" (kobido-lifting-facial comparte
-// categoría pero es especialidad exclusiva de Anna, no de Yuli — se excluye aquí)
+// El resto de "Masajes & Rituales Essentia" (kobido/lifting facial comparten
+// categoría pero son especialidad exclusiva de Anna, no de Yuli — se excluyen aquí)
 const masajesEssentiaIds = services
   .filter((s) => s.category === 'Masajes & Rituales Essentia')
   .map((s) => s.id)
