@@ -24,11 +24,14 @@ const services = require('./services');
 const especialidadesAnna = ['kobido-facial', 'lifting-facial', 'maderoterapia'];
 
 // El resto de "Masajes & Rituales Essentia" (kobido/lifting facial comparten
-// categoría pero son especialidad exclusiva de Anna, no de Yuli — se excluyen aquí)
+// categoría pero son especialidad exclusiva de Anna, no de Yuli — se excluyen
+// aquí) + drenaje linfático, que en la web se muestra dentro de "Corporales"
+// pero sigue siendo tratamiento exclusivo de Yuli.
 const masajesEssentiaIds = services
   .filter((s) => s.category === 'Masajes & Rituales Essentia')
   .map((s) => s.id)
-  .filter((id) => !especialidadesAnna.includes(id));
+  .filter((id) => !especialidadesAnna.includes(id))
+  .concat(['drenaje-linfatico-50']);
 
 const CLOSED = { closed: true };
 
