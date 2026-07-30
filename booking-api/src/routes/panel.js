@@ -8,7 +8,7 @@ const {
   appendCustomQuote, getAllCustomQuotes,
 } = require('../lib/sheets');
 const { createBookingEvent, updateEvent, getEvent, listEvents } = require('../lib/googleCalendar');
-const { getAvailableSlots } = require('../lib/availability');
+const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
@@ -450,6 +450,42 @@ router.post('/panel/reschedule', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo reprogramar.' });
+  }
+});
+
+// ── Ampliar el tiempo bloqueado de una cita (sin cambiar fecha/hora de
+// inicio) — útil cuando una clienta concreta necesita más tiempo del
+// habitual y hay que reservar ese hueco extra en el calendario para que
+// nadie más pueda reservarlo justo después.
+router.post('/panel/extend-time', async (req, res) => {
+  const { bookingId, extraMinutes } = req.body || {};
+  const extra = Number(extraMinutes);
+  if (!bookingId || !extra || extra <= 0) {
+    return res.status(400).json({ error: 'Indica cuántos minutos extra añadir.' });
+  }
+  try {
+    const booking = await findBookingById(bookingId);
+    if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+    if (booking.status !== 'confirmed') return res.status(409).json({ error: 'Esta cita ya no está activa.' });
+
+    const duration = Number(booking.durationMinutes) || 60;
+    const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
+    const startISO = localToISO(booking.date, time, hours.timezone);
+    const currentEndISO = addMinutes(startISO, duration);
+    const newEndISO = addMinutes(currentEndISO, extra);
+
+    const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId));
+    if (!free) {
+      return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para ampliar ese tiempo.' });
+    }
+
+    await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } });
+    await updateBookingRow(booking._sheetRow, booking, { durationMinutes: duration + extra });
+
+    res.json({ ok: true, newDurationMinutes: duration + extra });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo ampliar el tiempo de la cita.' });
   }
 });
 

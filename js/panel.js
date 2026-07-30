@@ -647,10 +647,12 @@
       <div class="panel-appt-actions">
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-note-toggle">✎ Nota</button>
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
+        ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
         ${b.status === 'confirmed' && b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-close-toggle">💶 Cerrar cita</button>' : ''}
       </div>
       <div class="panel-reschedule-slot"></div>
+      <div class="panel-extend-slot"></div>
       <div class="panel-close-slot"></div>
     `;
 
@@ -695,7 +697,49 @@
       closeBtn.addEventListener('click', () => toggleClose(el, b, client));
     }
 
+    const extendBtn = el.querySelector('.panel-extend-toggle');
+    if (extendBtn) {
+      extendBtn.addEventListener('click', () => toggleExtend(el, b));
+    }
+
     return el;
+  }
+
+  function toggleExtend(apptEl, b) {
+    const slot = apptEl.querySelector('.panel-extend-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Ampliar el tiempo bloqueado de esta cita</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Minutos extra</label><input type="number" min="5" step="5" class="ex-minutes" placeholder="Ej. 15"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-extend">Ampliar</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const minutesInput = slot.querySelector('.ex-minutes');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-extend').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      if (!minutesInput.value || Number(minutesInput.value) <= 0) {
+        errorEl.textContent = 'Indica cuántos minutos extra añadir.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/extend-time', {
+          method: 'POST',
+          body: JSON.stringify({ bookingId: b.bookingId, extraMinutes: minutesInput.value }),
+        });
+        slot.innerHTML = '<p class="panel-status">Tiempo ampliado ✓</p>';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   }
 
   function toggleClose(apptEl, b, client) {
