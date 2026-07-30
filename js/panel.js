@@ -340,7 +340,16 @@
           <div class="panel-field"><label>Hora</label><input type="time" class="pi-time"></div>
           <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="pi-birthdate"></div>
         </div>
-        <div class="panel-field-row">
+        <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;">
+          <input type="checkbox" class="pi-is-bono"> Es una sesión de un bono ya vendido (varias sesiones)
+        </label>
+        <div class="panel-field-row pi-bono-fields" style="display:none;">
+          <div class="panel-field"><label>Nº de esta sesión</label><input type="number" min="1" step="1" class="pi-session-number" placeholder="Ej. 2"></div>
+          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="pi-total-sessions" placeholder="Ej. 3"></div>
+          <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="pi-bono-price"></div>
+          <div class="panel-field"><label>Ya pagado del bono (€)</label><input type="number" step="0.01" class="pi-bono-paid"></div>
+        </div>
+        <div class="panel-field-row pi-normal-fields">
           <div class="panel-field"><label>Precio (€)</label><input type="number" step="0.01" class="pi-price"></div>
           <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="pi-paid" value="0"></div>
           <div class="panel-field"><label>Notas (opcional)</label><input type="text" class="pi-notes"></div>
@@ -359,15 +368,28 @@
     const dateInput = slot.querySelector('.pi-date');
     const timeInput = slot.querySelector('.pi-time');
     const birthdateInput = slot.querySelector('.pi-birthdate');
+    const isBonoCheck = slot.querySelector('.pi-is-bono');
+    const bonoFieldsRow = slot.querySelector('.pi-bono-fields');
+    const normalFieldsRow = slot.querySelector('.pi-normal-fields');
+    const sessionNumberInput = slot.querySelector('.pi-session-number');
+    const totalSessionsInput = slot.querySelector('.pi-total-sessions');
+    const bonoPriceInput = slot.querySelector('.pi-bono-price');
+    const bonoPaidInput = slot.querySelector('.pi-bono-paid');
     const priceInput = slot.querySelector('.pi-price');
     const paidInput = slot.querySelector('.pi-paid');
     const notesInput = slot.querySelector('.pi-notes');
     const errorEl = slot.querySelector('.panel-error');
     const resultEl = slot.querySelector('.pi-result');
 
+    isBonoCheck.addEventListener('change', () => {
+      bonoFieldsRow.style.display = isBonoCheck.checked ? 'flex' : 'none';
+      normalFieldsRow.style.display = isBonoCheck.checked ? 'none' : 'flex';
+    });
+
     serviceSelect.addEventListener('change', async () => {
       const svc = allServices.find((s) => s.id === serviceSelect.value);
       priceInput.value = svc ? svc.price : '';
+      if (svc && !bonoPriceInput.value) bonoPriceInput.placeholder = totalSessionsInput.value ? (svc.price * Number(totalSessionsInput.value)).toFixed(2) : '';
       employeeSelect.innerHTML = '<option value="">Cargando…</option>';
       if (!serviceSelect.value) {
         employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
@@ -388,6 +410,11 @@
         errorEl.style.display = 'block';
         return;
       }
+      if (isBonoCheck.checked && (!sessionNumberInput.value || !totalSessionsInput.value)) {
+        errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
+        errorEl.style.display = 'block';
+        return;
+      }
       ev.target.disabled = true;
       try {
         const data = await panelFetch('/panel/import-legacy-booking', {
@@ -397,14 +424,23 @@
             birthdate: birthdateInput.value || '', serviceId: serviceSelect.value, employeeId: employeeSelect.value,
             date: dateInput.value, time: timeInput.value,
             price: priceInput.value, amountPaid: paidInput.value, notes: notesInput.value.trim(),
+            isBono: isBonoCheck.checked,
+            sessionNumber: sessionNumberInput.value, totalSessions: totalSessionsInput.value,
+            bonoTotalPrice: bonoPriceInput.value, bonoAmountPaid: bonoPaidInput.value,
           }),
         });
-        resultEl.textContent = `Reserva dada de alta ✓ (id: ${data.bookingId}). La clienta ya puede verla en "Mis Reservas" con su teléfono y email.`;
+        resultEl.textContent = isBonoCheck.checked
+          ? `Reserva y bono dados de alta ✓ (id: ${data.bookingId}). El bono ya aparece en la ficha de la clienta en el panel.`
+          : `Reserva dada de alta ✓ (id: ${data.bookingId}). La clienta ya puede verla en "Mis Reservas" con su teléfono y email.`;
         resultEl.style.display = 'block';
-        [nameInput, phoneInput, emailInput, dateInput, timeInput, birthdateInput, priceInput, notesInput].forEach((i) => { i.value = ''; });
+        [nameInput, phoneInput, emailInput, dateInput, timeInput, birthdateInput, priceInput, notesInput,
+          sessionNumberInput, totalSessionsInput, bonoPriceInput, bonoPaidInput].forEach((i) => { i.value = ''; });
         paidInput.value = '0';
         serviceSelect.value = '';
         employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
+        isBonoCheck.checked = false;
+        bonoFieldsRow.style.display = 'none';
+        normalFieldsRow.style.display = 'flex';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

@@ -1,7 +1,7 @@
 const express = require('express');
 const {
   getAllBookings, findBookingById, updateBookingRow, appendBooking,
-  getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
+  getAllSessionBonos, findSessionBonoById, updateSessionBonoRow, appendSessionBono,
   getAllStrikeRecords, upsertStrikeRecord,
   appendLoyaltyMovement, appendProductSale, getAllProductSales,
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
@@ -288,13 +288,25 @@ router.post('/panel/book-session', async (req, res) => {
 // (evita duplicar la cita en el calendario).
 const IMPORT_MATCH_TOLERANCE_MIN = 20;
 
+function addMonthsISO(months, fromDate) {
+  const d = fromDate ? new Date(`${fromDate}T12:00:00`) : new Date();
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+const LEGACY_BONO_VALIDITY_MONTHS = 12;
+
 router.post('/panel/import-legacy-booking', async (req, res) => {
   const {
     name, phone, email, birthdate, serviceId, employeeId, date, time,
     price, amountPaid, notes,
+    // Campos solo para sesiones de un bono ya vendido (isBono=true):
+    isBono, totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid, bonoPurchaseDate,
   } = req.body || {};
   if (!name || !phone || !email || !serviceId || !employeeId || !date || !time) {
     return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, teléfono, email, tratamiento, profesional, fecha y hora).' });
+  }
+  if (isBono && (!totalSessions || !sessionNumber)) {
+    return res.status(400).json({ error: 'Indica el número de sesión de esta cita y el total de sesiones del bono.' });
   }
   try {
     const service = services.find((s) => s.id === serviceId);
@@ -324,31 +336,75 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       });
     }
 
+    let bonoId = '';
+    let sessionNumberOut = '';
+    let serviceName = service.name;
+    let bookingPrice = price !== undefined && price !== '' ? Number(price) : service.price;
+    let bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
+    let paymentType = '';
+
+    if (isBono) {
+      const total = Number(totalSessions);
+      const current = Number(sessionNumber);
+      const sessionsUsed = Math.max(0, current - 1);
+      const sessionsRemaining = Math.max(0, total - sessionsUsed);
+      const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(service.price * total);
+      const paidOnline = bonoAmountPaid !== undefined && bonoAmountPaid !== '' ? Number(bonoAmountPaid) : bonoPrice;
+      const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
+
+      bonoId = crypto.randomUUID();
+      await appendSessionBono({
+        bonoId,
+        createdAt: new Date().toISOString(),
+        clientName: name, clientPhone: phone, clientEmail: email,
+        serviceId, serviceName: service.name,
+        employeeId,
+        totalSessions: total,
+        sessionsUsed,
+        sessionsRemaining,
+        totalPrice: bonoPrice,
+        amountPaidOnline: paidOnline,
+        paymentType: '',
+        remainingAmount,
+        remainingPaidHow: '',
+        status: sessionsRemaining <= 0 ? 'completed' : 'active',
+        expiryDate: addMonthsISO(LEGACY_BONO_VALIDITY_MONTHS, bonoPurchaseDate || undefined),
+        paymentIntentId: '',
+        lang: 'es',
+      });
+
+      sessionNumberOut = current;
+      serviceName = `${service.name} (${current}/${total})`;
+      bookingPrice = '';
+      bookingAmountPaid = 0;
+      paymentType = 'bono';
+    }
+
     const bookingId = crypto.randomUUID();
     await appendBooking({
       bookingId,
       createdAt: new Date().toISOString(),
       status: 'confirmed',
       name, phone, email,
-      serviceId, serviceName: service.name,
+      serviceId, serviceName,
       employeeId, employeeName: employee.name,
       calendarId: employee.calendarId,
       eventId: best.id,
       date, time: timeNorm,
       durationMinutes,
-      price: price !== undefined && price !== '' ? Number(price) : service.price,
-      amountPaid: amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0,
-      paymentType: '',
+      price: bookingPrice,
+      amountPaid: bookingAmountPaid,
+      paymentType,
       paymentIntentId: '',
       lang: 'es',
       reminderSent: '',
       birthdate: birthdate || '',
-      bonoId: '',
-      sessionNumber: '',
+      bonoId,
+      sessionNumber: sessionNumberOut,
       notes: notes || 'Alta manual de cita ya existente.',
     });
 
-    res.json({ ok: true, bookingId });
+    res.json({ ok: true, bookingId, bonoId: bonoId || undefined });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo dar de alta la reserva.' });
