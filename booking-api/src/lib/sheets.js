@@ -42,6 +42,10 @@ const COLUMNS = [
   // resta del importe antes de repartirlo entre las formas de pago, y no
   // cuenta como facturación real en el informe).
   'redeemedAmount',
+  // Fecha/hora en la que la clienta aceptó las condiciones de reserva al
+  // pagar (queda como prueba frente a reclamaciones sobre cancelaciones,
+  // bonos o el programa de fidelidad).
+  'termsAcceptedAt',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 

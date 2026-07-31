@@ -56,6 +56,11 @@
     discountApplied: { es: (n) => `Código aplicado: -${n.toFixed(2)} €`, en: (n) => `Code applied: -€${n.toFixed(2)}` },
     discountLine: { es: 'Descuento', en: 'Discount' },
     discountStale: { es: 'El código ya no aplica a tu selección actual — vuelve a introducirlo si quieres aplicarlo.', en: 'The code no longer applies to your current selection — enter it again if you want to apply it.' },
+    termsLabel: {
+      es: 'He leído y acepto las <a href="condiciones.html" target="_blank" rel="noopener">condiciones de reserva, cancelación y el programa de fidelidad</a>.',
+      en: 'I have read and accept the <a href="condiciones.html" target="_blank" rel="noopener">booking, cancellation and loyalty programme terms</a>.',
+    },
+    termsRequired: { es: 'Tienes que aceptar las condiciones de reserva para continuar.', en: 'You need to accept the booking terms to continue.' },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
 
@@ -756,6 +761,12 @@
     const { service } = state;
     const price = totalPrice();
     els.payOptions.innerHTML = '';
+    const termsHtml = `
+      <label class="booking-pay-option booking-bono-terms">
+        <input type="checkbox" id="booking-terms-check">
+        <span>${t('termsLabel')}</span>
+      </label>
+    `;
 
     // El bloque de pago "bono" (con nota informativa + checkbox de términos)
     // debe salir siempre que haya ALGÚN bono en el carrito, sea el principal
@@ -787,6 +798,7 @@
       // (incluidos los radios ya con su listener) dejando la elección de
       // pago sin efecto. insertAdjacentHTML solo añade, no destruye nada.
       els.payOptions.insertAdjacentHTML('beforeend', `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`);
+      els.payOptions.insertAdjacentHTML('beforeend', termsHtml);
       return;
     }
 
@@ -816,6 +828,7 @@
     }
     // Igual que arriba: insertAdjacentHTML, nunca "innerHTML +=".
     els.payOptions.insertAdjacentHTML('beforeend', `<p class="booking-pay-note booking-cancel-note">${t('cancelPolicyNote')}</p>`);
+    els.payOptions.insertAdjacentHTML('beforeend', termsHtml);
   }
 
   els.submit.addEventListener('click', async () => {
@@ -834,11 +847,16 @@
       return;
     }
     if (state.wantsBono || state.extraBonos.length > 0) {
-      const termsCheck = document.getElementById('booking-bono-terms-check');
-      if (!termsCheck || !termsCheck.checked) {
+      const bonoTermsCheck = document.getElementById('booking-bono-terms-check');
+      if (!bonoTermsCheck || !bonoTermsCheck.checked) {
         showError(t('bonoTermsRequired'));
         return;
       }
+    }
+    const termsCheck = document.getElementById('booking-terms-check');
+    if (!termsCheck || !termsCheck.checked) {
+      showError(t('termsRequired'));
+      return;
     }
 
     els.submit.disabled = true;
@@ -865,6 +883,7 @@
           clientEmail: email || undefined,
           clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
+          termsAccepted: true,
           lang: LANG,
         }
       : {
@@ -880,6 +899,7 @@
           clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
           discountCode: discountIsStillValid() ? state.discountCode : undefined,
+          termsAccepted: true,
           lang: LANG,
         };
 

@@ -64,11 +64,14 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, discountCode, lang } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, discountCode, termsAccepted, lang } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
+  }
+  if (!termsAccepted) {
+    return res.status(400).json({ error: 'Tienes que aceptar las condiciones de reserva para continuar.' });
   }
 
   const service = services.find((s) => s.id === serviceId);
@@ -160,6 +163,7 @@ router.post('/checkout', async (req, res) => {
         paymentType: type,
         discountCode: discount ? discount.code : '',
         discountAmount: discount ? String(discount.amount) : '',
+        termsAcceptedAt: new Date().toISOString(),
         lang: lang === 'en' ? 'en' : 'es',
       },
     });

@@ -170,7 +170,7 @@ async function handleBookingPayment(session) {
   const {
     bookingId, calendarId, eventId, serviceId, employeeId, date, time,
     durationMinutes, clientName, clientPhone, clientEmail, clientBirthdate, price, amount, paymentType, lang,
-    extraServiceIds,
+    extraServiceIds, termsAcceptedAt,
   } = session.metadata || {};
 
   // Si el cliente aplicó un cupón en Stripe, lo realmente cobrado
@@ -231,6 +231,7 @@ async function handleBookingPayment(session) {
         lang: lang === 'en' ? 'en' : 'es',
         reminderSent: '',
         birthdate: clientBirthdate || '',
+        termsAcceptedAt: termsAcceptedAt || '',
       });
     } catch (sheetErr) {
       // No bloqueamos la confirmación de la cita si falla el registro en la Sheet
@@ -263,7 +264,7 @@ async function handleBonoSessionPayment(session) {
   const {
     bonoItems, singleItems, calendarId, eventId, employeeId, date, time,
     clientName, clientPhone, clientEmail, clientBirthdate,
-    totalPrice, amount, paymentType, lang,
+    totalPrice, amount, paymentType, lang, termsAcceptedAt,
   } = session.metadata || {};
 
   // Combinación libre en la misma cita: uno o varios bonos (cada uno con su
@@ -409,6 +410,7 @@ async function handleBonoSessionPayment(session) {
           birthdate: clientBirthdate || '',
           bonoId: it.bonoId || '',
           sessionNumber: 1,
+          termsAcceptedAt: termsAcceptedAt || '',
         });
       } catch (sheetErr) {
         console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
@@ -440,6 +442,7 @@ async function handleBonoSessionPayment(session) {
           lang: lang === 'en' ? 'en' : 'es',
           reminderSent: '',
           birthdate: clientBirthdate || '',
+          termsAcceptedAt: termsAcceptedAt || '',
         });
       } catch (sheetErr) {
         console.error('No se pudo guardar el tratamiento suelto en la Sheet:', sheetErr);

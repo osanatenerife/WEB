@@ -20,12 +20,15 @@ router.post('/bono-checkout', async (req, res) => {
   const {
     serviceId, wantsBonoPrimary, primaryBonoSessions, extraServiceIds, extraBonoSelections,
     employeeId, date, time,
-    clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, lang,
+    clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, termsAccepted, lang,
   } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
+  }
+  if (!termsAccepted) {
+    return res.status(400).json({ error: 'Tienes que aceptar las condiciones de reserva para continuar.' });
   }
 
   const employee = employees.find((e) => e.id === employeeId);
@@ -164,6 +167,7 @@ router.post('/bono-checkout', async (req, res) => {
         totalPrice: String(combinedTotal),
         amount: String(amount),
         paymentType,
+        termsAcceptedAt: new Date().toISOString(),
         lang: lang === 'en' ? 'en' : 'es',
       },
     });
