@@ -74,7 +74,7 @@ module.exports = [
     calendarId: 'annacentroosana@gmail.com',
     services: especialidadesAnna, // solo sus especialidades
     weekly: {
-      0: CLOSED, 1: CLOSED, 2: { open: '10:00', close: '18:00' }, 3: CLOSED, 4: CLOSED, 5: CLOSED, 6: CLOSED, // solo martes
+      0: CLOSED, 1: CLOSED, 2: { open: '10:00', close: '18:00' }, 3: CLOSED, 4: CLOSED, 5: CLOSED, 6: { open: '10:00', close: '18:00' }, // martes y sábado
     },
   },
   {
