@@ -102,6 +102,6 @@ module.exports = [
 
   // ── 08 · MICROPIGMENTACIÓN ──
   { id: 'valoracion-micropigmentacion', category: 'Micropigmentación', categoryEn: 'Microblading', name: 'Valoración de micropigmentación', nameEn: 'Microblading assessment', durationMinutes: 30, price: 0, paymentPolicy: 'deposit_or_full', depositPercent: 0 },
-  { id: 'retoque-micropigmentacion', category: 'Micropigmentación', categoryEn: 'Microblading', name: 'Retoque micropigmentación anual', nameEn: 'Annual microblading touch-up', durationMinutes: 120, price: 100, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'retoque-micropigmentacion', category: 'Micropigmentación', categoryEn: 'Microblading', name: 'Retoque micropigmentación anual', nameEn: 'Annual microblading touch-up', durationMinutes: 120, price: 150, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'micropigmentacion-cejas-retoque', category: 'Micropigmentación', categoryEn: 'Microblading', name: 'Micropigmentación cejas + retoque', nameEn: 'Eyebrow microblading + touch-up', durationMinutes: 210, price: 300, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
 ];
