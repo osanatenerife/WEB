@@ -72,7 +72,14 @@ module.exports = [
     id: 'anna',
     name: 'Anna',
     calendarId: 'annacentroosana@gmail.com',
-    services: especialidadesAnna, // solo sus especialidades
+    // Sus 3 especialidades exclusivas + faciales/aparatología que también hace,
+    // pero que no son exclusivas suyas (Raquel/Vanessa también las hacen).
+    services: [
+      ...especialidadesAnna,
+      'radiofrecuencia-facial', 'radiofrecuencia-corporal', 'limpieza-profunda',
+      'hollywood-peel', 'dermapen', 'exosomas-dermapen',
+      'ritual-basic-skin', 'ritual-relaxing', 'ritual-flash-lifting',
+    ],
     weekly: {
       0: CLOSED, 1: CLOSED, 2: { open: '10:00', close: '18:00' }, 3: CLOSED, 4: CLOSED, 5: CLOSED, 6: { open: '10:00', close: '18:00' }, // martes y sábado
     },
