@@ -489,7 +489,7 @@ const LOYALTY_TAB_TITLE = 'Saldo';
 const LOYALTY_COLUMNS = [
   'date', 'phoneNormalized', 'emailNormalized', 'name', 'type',
   'bookingId', 'serviceName', 'category', 'baseAmount', 'paidHow',
-  'rateApplied', 'amount',
+  'rateApplied', 'amount', 'note',
 ];
 const LOYALTY_LAST_COL = colLetter(LOYALTY_COLUMNS.length);
 

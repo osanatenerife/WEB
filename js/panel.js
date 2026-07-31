@@ -657,9 +657,11 @@
         <div class="panel-client-loyalty">
           <span class="panel-pill">💶 Saldo: ${balance.toFixed(2)} €</span>
           ${balance > 0 ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-redeem-toggle">Canjear saldo</button>' : ''}
+          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-addloyalty-toggle">➕ Añadir saldo</button>
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-followup-toggle">🔔 Marcar seguimiento</button>
         </div>
         <div class="panel-redeem-slot"></div>
+        <div class="panel-addloyalty-slot"></div>
         <div class="panel-followup-slot"></div>
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
@@ -672,6 +674,8 @@
     if (redeemBtn) {
       redeemBtn.addEventListener('click', () => toggleRedeem(wrap, client, balance));
     }
+
+    wrap.querySelector('.panel-addloyalty-toggle').addEventListener('click', () => toggleAddLoyalty(wrap, client));
 
     wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
 
@@ -752,6 +756,50 @@
           body: JSON.stringify({ phone: client.phone, amount: amountInput.value }),
         });
         slot.innerHTML = `<p class="panel-status">Canjeado ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €</p>`;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+  }
+
+  function toggleAddLoyalty(clientEl, client) {
+    const slot = clientEl.querySelector('.panel-addloyalty-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Añadir saldo a mano (p.ej. por un malentendido)</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Importe a añadir (€)</label><input type="number" step="0.01" class="al-amount"></div>
+          <div class="panel-field"><label>Motivo</label><input type="text" class="al-note" placeholder="Ej. no se le acumuló el saldo de su última visita"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-addloyalty">Añadir saldo</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const amountInput = slot.querySelector('.al-amount');
+    const noteInput = slot.querySelector('.al-note');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-addloyalty').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      if (!amountInput.value || Number(amountInput.value) <= 0) {
+        errorEl.textContent = 'Indica el importe a añadir.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (!noteInput.value.trim()) {
+        errorEl.textContent = 'Indica el motivo, para dejar constancia.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        const data = await panelFetch('/panel/loyalty-adjust', {
+          method: 'POST',
+          body: JSON.stringify({ phone: client.phone, amount: amountInput.value, note: noteInput.value.trim() }),
+        });
+        slot.innerHTML = `<p class="panel-status">Saldo añadido ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €</p>`;
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

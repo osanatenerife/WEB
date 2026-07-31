@@ -660,6 +660,46 @@ router.post('/panel/redeem', async (req, res) => {
   }
 });
 
+// ── Añadir saldo de fidelización a mano (p.ej. por un malentendido o
+// como detalle puntual) — queda registrado con el motivo, para que se
+// pueda distinguir del saldo ganado automáticamente en las citas.
+router.post('/panel/loyalty-adjust', async (req, res) => {
+  const { phone, amount, note } = req.body || {};
+  const addAmount = round2(Number(amount));
+  if (!phone || !addAmount || addAmount <= 0) {
+    return res.status(400).json({ error: 'Indica el teléfono de la clienta y el importe a añadir.' });
+  }
+  if (!note || !note.trim()) {
+    return res.status(400).json({ error: 'Indica el motivo del ajuste, para dejar constancia.' });
+  }
+  try {
+    const phoneN = normalizePhone(phone);
+    const movements = await getLoyaltyMovementsForPhone(phoneN);
+    const name = movements.length ? movements[movements.length - 1].name : '';
+
+    await appendLoyaltyMovement({
+      date: new Date().toISOString().slice(0, 10),
+      phoneNormalized: phoneN,
+      emailNormalized: '',
+      name,
+      type: 'manual_adjustment',
+      bookingId: '',
+      serviceName: '',
+      category: '',
+      baseAmount: '',
+      paidHow: '',
+      rateApplied: '',
+      amount: addAmount,
+      note: note.trim(),
+    });
+
+    res.json({ ok: true, newBalance: computeLoyaltyBalance([...movements, { type: 'manual_adjustment', amount: addAmount, date: new Date().toISOString().slice(0, 10) }]) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo añadir el saldo.' });
+  }
+});
+
 function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
   const isEn = lang === 'en';
   if (isFirstTime) {
