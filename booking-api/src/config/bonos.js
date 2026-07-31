@@ -36,7 +36,7 @@ module.exports = [
   { serviceId: 'presoterapia', sessions: 6, price: 120 },
   { serviceId: 'radiofrecuencia-corporal', sessions: 3, price: 185 },
   { serviceId: 'radiofrecuencia-corporal', sessions: 6, price: 330 },
-  { serviceId: 'maderoterapia', sessions: 5, price: 365 },
+  { serviceId: 'maderoterapia', sessions: 5, price: 360 },
   { serviceId: 'maderoterapia', sessions: 10, price: 650 },
 
   // ── Masajes & Rituales Essentia ──
