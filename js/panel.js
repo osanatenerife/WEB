@@ -6,6 +6,16 @@
   const KEY_STORAGE = 'osana_panel_key';
   let panelKey = localStorage.getItem(KEY_STORAGE) || '';
 
+  // Cualquier texto que venga de un cliente (nombre, nota, mensaje de bono
+  // regalo...) tiene que pasar por aquí antes de insertarse en innerHTML —
+  // si no, un nombre tipo "<img src=x onerror=...>" se ejecutaría en el
+  // navegador de cualquier persona del equipo que abra esa ficha.
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str === undefined || str === null ? '' : String(str);
+    return div.innerHTML;
+  }
+
   const els = {
     login: document.getElementById('panel-login'),
     keyInput: document.getElementById('panel-key-input'),
@@ -506,33 +516,33 @@
 
   function renderAgenda(data) {
     const unclosedHtml = data.unclosedBookings.map((b) => agendaRow(
-      `<b>${b.name || '(sin nombre)'}</b> — ${b.serviceName} · ${fmtDateShort(b.date)} ${b.time} · ${b.employeeName || ''}`,
+      `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time} · ${escapeHtml(b.employeeName) || ''}`,
       b.phone,
     )).join('');
 
     const upcomingHtml = data.upcomingBookings.map((b) => agendaRow(
-      `<b>${b.name || '(sin nombre)'}</b> — ${b.serviceName} · ${fmtDateShort(b.date)} ${b.time} · ${b.employeeName || ''}`,
+      `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time} · ${escapeHtml(b.employeeName) || ''}`,
       b.phone,
     )).join('');
 
     const followupsHtml = data.dueFollowups.map((f) => agendaRow(
-      `<b>${f.clientName || '(sin nombre)'}</b> — vence ${fmtDateShort(f.dueDate)}${f.note ? ` · ${f.note}` : ''}`,
+      `<b>${escapeHtml(f.clientName) || '(sin nombre)'}</b> — vence ${fmtDateShort(f.dueDate)}${f.note ? ` · ${escapeHtml(f.note)}` : ''}`,
       f.clientPhone,
       `<button type="button" class="panel-btn panel-btn-primary panel-btn-sm agenda-followup-done" data-id="${f.followupId}">Hecho ✓</button>`,
     )).join('');
 
     const bonoPendingHtml = data.pendingBonoSessions.map((bono) => agendaRow(
-      `<b>${bono.clientName || '(sin nombre)'}</b> — ${bono.serviceName} (${bono.sessionsUsed}/${bono.totalSessions} usadas)`,
+      `<b>${escapeHtml(bono.clientName) || '(sin nombre)'}</b> — ${escapeHtml(bono.serviceName)} (${bono.sessionsUsed}/${bono.totalSessions} usadas)`,
       bono.clientPhone,
     )).join('');
 
     const bonoExpiringHtml = data.expiringBonos.map((bono) => agendaRow(
-      `<b>${bono.clientName || '(sin nombre)'}</b> — ${bono.serviceName} (${bono.sessionsRemaining} sesiones sin usar) · caduca ${fmtDateShort(bono.expiryDate)}`,
+      `<b>${escapeHtml(bono.clientName) || '(sin nombre)'}</b> — ${escapeHtml(bono.serviceName)} (${bono.sessionsRemaining} sesiones sin usar) · caduca ${fmtDateShort(bono.expiryDate)}`,
       bono.clientPhone,
     )).join('');
 
     const quotesHtml = data.unpaidQuotes.map((q) => agendaRow(
-      `<b>${q.clientName || '(sin nombre)'}</b> — ${q.description} · ${Number(q.amount).toFixed(2)} €`,
+      `<b>${escapeHtml(q.clientName) || '(sin nombre)'}</b> — ${escapeHtml(q.description)} · ${Number(q.amount).toFixed(2)} €`,
       q.clientPhone,
     )).join('');
 
@@ -611,14 +621,14 @@
           <div class="panel-client-top">
             <div>
               <div class="panel-client-name">${gift.code}</div>
-              <div class="panel-client-meta"><span>De ${gift.buyerName || '—'} para ${gift.recipientName || '—'}</span></div>
+              <div class="panel-client-meta"><span>De ${escapeHtml(gift.buyerName) || '—'} para ${escapeHtml(gift.recipientName) || '—'}</span></div>
             </div>
             ${statusPill}
           </div>
-          <p style="font-size:13px;margin:12px 0 4px;"><b>${itemLabel}</b></p>
-          <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Comprador: ${gift.buyerEmail || '—'}${gift.buyerPhone ? ` · ${gift.buyerPhone}` : ''}</p>
+          <p style="font-size:13px;margin:12px 0 4px;"><b>${escapeHtml(itemLabel)}</b></p>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Comprador: ${escapeHtml(gift.buyerEmail) || '—'}${gift.buyerPhone ? ` · ${escapeHtml(gift.buyerPhone)}` : ''}</p>
           <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Caduca: ${gift.expiryDate ? fmtDateShort(gift.expiryDate) : '—'}</p>
-          ${gift.message ? `<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Mensaje: "${gift.message}"</p>` : ''}
+          ${gift.message ? `<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Mensaje: "${escapeHtml(gift.message)}"</p>` : ''}
           ${!isRedeemed ? '<button type="button" class="panel-btn panel-btn-primary panel-btn-sm gf-redeem" style="margin-top:10px;">Marcar como canjeado</button>' : ''}
         </div>
       `;
@@ -799,8 +809,8 @@
       <div class="panel-client-card">
         <div class="panel-client-top">
           <div>
-            <div class="panel-client-name">${client.name || '(sin nombre)'}</div>
-            <div class="panel-client-meta"><span>${client.phone || ''}</span><span>${client.email || ''}</span></div>
+            <div class="panel-client-name">${escapeHtml(client.name) || '(sin nombre)'}</div>
+            <div class="panel-client-meta"><span>${escapeHtml(client.phone) || ''}</span><span>${escapeHtml(client.email) || ''}</span></div>
           </div>
           ${strikeBadge}
         </div>
@@ -843,7 +853,7 @@
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     slot.innerHTML = `
       <div class="panel-new-appt">
-        <div class="panel-label">Marcar seguimiento de ${client.name || 'esta clienta'}</div>
+        <div class="panel-label">Marcar seguimiento de ${escapeHtml(client.name) || 'esta clienta'}</div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Plazo</label>
             <select class="fu-timeframe">
@@ -1062,14 +1072,14 @@
       <div class="panel-appt-top">
         <div class="panel-appt-date">${fmtDateParts(b.date).month}<span class="day">${fmtDateParts(b.date).day}</span></div>
         <div class="panel-appt-body">
-          <div class="svc">${b.serviceName}</div>
-          <div class="with">Con ${b.employeeName || '—'} · ${b.time}</div>
+          <div class="svc">${escapeHtml(b.serviceName)}</div>
+          <div class="with">Con ${escapeHtml(b.employeeName) || '—'} · ${b.time}</div>
         </div>
         <div>${statusPill}</div>
       </div>
-      <div class="panel-appt-note-view" style="${b.notes ? '' : 'display:none;'}"><span class="tag">Nota:</span><span class="note-text">${b.notes || ''}</span></div>
+      <div class="panel-appt-note-view" style="${b.notes ? '' : 'display:none;'}"><span class="tag">Nota:</span><span class="note-text">${escapeHtml(b.notes)}</span></div>
       <div class="panel-appt-note-edit" style="display:none;">
-        <textarea placeholder="Ej. potencia del láser, observaciones…">${b.notes || ''}</textarea>
+        <textarea placeholder="Ej. potencia del láser, observaciones…">${escapeHtml(b.notes)}</textarea>
       </div>
       <div class="panel-appt-actions">
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-note-toggle">✎ Nota</button>
