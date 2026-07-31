@@ -22,16 +22,6 @@
 </script>
 </head>
 <body class="reserva-page">
-<script>
-// ⚠️ TEMPORAL — aviso visible de errores para diagnosticar el fallo de la
-// casilla de condiciones. Quitar en cuanto esté resuelto.
-window.addEventListener('error', function (e) {
-  var box = document.createElement('div');
-  box.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;padding:12px 16px;font-size:13px;z-index:99999;font-family:monospace;white-space:pre-wrap;';
-  box.textContent = 'ERROR JS: ' + e.message + '  —  archivo: ' + (e.filename || '?') + '  línea: ' + e.lineno;
-  document.body.appendChild(box);
-});
-</script>
 
 <a href="#main" class="skip-link">Skip to content</a>
 

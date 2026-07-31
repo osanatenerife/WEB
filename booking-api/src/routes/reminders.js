@@ -3,15 +3,13 @@ const { getAllBookings, updateBookingRow } = require('../lib/sheets');
 const { sendEmail } = require('../lib/email');
 const { sendWhatsAppTemplate } = require('../lib/whatsapp');
 const { localToISO } = require('../lib/timezone');
-const { earnRateFor } = require('../config/loyalty');
 const hours = require('../config/hours');
 
 const router = express.Router();
 
-// ⚠️ TEMPORAL — ventana ampliada para probar el envío de WhatsApp hoy mismo.
-// Volver a 47/49 (48h real) en cuanto se confirme que llega el mensaje.
-const WINDOW_MIN_HOURS = 1;
-const WINDOW_MAX_HOURS = 20;
+// Ventana real: recordatorio entre 47 y 49h antes de la cita (~48h).
+const WINDOW_MIN_HOURS = 47;
+const WINDOW_MAX_HOURS = 49;
 
 function appointmentDateTime(booking) {
   const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
@@ -27,17 +25,7 @@ function pendingBalanceFor(b) {
   const price = Number(b.price) || 0;
   const paid = Number(b.amountPaid) || 0;
   const remainder = Math.max(0, round2(price - paid));
-  return remainder > 0
-    ? `${remainder.toFixed(2)} € (efectivo o Bizum al 623 725 551)`
-    : '0 € — pago ya completado';
-}
-
-// Saldo de fidelidad estimado que generará esta reserva (a la tasa base,
-// sin contar el +2% de efectivo, que depende de cómo se pague al final).
-function estimatedEarnFor(b) {
-  const price = Number(b.price) || 0;
-  const earned = round2(price * earnRateFor('facial', 'tarjeta'));
-  return `${earned.toFixed(2)} €`;
+  return `${remainder.toFixed(2)} €`;
 }
 
 const EMAIL_STRINGS = {
@@ -120,7 +108,7 @@ router.get('/send-reminders', async (req, res) => {
             to: b.phone,
             variables: {
               1: b.name || '', 2: dateLabel, 3: b.time, 4: b.serviceName,
-              5: pendingBalanceFor(b), 6: estimatedEarnFor(b),
+              5: pendingBalanceFor(b),
             },
           });
         } catch (waErr) {
