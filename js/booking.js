@@ -99,8 +99,12 @@
   // Los códigos de descuento solo aplican al tratamiento principal (si no es
   // bono) y a los tratamientos sueltos añadidos — nunca a bonos de sesiones.
   function discountEligibleServiceIds() {
+    // En cuanto hay CUALQUIER bono en el carrito (principal o añadido), el
+    // pago pasa por bono-checkout, que no admite descuentos — así que no
+    // hay ningún tratamiento "elegible" mientras eso sea así.
+    if (hasAnyBono()) return [];
     const ids = [];
-    if (state.service && !state.wantsBono) ids.push(state.service.id);
+    if (state.service) ids.push(state.service.id);
     state.extraServices.forEach((s) => ids.push(s.id));
     return ids;
   }
