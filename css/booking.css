@@ -210,14 +210,22 @@ body.reserva-page .page-offset { padding-top: 92px; }
   font-size: 13px; color: var(--txt-mid); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line);
 }
 
-.booking-discount-row { display: flex; gap: 8px; margin-top: 16px; }
-.booking-discount-row input {
-  flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); background: #fff;
-  font-family: inherit; font-size: 12.5px; text-transform: uppercase;
+.booking-discount-box { margin-top: 20px; }
+.booking-discount-label {
+  display: block; font-size: 10px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--txt-soft); margin-bottom: 8px;
 }
+.booking-discount-row { display: flex; gap: 8px; }
+.booking-discount-row input {
+  flex: 1; min-width: 0; padding: 13px 16px; border: 1px solid var(--line); background: none;
+  font-family: 'Raleway', sans-serif; font-size: 13px; color: var(--txt); letter-spacing: 0.02em;
+}
+.booking-discount-row input::placeholder { color: var(--txt-soft); }
+.booking-discount-row input:focus { outline: none; border-color: var(--brown); }
 .booking-discount-btn {
-  flex: none; padding: 10px 16px; border: 1px solid var(--txt); background: transparent;
-  color: var(--txt); font-family: inherit; font-size: 11.5px; letter-spacing: 0.04em; cursor: pointer;
+  flex: none; padding: 0 20px; border: 1px solid var(--txt); background: transparent;
+  color: var(--txt); font-family: 'Raleway', sans-serif; font-size: 11px; letter-spacing: 0.08em;
+  text-transform: uppercase; cursor: pointer;
   transition: border-color 0.2s ease, color 0.2s ease;
 }
 .booking-discount-btn:hover { border-color: var(--brown); color: var(--brown); }
