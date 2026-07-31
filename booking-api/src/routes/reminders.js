@@ -8,13 +8,10 @@ const hours = require('../config/hours');
 
 const router = express.Router();
 
-// Ventana de antelación objetivo: entre 47h y 49h antes de la cita (48h,
-// para que coincida con el plazo real de cancelación sin penalización).
-// Como el disparador externo llama a este endpoint cada hora, esta
-// ventana de 2h asegura que ninguna cita se quede sin recordatorio
-// aunque el disparo llegue con algo de retraso.
-const WINDOW_MIN_HOURS = 47;
-const WINDOW_MAX_HOURS = 49;
+// ⚠️ TEMPORAL — ventana ampliada para probar el envío de WhatsApp hoy mismo.
+// Volver a 47/49 (48h real) en cuanto se confirme que llega el mensaje.
+const WINDOW_MIN_HOURS = 1;
+const WINDOW_MAX_HOURS = 20;
 
 function appointmentDateTime(booking) {
   const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
