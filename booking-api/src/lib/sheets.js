@@ -160,7 +160,7 @@ const GIFT_COLUMNS = [
   'bonoId', 'code', 'createdAt', 'status',
   'buyerName', 'buyerEmail', 'buyerPhone',
   'recipientName', 'giftType', 'serviceId', 'serviceName', 'amount',
-  'message', 'expiryDate', 'paymentIntentId', 'lang',
+  'message', 'expiryDate', 'paymentIntentId', 'lang', 'redeemedAt',
 ];
 const GIFT_LAST_COL = colLetter(GIFT_COLUMNS.length);
 
@@ -175,18 +175,26 @@ async function ensureGiftTab() {
       spreadsheetId: sheetId(),
       requestBody: { requests: [{ addSheet: { properties: { title: GIFT_TAB_TITLE } } }] },
     });
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sheetId(),
-      range: `'${GIFT_TAB_TITLE}'!A1`,
-      valueInputOption: 'RAW',
-      requestBody: { values: [GIFT_COLUMNS] },
-    });
   }
+  // Reescribe siempre la cabecera (barato e idempotente) para que columnas
+  // nuevas (como "redeemedAt") aparezcan solas en una pestaña que ya existía.
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${GIFT_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [GIFT_COLUMNS] },
+  });
   giftTabReady = true;
 }
 
 function giftObjectToRow(obj) {
   return GIFT_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+function giftRowToObject(row, index) {
+  const obj = {};
+  GIFT_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  obj._sheetRow = index + 2;
+  return obj;
 }
 
 /**
@@ -201,6 +209,32 @@ async function appendGift(gift) {
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [giftObjectToRow(gift)] },
+  });
+}
+
+async function getAllGifts() {
+  await ensureGiftTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${GIFT_TAB_TITLE}'!A:${GIFT_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(giftRowToObject);
+}
+
+async function updateGiftRow(sheetRow, updates) {
+  await ensureGiftTab();
+  const sheets = getSheetsClient();
+  const current = await getAllGifts();
+  const existing = current.find((g) => g._sheetRow === sheetRow) || {};
+  const merged = { ...existing, ...updates };
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${GIFT_TAB_TITLE}'!A${sheetRow}:${GIFT_LAST_COL}${sheetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [giftObjectToRow(merged)] },
   });
 }
 
@@ -755,6 +789,7 @@ async function updateFollowupRow(sheetRow, updates) {
 
 module.exports = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
+  getAllGifts, updateGiftRow,
   getAllBirthdayRecords, upsertBirthdayRecord,
   appendSessionBono, getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
   getAllStrikeRecords, upsertStrikeRecord,

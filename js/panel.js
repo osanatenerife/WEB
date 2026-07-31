@@ -28,6 +28,8 @@
     importSlot: document.getElementById('panel-import-slot'),
     agendaToggle: document.getElementById('panel-agenda-toggle'),
     agendaSlot: document.getElementById('panel-agenda-slot'),
+    giftToggle: document.getElementById('panel-gift-toggle'),
+    giftSlot: document.getElementById('panel-gift-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -559,6 +561,81 @@
       });
     });
   }
+
+  // ── Bono regalo: buscar por código y marcar como canjeado ──
+  els.giftToggle.addEventListener('click', () => {
+    if (els.giftSlot.innerHTML) { els.giftSlot.innerHTML = ''; return; }
+    els.giftSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Buscar bono regalo por código</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Código</label><input type="text" class="gf-code" placeholder="Ej. OSANA-097E250C"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-search-gift">Buscar</button>
+        <p class="panel-error" style="display:none;"></p>
+        <div class="gf-result"></div>
+      </div>
+    `;
+    const slot = els.giftSlot;
+    const codeInput = slot.querySelector('.gf-code');
+    const errorEl = slot.querySelector('.panel-error');
+    const resultEl = slot.querySelector('.gf-result');
+
+    async function searchGift() {
+      errorEl.style.display = 'none';
+      resultEl.innerHTML = '';
+      const code = codeInput.value.trim();
+      if (!code) return;
+      try {
+        const data = await panelFetch(`/panel/gift?code=${encodeURIComponent(code)}`);
+        renderGiftResult(data.gift);
+      } catch (e) {
+        if (e.message === 'unauthorized') return;
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+    }
+    slot.querySelector('.panel-search-gift').addEventListener('click', searchGift);
+    codeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') searchGift(); });
+
+    function renderGiftResult(gift) {
+      const itemLabel = gift.giftType === 'service' ? gift.serviceName : `${gift.amount} € para gastar en cualquier tratamiento`;
+      const isRedeemed = gift.status === 'redeemed';
+      const statusPill = isRedeemed
+        ? `<span class="panel-pill panel-pill-warn"><span class="dot"></span>Ya canjeado${gift.redeemedAt ? ` (${fmtDateShort(gift.redeemedAt.slice(0, 10))})` : ''}</span>`
+        : `<span class="panel-pill panel-pill-ok"><span class="dot"></span>Sin canjear</span>`;
+      resultEl.innerHTML = `
+        <div class="panel-client-card" style="margin-top:16px;">
+          <div class="panel-client-top">
+            <div>
+              <div class="panel-client-name">${gift.code}</div>
+              <div class="panel-client-meta"><span>De ${gift.buyerName || '—'} para ${gift.recipientName || '—'}</span></div>
+            </div>
+            ${statusPill}
+          </div>
+          <p style="font-size:13px;margin:12px 0 4px;"><b>${itemLabel}</b></p>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Comprador: ${gift.buyerEmail || '—'}${gift.buyerPhone ? ` · ${gift.buyerPhone}` : ''}</p>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Caduca: ${gift.expiryDate ? fmtDateShort(gift.expiryDate) : '—'}</p>
+          ${gift.message ? `<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 4px;">Mensaje: "${gift.message}"</p>` : ''}
+          ${!isRedeemed ? '<button type="button" class="panel-btn panel-btn-primary panel-btn-sm gf-redeem" style="margin-top:10px;">Marcar como canjeado</button>' : ''}
+        </div>
+      `;
+      const redeemBtn = resultEl.querySelector('.gf-redeem');
+      if (redeemBtn) {
+        redeemBtn.addEventListener('click', async () => {
+          redeemBtn.disabled = true;
+          try {
+            await panelFetch('/panel/gift-redeem', { method: 'POST', body: JSON.stringify({ code: gift.code }) });
+            searchGift();
+          } catch (e) {
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+            redeemBtn.disabled = false;
+          }
+        });
+      }
+    }
+  });
 
   function renderClient(client) {
     const wrap = document.createElement('div');

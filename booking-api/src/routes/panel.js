@@ -7,6 +7,7 @@ const {
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
   appendCustomQuote, getAllCustomQuotes,
   appendFollowup, getAllFollowups, updateFollowupRow,
+  getAllGifts, updateGiftRow,
 } = require('../lib/sheets');
 const { createBookingEvent, updateEvent, getEvent, listEvents } = require('../lib/googleCalendar');
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
@@ -842,6 +843,39 @@ router.post('/panel/custom-quote', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo generar el link de pago.' });
+  }
+});
+
+// ── Bonos regalo: búsqueda por código y canje ──
+router.get('/panel/gift', async (req, res) => {
+  const code = String(req.query.code || '').trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: 'Indica el código del bono regalo.' });
+  try {
+    const all = await getAllGifts();
+    const gift = all.find((g) => String(g.code || '').trim().toUpperCase() === code);
+    if (!gift) return res.status(404).json({ error: 'No se ha encontrado ningún bono regalo con ese código.' });
+    res.json({ gift });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo buscar el bono regalo.' });
+  }
+});
+
+router.post('/panel/gift-redeem', async (req, res) => {
+  const code = String((req.body || {}).code || '').trim().toUpperCase();
+  if (!code) return res.status(400).json({ error: 'Indica el código del bono regalo.' });
+  try {
+    const all = await getAllGifts();
+    const gift = all.find((g) => String(g.code || '').trim().toUpperCase() === code);
+    if (!gift) return res.status(404).json({ error: 'No se ha encontrado ningún bono regalo con ese código.' });
+    if (gift.status === 'redeemed') {
+      return res.status(409).json({ error: 'Este bono regalo ya se marcó como canjeado.' });
+    }
+    await updateGiftRow(gift._sheetRow, { status: 'redeemed', redeemedAt: new Date().toISOString() });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo marcar el bono como canjeado.' });
   }
 });
 
