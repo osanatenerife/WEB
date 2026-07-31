@@ -8,7 +8,9 @@ const {
   appendCustomQuote, getAllCustomQuotes,
   appendFollowup, getAllFollowups, updateFollowupRow,
   getAllGifts, updateGiftRow,
+  appendDiscount, getAllDiscounts, updateDiscountRow,
 } = require('../lib/sheets');
+const { isDiscountLive } = require('../lib/discounts');
 const { createBookingEvent, updateEvent, getEvent, listEvents } = require('../lib/googleCalendar');
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
@@ -916,6 +918,132 @@ router.post('/panel/gift-redeem', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo marcar el bono como canjeado.' });
+  }
+});
+
+// ── Códigos de descuento: crear, listar, desactivar y avisar por email a
+// las clientas ya registradas (p.ej. una promo de lanzamiento restringida
+// a ciertos tratamientos y a un rango de fechas concreto). El código lo
+// reparte el propio centro (Instagram, email...) — no aparece en la web.
+router.post('/panel/discount', async (req, res) => {
+  const { code, serviceIds, discountType, discountValue, validFrom, validUntil, note } = req.body || {};
+  const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
+  const value = Number(discountValue);
+  if (!code || !code.trim()) return res.status(400).json({ error: 'Indica el código.' });
+  if (!ids.length) return res.status(400).json({ error: 'Elige al menos un tratamiento al que aplique.' });
+  if (!['percent', 'amount'].includes(discountType)) return res.status(400).json({ error: 'Indica si es % o € de descuento.' });
+  if (!value || value <= 0) return res.status(400).json({ error: 'Indica el importe o porcentaje de descuento.' });
+  if (!validFrom || !validUntil) return res.status(400).json({ error: 'Indica la fecha de inicio y de fin.' });
+  if (validUntil < validFrom) return res.status(400).json({ error: 'La fecha de fin no puede ser anterior a la de inicio.' });
+
+  try {
+    const existing = await getAllDiscounts();
+    if (existing.some((d) => String(d.code).trim().toUpperCase() === code.trim().toUpperCase())) {
+      return res.status(409).json({ error: 'Ya existe un código de descuento con ese nombre.' });
+    }
+    const serviceNames = ids.map((id) => (services.find((s) => s.id === id) || {}).name || id).join(', ');
+    await appendDiscount({
+      discountId: crypto.randomUUID(),
+      code: code.trim().toUpperCase(),
+      serviceIds: ids.join(','),
+      serviceNames,
+      discountType,
+      discountValue: value,
+      validFrom,
+      validUntil,
+      active: 'true',
+      createdAt: new Date().toISOString(),
+      note: note || '',
+      emailSentAt: '',
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo crear el descuento.' });
+  }
+});
+
+router.get('/panel/discounts', async (req, res) => {
+  try {
+    const all = await getAllDiscounts();
+    const list = all
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map((d) => ({
+        discountId: d.discountId, code: d.code, serviceNames: d.serviceNames,
+        discountType: d.discountType, discountValue: d.discountValue,
+        validFrom: d.validFrom, validUntil: d.validUntil, note: d.note,
+        active: d.active !== 'false', live: isDiscountLive(d), emailSentAt: d.emailSentAt || '',
+      }));
+    res.json({ discounts: list });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudieron cargar los descuentos.' });
+  }
+});
+
+router.post('/panel/discount-deactivate', async (req, res) => {
+  const { discountId } = req.body || {};
+  if (!discountId) return res.status(400).json({ error: 'Falta el identificador del descuento.' });
+  try {
+    const all = await getAllDiscounts();
+    const discount = all.find((d) => d.discountId === discountId);
+    if (!discount) return res.status(404).json({ error: 'No se ha encontrado ese descuento.' });
+    await updateDiscountRow(discount._sheetRow, { active: 'false' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo desactivar el descuento.' });
+  }
+});
+
+function discountEmailHtml(discount) {
+  const valueLabel = discount.discountType === 'percent' ? `${discount.discountValue}%` : `${discount.discountValue} €`;
+  const untilLabel = new Date(`${discount.validUntil}T12:00:00`).toLocaleDateString('es-ES', { day: '2-digit', month: 'long' });
+  return `
+    <p>Hola,</p>
+    <p>Tenemos un descuento especial para ti: <strong>${valueLabel} de descuento</strong> en ${discount.serviceNames}.</p>
+    <p>Solo tienes que introducir este código al reservar y pagar:</p>
+    <p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:16px 0;">${discount.code}</p>
+    <p>Válido hasta el ${untilLabel}.</p>
+    <p><a href="https://osana.es/reserva.html">Reserva tu cita aquí</a>.</p>
+    <p>¡Te esperamos!<br>Osana</p>
+  `;
+}
+
+// No se espera a que terminen todos los envíos antes de responder (podrían
+// ser muchas clientas) — se lanza en segundo plano y el panel avisa de
+// cuántas se van a avisar; los fallos puntuales quedan en el log del servidor.
+router.post('/panel/discount-email-blast', async (req, res) => {
+  const { discountId } = req.body || {};
+  if (!discountId) return res.status(400).json({ error: 'Falta el identificador del descuento.' });
+  try {
+    const all = await getAllDiscounts();
+    const discount = all.find((d) => d.discountId === discountId);
+    if (!discount) return res.status(404).json({ error: 'No se ha encontrado ese descuento.' });
+
+    const bookings = await getAllBookings();
+    const uniqueEmails = new Map();
+    bookings.forEach((b) => {
+      const email = normalizeEmail(b.email);
+      if (email && !uniqueEmails.has(email)) uniqueEmails.set(email, b.email);
+    });
+
+    res.json({ ok: true, recipients: uniqueEmails.size });
+
+    (async () => {
+      const html = discountEmailHtml(discount);
+      for (const email of uniqueEmails.values()) {
+        try {
+          await sendEmail({ to: email, subject: `Un descuento especial de Osana para ti`, html });
+        } catch (err) {
+          console.error(`Error enviando email de descuento a ${email}:`, err.message);
+        }
+      }
+      await updateDiscountRow(discount._sheetRow, { emailSentAt: new Date().toISOString() }).catch(() => {});
+    })();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo enviar la campaña.' });
   }
 });
 

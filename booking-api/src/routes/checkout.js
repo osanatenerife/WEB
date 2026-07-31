@@ -8,9 +8,47 @@ const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
+const { getAllDiscounts } = require('../lib/sheets');
+const { isDiscountLive, findDiscountByCode, computeDiscountAmount } = require('../lib/discounts');
 const crypto = require('crypto');
 
 const router = express.Router();
+
+// Recalcula el descuento SIEMPRE en el servidor (nunca se confía en un
+// importe que venga del navegador) — a partir del código y de los
+// tratamientos realmente seleccionados (precios resueltos aquí mismo).
+async function resolveDiscount(code, priceableItems) {
+  if (!code) return null;
+  const discounts = await getAllDiscounts();
+  const discount = findDiscountByCode(discounts, code);
+  if (!discount || !isDiscountLive(discount)) return null;
+  const amount = computeDiscountAmount(discount, priceableItems);
+  if (!amount) return null;
+  return { code: discount.code, amount };
+}
+
+// Endpoint público para que el paso de reserva compruebe un código de
+// descuento (y muestre cuánto se ahorra) antes de llegar al pago — el
+// checkout vuelve a revalidarlo igualmente, este endpoint es solo para
+// que la clienta vea el importe al momento.
+router.post('/discount-check', async (req, res) => {
+  const { code, serviceIds } = req.body || {};
+  const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
+  if (!code || !ids.length) {
+    return res.status(400).json({ error: 'Indica el código y los tratamientos seleccionados.' });
+  }
+  try {
+    const priceableItems = ids.map((id) => services.find((s) => s.id === id)).filter(Boolean);
+    const discount = await resolveDiscount(code, priceableItems);
+    if (!discount) {
+      return res.status(404).json({ error: 'Ese código no es válido, ha caducado o no aplica a los tratamientos elegidos.' });
+    }
+    res.json({ valid: true, amountOff: discount.amount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo comprobar el código.' });
+  }
+});
 
 function computeAmount(service, price, paymentChoice) {
   const { paymentPolicy, depositPercent } = service;
@@ -26,7 +64,7 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, lang } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, discountCode, lang } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
@@ -41,11 +79,16 @@ router.post('/checkout', async (req, res) => {
   const selectedExtras = resolveExtras(parseExtraIds(extraIds));
   const additionalServices = resolveExtraServices(parseExtraIds(extraServiceIds));
   const duration = totalDuration(service, selectedExtras, additionalServices);
-  const price = totalPrice(service, selectedExtras, additionalServices);
+  const priceBeforeDiscount = totalPrice(service, selectedExtras, additionalServices);
   const bookingId = crypto.randomUUID();
 
   let eventId = null;
   try {
+    // El descuento se vuelve a comprobar en el servidor a partir del código,
+    // nunca del importe que mande el navegador — evita que se manipule el precio.
+    const discount = await resolveDiscount(discountCode, [service, ...additionalServices]);
+    const price = round2(priceBeforeDiscount - (discount ? discount.amount : 0));
+
     // 1) Revalidar que el hueco sigue libre justo antes de bloquearlo
     const freeSlots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
     if (!freeSlots.includes(time)) {
@@ -66,6 +109,7 @@ router.post('/checkout', async (req, res) => {
       `Servicio: ${service.name} (${service.category})`,
       additionalServices.length ? `Tratamientos añadidos: ${additionalServices.map((s) => s.name).join(', ')}` : null,
       selectedExtras.length ? `Extras: ${selectedExtras.map((e) => e.name).join(', ')}` : null,
+      discount ? `Código de descuento: ${discount.code} (-${discount.amount.toFixed(2)} €)` : null,
       `Pago online: ${amount.toFixed(2)} € (${type})`,
       amount < price ? `Resto a pagar en centro: ${(price - amount).toFixed(2)} €` : null,
       '',
@@ -114,6 +158,8 @@ router.post('/checkout', async (req, res) => {
         price: String(price),
         amount: String(amount),
         paymentType: type,
+        discountCode: discount ? discount.code : '',
+        discountAmount: discount ? String(discount.amount) : '',
         lang: lang === 'en' ? 'en' : 'es',
       },
     });

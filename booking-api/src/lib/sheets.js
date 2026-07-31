@@ -705,6 +705,89 @@ async function updateQuoteRow(sheetRow, updates) {
 }
 
 // ============================================================
+// Códigos de descuento — creados a mano desde el panel, restringidos a
+// ciertos tratamientos y a un rango de fechas concreto (p.ej. una promo
+// de lanzamiento en Instagram). El código lo reparte el centro (por DM,
+// email...); no aparece publicado en la web.
+// ============================================================
+
+const DISCOUNT_TAB_TITLE = 'Descuentos';
+const DISCOUNT_COLUMNS = [
+  'discountId', 'code', 'serviceIds', 'serviceNames', 'discountType', 'discountValue',
+  'validFrom', 'validUntil', 'active', 'createdAt', 'note', 'emailSentAt',
+];
+const DISCOUNT_LAST_COL = colLetter(DISCOUNT_COLUMNS.length);
+
+let discountTabReady = false;
+async function ensureDiscountTab() {
+  if (discountTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === DISCOUNT_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: DISCOUNT_TAB_TITLE } } }] },
+    });
+  }
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${DISCOUNT_TAB_TITLE}'!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [DISCOUNT_COLUMNS] },
+  });
+  discountTabReady = true;
+}
+
+function discountObjectToRow(obj) {
+  return DISCOUNT_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
+}
+function discountRowToObject(row, index) {
+  const obj = {};
+  DISCOUNT_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  obj._sheetRow = index + 2;
+  return obj;
+}
+
+async function appendDiscount(discount) {
+  await ensureDiscountTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${DISCOUNT_TAB_TITLE}'!A:${DISCOUNT_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [discountObjectToRow(discount)] },
+  });
+}
+
+async function getAllDiscounts() {
+  await ensureDiscountTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${DISCOUNT_TAB_TITLE}'!A:${DISCOUNT_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return [];
+  return rows.slice(1).map(discountRowToObject);
+}
+
+async function updateDiscountRow(sheetRow, updates) {
+  await ensureDiscountTab();
+  const sheets = getSheetsClient();
+  const current = await getAllDiscounts();
+  const existing = current.find((d) => d._sheetRow === sheetRow) || {};
+  const merged = { ...existing, ...updates };
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${DISCOUNT_TAB_TITLE}'!A${sheetRow}:${DISCOUNT_LAST_COL}${sheetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [discountObjectToRow(merged)] },
+  });
+}
+
+// ============================================================
 // Seguimientos de clientas — recordatorios que el equipo marca a mano
 // ("llamar en 1 semana", "preguntar cómo le fue el tratamiento"...) con
 // un plazo y una nota opcional, para que aparezcan en la agenda cuando
@@ -797,4 +880,5 @@ module.exports = {
   appendProductSale, getAllProductSales,
   appendFollowup, getAllFollowups, updateFollowupRow,
   appendCustomQuote, getAllCustomQuotes, updateQuoteRow,
+  appendDiscount, getAllDiscounts, updateDiscountRow,
 };

@@ -210,6 +210,22 @@ body.reserva-page .page-offset { padding-top: 92px; }
   font-size: 13px; color: var(--txt-mid); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line);
 }
 
+.booking-discount-row { display: flex; gap: 8px; margin-top: 16px; }
+.booking-discount-row input {
+  flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); background: #fff;
+  font-family: inherit; font-size: 12.5px; text-transform: uppercase;
+}
+.booking-discount-btn {
+  flex: none; padding: 10px 16px; border: 1px solid var(--txt); background: transparent;
+  color: var(--txt); font-family: inherit; font-size: 11.5px; letter-spacing: 0.04em; cursor: pointer;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+.booking-discount-btn:hover { border-color: var(--brown); color: var(--brown); }
+.booking-discount-btn:disabled { opacity: 0.5; cursor: default; }
+.booking-discount-msg { margin-top: 8px; font-size: 11.5px; line-height: 1.5; }
+.booking-discount-msg.success { color: var(--brown); }
+.booking-discount-msg.error { color: #a33; }
+
 .booking-pay-options { display: none; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line); }
 .booking-pay-note { font-size: 12.5px; color: var(--txt-mid); line-height: 1.6; }
 .booking-cancel-note { margin-top: 12px; font-size: 11.5px; color: var(--txt-soft); }

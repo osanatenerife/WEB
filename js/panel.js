@@ -30,6 +30,8 @@
     agendaSlot: document.getElementById('panel-agenda-slot'),
     giftToggle: document.getElementById('panel-gift-toggle'),
     giftSlot: document.getElementById('panel-gift-slot'),
+    discountToggle: document.getElementById('panel-discount-toggle'),
+    discountSlot: document.getElementById('panel-discount-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -635,6 +637,154 @@
         });
       }
     }
+  });
+
+  // ── Descuentos: crear códigos restringidos a ciertos tratamientos y
+  // fechas, listar los existentes, desactivarlos y avisar por email ──
+  els.discountToggle.addEventListener('click', async () => {
+    if (els.discountSlot.innerHTML) { els.discountSlot.innerHTML = ''; return; }
+    els.discountSlot.innerHTML = '<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>';
+    const allServices = await loadImportServicesOnce();
+    const byCategory = {};
+    allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
+    const checkboxesHtml = Object.keys(byCategory).map((cat) => `
+      <div class="panel-discount-cat">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--ink-faint);margin:10px 0 4px;">${cat}</div>
+        ${byCategory[cat].map((s) => `
+          <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12.5px;">
+            <input type="checkbox" class="dc-service" value="${s.id}"> ${s.name}
+          </label>
+        `).join('')}
+      </div>
+    `).join('');
+
+    els.discountSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Crear código de descuento</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Código</label><input type="text" class="dc-code" placeholder="Ej. VERANO20" style="text-transform:uppercase;"></div>
+          <div class="panel-field"><label>Tipo</label>
+            <select class="dc-type">
+              <option value="percent">% de descuento</option>
+              <option value="amount">€ de descuento</option>
+            </select>
+          </div>
+          <div class="panel-field"><label>Valor</label><input type="number" step="0.01" class="dc-value" placeholder="Ej. 20"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Desde</label><input type="date" class="dc-from"></div>
+          <div class="panel-field"><label>Hasta</label><input type="date" class="dc-until"></div>
+          <div class="panel-field"><label>Nota (opcional)</label><input type="text" class="dc-note" placeholder="Ej. lanzamiento Instagram"></div>
+        </div>
+        <div class="panel-label" style="margin-top:14px;">¿A qué tratamientos aplica?</div>
+        <div class="panel-discount-services" style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:10px 14px;margin-bottom:14px;">
+          ${checkboxesHtml}
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-discount">Crear descuento</button>
+        <p class="panel-error" style="display:none;"></p>
+        <div class="panel-section-label" style="margin-top:26px;">Descuentos creados</div>
+        <div class="dc-list"></div>
+      </div>
+    `;
+
+    const slot = els.discountSlot;
+    const codeInput = slot.querySelector('.dc-code');
+    const typeSelect = slot.querySelector('.dc-type');
+    const valueInput = slot.querySelector('.dc-value');
+    const fromInput = slot.querySelector('.dc-from');
+    const untilInput = slot.querySelector('.dc-until');
+    const noteInput = slot.querySelector('.dc-note');
+    const errorEl = slot.querySelector('.panel-error');
+    const listEl = slot.querySelector('.dc-list');
+
+    slot.querySelector('.panel-confirm-discount').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      const ids = Array.from(slot.querySelectorAll('.dc-service:checked')).map((c) => c.value);
+      if (!codeInput.value.trim() || !ids.length || !valueInput.value || !fromInput.value || !untilInput.value) {
+        errorEl.textContent = 'Completa el código, al menos un tratamiento, el valor y las dos fechas.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/discount', {
+          method: 'POST',
+          body: JSON.stringify({
+            code: codeInput.value.trim(), serviceIds: ids, discountType: typeSelect.value,
+            discountValue: valueInput.value, validFrom: fromInput.value, validUntil: untilInput.value,
+            note: noteInput.value.trim(),
+          }),
+        });
+        codeInput.value = ''; valueInput.value = ''; fromInput.value = ''; untilInput.value = ''; noteInput.value = '';
+        slot.querySelectorAll('.dc-service:checked').forEach((c) => { c.checked = false; });
+        loadDiscountList();
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+      ev.target.disabled = false;
+    });
+
+    function renderDiscountRow(d) {
+      const el = document.createElement('div');
+      el.className = 'panel-agenda-row';
+      const valueLabel = d.discountType === 'percent' ? `${d.discountValue}%` : `${d.discountValue} €`;
+      const statusPill = !d.active
+        ? '<span class="panel-pill panel-pill-warn"><span class="dot"></span>Desactivado</span>'
+        : d.live
+          ? '<span class="panel-pill panel-pill-ok"><span class="dot"></span>Vigente</span>'
+          : '<span class="panel-pill panel-pill-warn"><span class="dot"></span>Fuera de fecha</span>';
+      el.innerHTML = `
+        <div>
+          <b>${d.code}</b> — ${valueLabel} en ${d.serviceNames}<br>
+          <span style="font-size:11.5px;color:var(--ink-soft);">${d.validFrom} → ${d.validUntil}${d.note ? ` · ${d.note}` : ''}${d.emailSentAt ? ' · ya enviado por email' : ''}</span>
+        </div>
+        <div class="actions">
+          ${statusPill}
+          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm dc-email-btn">📧 Enviar a clientas</button>
+          ${d.active ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm dc-deactivate-btn">Desactivar</button>' : ''}
+        </div>
+      `;
+      el.querySelector('.dc-email-btn').addEventListener('click', async (ev) => {
+        if (!confirm('¿Enviar este descuento por email a todas las clientas registradas?')) return;
+        ev.target.disabled = true;
+        try {
+          const data = await panelFetch('/panel/discount-email-blast', { method: 'POST', body: JSON.stringify({ discountId: d.discountId }) });
+          ev.target.textContent = `Enviando a ${data.recipients}…`;
+        } catch (e) {
+          alert(e.message);
+          ev.target.disabled = false;
+        }
+      });
+      const deactivateBtn = el.querySelector('.dc-deactivate-btn');
+      if (deactivateBtn) {
+        deactivateBtn.addEventListener('click', async () => {
+          deactivateBtn.disabled = true;
+          try {
+            await panelFetch('/panel/discount-deactivate', { method: 'POST', body: JSON.stringify({ discountId: d.discountId }) });
+            loadDiscountList();
+          } catch (e) {
+            alert(e.message);
+            deactivateBtn.disabled = false;
+          }
+        });
+      }
+      return el;
+    }
+
+    async function loadDiscountList() {
+      listEl.innerHTML = '<p class="panel-status">Cargando…</p>';
+      try {
+        const data = await panelFetch('/panel/discounts');
+        if (!data.discounts.length) { listEl.innerHTML = '<p class="panel-status">Aún no has creado ningún descuento.</p>'; return; }
+        listEl.innerHTML = '';
+        data.discounts.forEach((d) => listEl.appendChild(renderDiscountRow(d)));
+      } catch (e) {
+        listEl.innerHTML = `<p class="panel-error" style="display:block;">${e.message}</p>`;
+      }
+    }
+
+    loadDiscountList();
   });
 
   function renderClient(client) {

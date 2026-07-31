@@ -49,6 +49,13 @@
       en: 'I have read and accept that after the first no-show or cancellation with less than 48h notice I will be warned, and from the second time onward a session will be deducted from the package.',
     },
     bonoTermsRequired: { es: 'Tienes que aceptar las condiciones del bono para continuar.', en: 'You need to accept the package terms to continue.' },
+    discountPlaceholder: { es: 'Código de descuento', en: 'Discount code' },
+    discountApplyBtn: { es: 'Aplicar', en: 'Apply' },
+    discountChooseTreatmentFirst: { es: 'Elige primero un tratamiento.', en: 'Choose a treatment first.' },
+    discountNotForBono: { es: 'Los códigos de descuento no se pueden usar con bonos de sesiones.', en: 'Discount codes cannot be used with session packages.' },
+    discountApplied: { es: (n) => `Código aplicado: -${n.toFixed(2)} €`, en: (n) => `Code applied: -€${n.toFixed(2)}` },
+    discountLine: { es: 'Descuento', en: 'Discount' },
+    discountStale: { es: 'El código ya no aplica a tu selección actual — vuelve a introducirlo si quieres aplicarlo.', en: 'The code no longer applies to your current selection — enter it again if you want to apply it.' },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
 
@@ -63,6 +70,9 @@
     payChoice: 'deposit', // 'deposit' | 'full'
     wantsBono: false, // true si eligió el bono de varias sesiones en vez de una suelta
     bono: null, // { serviceId, serviceName, sessions, bonoPrice, singleSessionPrice }
+    discountCode: null, // código ya validado por el servidor
+    discountAmount: 0, // importe que se resta, calculado por el servidor
+    discountValidatedIds: [], // ids de tratamientos con los que se validó — si la selección cambia, el descuento deja de aplicar
   };
 
   // "extras" son modificadores de zona/tiempo del tratamiento principal
@@ -80,10 +90,29 @@
     const modifiers = state.wantsBono ? 0 : extrasDuration();
     return primary + modifiers + addonsDuration() + extraBonosDuration();
   }
+  function hasAnyBono() { return state.wantsBono || state.extraBonos.length > 0; }
+  // Los códigos de descuento solo aplican al tratamiento principal (si no es
+  // bono) y a los tratamientos sueltos añadidos — nunca a bonos de sesiones.
+  function discountEligibleServiceIds() {
+    const ids = [];
+    if (state.service && !state.wantsBono) ids.push(state.service.id);
+    state.extraServices.forEach((s) => ids.push(s.id));
+    return ids;
+  }
+  // El descuento se validó contra una selección concreta de tratamientos —
+  // si la selección cambia después (se añade/quita algo), deja de aplicar
+  // hasta que se vuelva a comprobar el código.
+  function discountIsStillValid() {
+    if (!state.discountCode) return false;
+    const current = discountEligibleServiceIds().slice().sort().join(',');
+    const validated = state.discountValidatedIds.slice().sort().join(',');
+    return current !== '' && current === validated;
+  }
+  function discountAmount() { return discountIsStillValid() ? state.discountAmount : 0; }
   function totalPrice() {
     const primary = state.wantsBono && state.bono ? state.bono.bonoPrice : (state.service ? state.service.price : 0);
     const modifiers = state.wantsBono ? 0 : extrasPrice();
-    return primary + modifiers + addonsPrice() + extraBonosPrice();
+    return primary + modifiers + addonsPrice() + extraBonosPrice() - discountAmount();
   }
   function selectedServiceIds() {
     return [state.service.id, ...state.extraServices.map((s) => s.id), ...state.extraBonos.map((b) => b.serviceId)];
@@ -121,6 +150,9 @@
     payOptions: document.getElementById('booking-pay-options'),
     submit: document.getElementById('booking-submit'),
     error: document.getElementById('booking-error'),
+    discountCodeInput: document.getElementById('booking-discount-code'),
+    discountApplyBtn: document.getElementById('booking-discount-apply'),
+    discountMsg: document.getElementById('booking-discount-msg'),
   };
 
   function showError(msg) {
@@ -169,6 +201,9 @@
     extraBonos.forEach((b) => {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div>`;
     });
+    if (discountIsStillValid()) {
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('discountLine')} (${state.discountCode})</span><span>-${state.discountAmount.toFixed(0)} €</span></div>`;
+    }
     html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong>${state.wantsBono ? ` · ${t('bonoSessionNote')(state.bono.sessions)}` : ''}</div>`;
     if (employee) {
       html += `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>`;
@@ -178,7 +213,61 @@
       html += `<div class="booking-summary-line">${dateLabel} ${t('at')} ${time}</div>`;
     }
     els.summary.innerHTML = html;
+
+    // Si había un código aplicado y la selección ha cambiado desde entonces,
+    // avisamos de que hay que volver a comprobarlo (en vez de aplicarlo mal).
+    if (state.discountCode && !discountIsStillValid()) {
+      state.discountCode = null;
+      state.discountAmount = 0;
+      els.discountMsg.textContent = t('discountStale');
+      els.discountMsg.className = 'booking-discount-msg error';
+      els.discountMsg.style.display = 'block';
+    }
   }
+
+  els.discountApplyBtn.addEventListener('click', async () => {
+    const code = els.discountCodeInput.value.trim();
+    els.discountMsg.style.display = 'none';
+    if (!code) return;
+    if (hasAnyBono()) {
+      els.discountMsg.textContent = t('discountNotForBono');
+      els.discountMsg.className = 'booking-discount-msg error';
+      els.discountMsg.style.display = 'block';
+      return;
+    }
+    const ids = discountEligibleServiceIds();
+    if (!ids.length) {
+      els.discountMsg.textContent = t('discountChooseTreatmentFirst');
+      els.discountMsg.className = 'booking-discount-msg error';
+      els.discountMsg.style.display = 'block';
+      return;
+    }
+    els.discountApplyBtn.disabled = true;
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/discount-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, serviceIds: ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('checkoutError'));
+      state.discountCode = code.toUpperCase();
+      state.discountAmount = data.amountOff;
+      state.discountValidatedIds = ids;
+      els.discountMsg.textContent = t('discountApplied')(data.amountOff);
+      els.discountMsg.className = 'booking-discount-msg success';
+      els.discountMsg.style.display = 'block';
+    } catch (e) {
+      state.discountCode = null;
+      state.discountAmount = 0;
+      state.discountValidatedIds = [];
+      els.discountMsg.textContent = e.message;
+      els.discountMsg.className = 'booking-discount-msg error';
+      els.discountMsg.style.display = 'block';
+    }
+    els.discountApplyBtn.disabled = false;
+    renderSummary();
+  });
 
   // ── PASO 1: cargar servicios ──
   let servicesByCategory = {};
@@ -790,6 +879,7 @@
           clientEmail: email || undefined,
           clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
+          discountCode: discountIsStillValid() ? state.discountCode : undefined,
           lang: LANG,
         };
 
