@@ -228,6 +228,7 @@
       card.innerHTML = `
         <strong>${s.name}</strong>
         <span class="booking-service-meta">${s.durationMinutes} min</span>
+        ${s.description ? `<span class="booking-service-desc">${s.description}</span>` : ''}
         <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
       `;
       card.addEventListener('click', () => selectService(s, card));

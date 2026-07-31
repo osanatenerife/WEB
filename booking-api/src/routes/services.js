@@ -11,7 +11,7 @@ const router = express.Router();
 // ?lang=en devuelve nombre y categoría en inglés (con fallback al español si faltara)
 router.get('/services', (req, res) => {
   const list = req.query.lang === 'en'
-    ? services.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category }))
+    ? services.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category, description: s.descriptionEn || s.description }))
     : services;
   res.json({ services: list });
 });
