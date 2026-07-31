@@ -22,7 +22,5 @@ module.exports = {
   // Cierres puntuales del centro (vacaciones, reformas...) que bloquean la
   // reserva online aunque esos días caigan dentro del horario semanal normal.
   // Formato "YYYY-MM-DD" (fechas locales del centro), ambos extremos incluidos.
-  closures: [
-    { start: '2026-08-01', end: '2026-08-10', reason: 'Cerrado por reforma' },
-  ],
+  closures: [],
 };
