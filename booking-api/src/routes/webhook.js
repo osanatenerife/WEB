@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift, appendSessionBono, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
+const { appendBooking, appendGift, appendSessionBono, getAllBookings, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
 const { earnRateFor, computeLoyaltyBalance, currentExpiryDate } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
@@ -173,6 +173,14 @@ async function handleBookingPayment(session) {
     extraServiceIds, termsAcceptedAt,
   } = session.metadata || {};
 
+  // Stripe puede reenviar el mismo evento más de una vez (reintentos si la
+  // respuesta tarda, reenvíos manuales...). Si esta reserva ya se registró,
+  // no volvemos a crear nada ni a mandar los emails otra vez.
+  if (bookingId && await findBookingById(bookingId)) {
+    console.log(`checkout.session.completed repetido para bookingId ${bookingId} — se omite (ya procesado).`);
+    return;
+  }
+
   // Si el cliente aplicó un cupón en Stripe, lo realmente cobrado
   // (session.amount_total) puede ser menor que el "amount" que calculamos
   // antes de pagar — usamos el importe real para no descuadrar las cuentas.
@@ -266,6 +274,18 @@ async function handleBonoSessionPayment(session) {
     clientName, clientPhone, clientEmail, clientBirthdate,
     totalPrice, amount, paymentType, lang, termsAcceptedAt,
   } = session.metadata || {};
+
+  // Stripe puede reenviar el mismo evento más de una vez. Aquí no hay un
+  // bookingId estable en el metadata (se genera uno nuevo por cada sesión
+  // creada más abajo), así que comprobamos por el payment_intent, que es
+  // único por cada pago realmente cobrado.
+  if (session.payment_intent) {
+    const already = (await getAllBookings()).some((b) => b.paymentIntentId === session.payment_intent);
+    if (already) {
+      console.log(`checkout.session.completed (bono) repetido para payment_intent ${session.payment_intent} — se omite.`);
+      return;
+    }
+  }
 
   // Combinación libre en la misma cita: uno o varios bonos (cada uno con su
   // propio bonoId/sesiones/precio) y, opcionalmente, tratamientos sueltos
