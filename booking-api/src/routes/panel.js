@@ -60,10 +60,19 @@ async function earnLoyalty({ booking, portionAmount, paidHow }) {
 }
 
 // ── Todas las rutas del panel exigen la clave interna ──
+function safeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  // Buffers de distinta longitud harían fallar timingSafeEqual — comparamos
+  // igualmente con la clave esperada para no filtrar la longitud tampoco.
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 router.use('/panel', (req, res, next) => {
   const expected = process.env.PANEL_SECRET;
   if (!expected) return res.status(500).json({ error: 'Falta configurar PANEL_SECRET en el servidor.' });
-  if (req.header('x-panel-key') !== expected) {
+  const provided = req.header('x-panel-key') || '';
+  if (!safeEqual(provided, expected)) {
     return res.status(401).json({ error: 'Clave incorrecta.' });
   }
   next();
@@ -503,6 +512,9 @@ router.post('/panel/close', async (req, res) => {
   // descuento directamente aquí, para no tener que restarlo a mano.
   const { bookingId, finalAmount, paidHow, remainderAmount2, paidHow2, redeemAmount } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
+  if (finalAmount !== undefined && finalAmount !== '' && !Number.isFinite(Number(finalAmount))) {
+    return res.status(400).json({ error: 'El importe total no es un número válido.' });
+  }
   try {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
@@ -593,6 +605,9 @@ router.post('/panel/close', async (req, res) => {
 router.post('/panel/product-sale', async (req, res) => {
   const { date, product, amount, paidHow, notes } = req.body || {};
   if (!date || !product || !amount) return res.status(400).json({ error: 'Faltan datos de la venta.' });
+  if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
+    return res.status(400).json({ error: 'El importe no es un número válido.' });
+  }
   try {
     await appendProductSale({
       saleId: crypto.randomUUID(),
@@ -817,10 +832,10 @@ router.get('/panel/report', async (req, res) => {
     return res.status(400).json({ error: 'Indica un año y un trimestre (1-4) válidos.' });
   }
   try {
-    const [bookings, sessionBonos, productSales, customQuotes] = await Promise.all([
-      getAllBookings(), getAllSessionBonos(), getAllProductSales(), getAllCustomQuotes(),
+    const [bookings, productSales, customQuotes] = await Promise.all([
+      getAllBookings(), getAllProductSales(), getAllCustomQuotes(),
     ]);
-    const workbook = await buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales, customQuotes });
+    const workbook = await buildQuarterlyReportWorkbook({ year, quarter, bookings, productSales, customQuotes });
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="Osana_Informe_Q${quarter}_${year}.xlsx"`);

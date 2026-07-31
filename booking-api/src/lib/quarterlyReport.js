@@ -40,7 +40,7 @@ function normalizePaidHow(paidHow) {
 }
 
 // Construye, por mes, un mapa día → { laser, corporal, facial, cejas, venta, efectivo, tarjeta, bizum }
-function buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, productSales, customQuotes }) {
+function buildMonthlyAggregates({ year, quarter, bookings, productSales, customQuotes }) {
   const months = monthsForQuarter(quarter);
   const byMonth = {};
   months.forEach((m) => { byMonth[m] = {}; });
@@ -92,16 +92,12 @@ function buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, product
     }
   });
 
-  // 2) Resto de un bono pagado en el centro (importe y fecha de creación del bono como aproximación,
-  //    ya que no se guarda la fecha exacta en la que se cobró el resto)
-  (sessionBonos || []).forEach((bo) => {
-    const remainingAmount = Number(bo.remainingAmount) || 0;
-    if (remainingAmount <= 0 || !bo.remainingPaidHow) return;
-    const category = accountingCategoryFor(bo.serviceId);
-    const dateStr = String(bo.createdAt || '').slice(0, 10);
-    if (!dateStr) return;
-    addRevenue(dateStr, category, remainingAmount, bo.remainingPaidHow);
-  });
+  // (Antes había un paso 2 que volvía a sumar bo.remainingAmount por cada
+  // bono con remainingPaidHow relleno — pero remainingPaidHow SOLO se
+  // rellena en /panel/close al cerrar la sesión 1 del bono, exactamente el
+  // mismo momento en que el paso 1 ya suma ese mismo resto vía
+  // finalAmount/remainderPaidHow de la reserva. Ese paso 2 duplicaba esos
+  // ingresos — se ha quitado.)
 
   // 3) Ventas de producto sueltas
   (productSales || []).forEach((s) => {
@@ -180,12 +176,12 @@ function writeMonthSheet(workbook, { year, monthIndex0, aggregates }) {
   sheet.views = [{ state: 'frozen', ySplit: 5 }];
 }
 
-async function buildQuarterlyReportWorkbook({ year, quarter, bookings, sessionBonos, productSales, customQuotes }) {
+async function buildQuarterlyReportWorkbook({ year, quarter, bookings, productSales, customQuotes }) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = 'Osana — informe automático';
   workbook.created = new Date();
 
-  const byMonth = buildMonthlyAggregates({ year, quarter, bookings, sessionBonos, productSales, customQuotes });
+  const byMonth = buildMonthlyAggregates({ year, quarter, bookings, productSales, customQuotes });
   monthsForQuarter(quarter).forEach((monthIndex0) => {
     writeMonthSheet(workbook, { year, monthIndex0, aggregates: byMonth[monthIndex0] });
   });

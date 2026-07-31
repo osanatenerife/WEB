@@ -49,7 +49,9 @@ function computeDiscountAmount(discount, priceableItems) {
   const matchingSum = matching.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
   if (!matchingSum) return 0;
   if (discount.discountType === 'percent') {
-    return round2(matchingSum * (Number(discount.discountValue) / 100));
+    // Nunca más del 100%, aunque el dato guardado esté mal introducido.
+    const pct = Math.min(100, Math.max(0, Number(discount.discountValue) || 0));
+    return round2(matchingSum * (pct / 100));
   }
   // Importe fijo: nunca más que la suma de lo que realmente aplica
   return Math.min(round2(Number(discount.discountValue) || 0), matchingSum);
