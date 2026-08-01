@@ -761,3 +761,7 @@ router.post('/webhook/stripe', async (req, res) => {
 });
 
 module.exports = router;
+// checkout.js reutiliza esta función directamente para confirmar al
+// instante las reservas totalmente gratuitas (importe 0), sin pasar por
+// Stripe — ver checkout.js para el porqué.
+module.exports.handleBookingPayment = handleBookingPayment;

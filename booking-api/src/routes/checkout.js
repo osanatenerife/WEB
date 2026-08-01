@@ -10,6 +10,7 @@ const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
 const { getAllDiscounts } = require('../lib/sheets');
 const { isDiscountLive, findDiscountByCode, computeDiscountAmount } = require('../lib/discounts');
+const { handleBookingPayment } = require('./webhook');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -135,8 +136,34 @@ router.post('/checkout', async (req, res) => {
     });
     eventId = event.id;
 
-    // 3) Crear la sesión de pago de Stripe
     const origin = resolveOrigin(req);
+
+    // Reservas totalmente gratuitas (precio 0 como la valoración de
+    // micropigmentación, o un cupón que deje el importe a pagar en 0):
+    // Stripe no pide tarjeta en estos casos y a veces no deja un rastro
+    // fiable con el que el webhook pueda confirmar la reserva después —
+    // así que la confirmamos aquí mismo, directamente, reutilizando la
+    // misma lógica que usa el webhook para el resto de reservas (guarda en
+    // la Sheet, marca el evento como confirmado y manda los emails).
+    if (amount <= 0) {
+      await handleBookingPayment({
+        metadata: {
+          bookingId, calendarId: employee.calendarId, eventId, serviceId, employeeId,
+          extraServiceIds: additionalServices.map((s) => s.id).join(','),
+          date, time, durationMinutes: String(duration),
+          clientName, clientPhone, clientEmail: clientEmail || '', clientBirthdate: clientBirthdate || '',
+          price: String(price), amount: String(amount), paymentType: type,
+          lang: lang === 'en' ? 'en' : 'es',
+          termsAcceptedAt: new Date().toISOString(),
+        },
+        amount_total: 0,
+        total_details: null,
+        payment_intent: null,
+      });
+      return res.json({ url: `${origin}${reservaPath}?estado=ok` });
+    }
+
+    // 3) Crear la sesión de pago de Stripe
     const session = await createCheckoutSession({
       amountEuros: amount,
       description: lang === 'en' ? `${customerServiceName} — Osana booking/payment` : `${summaryTitle} — reserva/pago Osana`,
