@@ -1,0 +1,5 @@
+# Redirecciones 301 de URLs antiguas (WordPress) que Google todavía tiene indexadas,
+# para que no den error 404 y Google actualice el índice más rápido.
+Redirect 301 /services/ /en/servicios.html
+Redirect 301 /contact/ /en/contacto.html
+Redirect 301 /tienda/ /servicios.html
