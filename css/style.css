@@ -411,7 +411,7 @@ nav#main-nav {
 .svc-head:hover { filter: brightness(1.08); }
 .svc-n { font-size: 11px; font-weight: 400; letter-spacing: 0.18em; color: var(--gold); }
 .svc-name { font-size: 16px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cream2); }
-.svc-sub { font-size: 10px; font-weight: 300; letter-spacing: 0.04em; color: rgba(240,235,226,0.55); margin-top: 4px; }
+.svc-sub { font-size: 13px; font-weight: 300; letter-spacing: 0.04em; color: rgba(240,235,226,0.55); margin-top: 4px; }
 .svc-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; font-weight: 400; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(240,235,226,0.75); margin-bottom: 5px; }
 .svc-badge::before { content: '✦'; font-size: 8px; }
 .svc-right { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
@@ -799,7 +799,7 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
   .services { padding: 30px 0 60px; }
   .svc-head { padding: 16px 20px !important; grid-template-columns: 36px 1fr auto !important; gap: 10px !important; }
   .svc-name { font-size: 13px !important; }
-  .svc-sub { font-size: 9px !important; }
+  .svc-sub { font-size: 12px !important; }
   .svc-desde-price { font-size: 18px !important; }
   .svc-inner { padding: 24px 20px 28px !important; }
 
