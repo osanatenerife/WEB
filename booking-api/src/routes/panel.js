@@ -328,9 +328,9 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
 
     // Otros tratamientos añadidos a la misma cita (p.ej. uno ya pagado y otro
-    // pendiente) — solo tiene sentido fuera del flujo de bono, que tiene su
-    // propio precio aparte.
-    const additionalServices = !isBono && Array.isArray(extraServiceIds)
+    // pendiente) — también puede haberlos junto a una sesión de bono (el
+    // bono en sí tiene su propio precio aparte, ver más abajo).
+    const additionalServices = Array.isArray(extraServiceIds)
       ? extraServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean)
       : [];
     const combinedServiceId = [serviceId, ...additionalServices.map((s) => s.id)].join(',');
@@ -398,9 +398,15 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       });
 
       sessionNumberOut = current;
-      serviceName = `${service.name} (${current}/${total})`;
-      bookingPrice = '';
-      bookingAmountPaid = 0;
+      // El precio del bono en sí ya queda registrado arriba (en su propia
+      // fila de SessionBono) — lo que se guarda aquí, en la reserva, es
+      // solo el precio de los tratamientos EXTRA añadidos a esta sesión
+      // (si los hay), para no duplicar el importe del bono.
+      const bonoLabel = `${service.name} (${current}/${total})`;
+      serviceName = [bonoLabel, ...additionalServices.map((s) => s.name)].join(' + ');
+      const extrasDefaultPrice = additionalServices.reduce((sum, s) => sum + s.price, 0);
+      bookingPrice = price !== undefined && price !== '' ? Number(price) : (extrasDefaultPrice || '');
+      bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
       paymentType = 'bono';
     }
 

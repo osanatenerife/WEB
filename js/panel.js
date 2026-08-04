@@ -368,8 +368,8 @@
           <div class="panel-field"><label>Ya pagado del bono (€)</label><input type="number" step="0.01" class="pi-bono-paid"></div>
         </div>
         <div class="panel-field-row pi-normal-fields">
-          <div class="panel-field"><label>Precio (€)</label><input type="number" step="0.01" class="pi-price"></div>
-          <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="pi-paid" value="0"></div>
+          <div class="panel-field"><label class="pi-price-label">Precio (€)</label><input type="number" step="0.01" class="pi-price"></div>
+          <div class="panel-field"><label class="pi-paid-label">Ya pagado (€)</label><input type="number" step="0.01" class="pi-paid" value="0"></div>
           <div class="panel-field"><label>Notas (opcional)</label><input type="text" class="pi-notes"></div>
         </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-import">Buscar evento y dar de alta</button>
@@ -400,18 +400,25 @@
     const resultEl = slot.querySelector('.pi-result');
     const extraServicesContainer = slot.querySelector('.pi-extra-services');
     const addExtraBtn = slot.querySelector('.pi-add-extra');
+    const priceLabel = slot.querySelector('.pi-price-label');
+    const paidLabel = slot.querySelector('.pi-paid-label');
 
     // Varios tratamientos en la misma cita manual (p.ej. uno ya pagado y
     // otro pendiente): cada fila extra es un tratamiento más que se suma
     // al principal — el precio sugerido se recalcula con la suma de todos,
-    // pero sigue siendo editable a mano. Solo tiene sentido fuera del modo
-    // "sesión de bono" (el bono ya tiene su propio precio aparte).
+    // pero sigue siendo editable a mano. Funciona también con una sesión de
+    // bono: en ese caso el precio del bono en sí va aparte (en sus propios
+    // campos), y "Precio"/"Ya pagado" pasan a referirse solo a los
+    // tratamientos añadidos junto a esa sesión.
     function extraServiceSelects() {
       return Array.from(extraServicesContainer.querySelectorAll('.pi-extra-service'));
     }
     function recomputeSuggestedPrice() {
-      const primary = allServices.find((s) => s.id === serviceSelect.value);
-      let sum = primary ? Number(primary.price) : 0;
+      let sum = 0;
+      if (!isBonoCheck.checked) {
+        const primary = allServices.find((s) => s.id === serviceSelect.value);
+        if (primary) sum += Number(primary.price);
+      }
       extraServiceSelects().forEach((sel) => {
         const svc = allServices.find((s) => s.id === sel.value);
         if (svc) sum += Number(svc.price);
@@ -438,12 +445,9 @@
 
     isBonoCheck.addEventListener('change', () => {
       bonoFieldsRow.style.display = isBonoCheck.checked ? 'flex' : 'none';
-      normalFieldsRow.style.display = isBonoCheck.checked ? 'none' : 'flex';
-      addExtraBtn.style.display = isBonoCheck.checked ? 'none' : 'inline-block';
-      if (isBonoCheck.checked) {
-        extraServicesContainer.innerHTML = '';
-        recomputeSuggestedPrice();
-      }
+      priceLabel.textContent = isBonoCheck.checked ? 'Precio de lo añadido a la sesión (€)' : 'Precio (€)';
+      paidLabel.textContent = isBonoCheck.checked ? 'Ya pagado de lo añadido (€)' : 'Ya pagado (€)';
+      recomputeSuggestedPrice();
     });
 
     serviceSelect.addEventListener('change', async () => {
@@ -487,7 +491,7 @@
             isBono: isBonoCheck.checked,
             sessionNumber: sessionNumberInput.value, totalSessions: totalSessionsInput.value,
             bonoTotalPrice: bonoPriceInput.value, bonoAmountPaid: bonoPaidInput.value,
-            extraServiceIds: isBonoCheck.checked ? [] : extraServiceSelects().map((s) => s.value).filter(Boolean),
+            extraServiceIds: extraServiceSelects().map((s) => s.value).filter(Boolean),
           }),
         });
         resultEl.textContent = isBonoCheck.checked
@@ -503,7 +507,8 @@
         isBonoCheck.checked = false;
         bonoFieldsRow.style.display = 'none';
         normalFieldsRow.style.display = 'flex';
-        addExtraBtn.style.display = 'inline-block';
+        priceLabel.textContent = 'Precio (€)';
+        paidLabel.textContent = 'Ya pagado (€)';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
