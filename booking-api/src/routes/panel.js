@@ -311,7 +311,7 @@ const LEGACY_BONO_VALIDITY_MONTHS = 12;
 router.post('/panel/import-legacy-booking', async (req, res) => {
   const {
     name, phone, email, birthdate, serviceId, employeeId, date, time,
-    price, amountPaid, notes,
+    price, amountPaid, notes, extraServiceIds,
     // Campos solo para sesiones de un bono ya vendido (isBono=true):
     isBono, totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid, bonoPurchaseDate,
   } = req.body || {};
@@ -327,9 +327,18 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     if (!service) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
     if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
 
+    // Otros tratamientos añadidos a la misma cita (p.ej. uno ya pagado y otro
+    // pendiente) — solo tiene sentido fuera del flujo de bono, que tiene su
+    // propio precio aparte.
+    const additionalServices = !isBono && Array.isArray(extraServiceIds)
+      ? extraServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean)
+      : [];
+    const combinedServiceId = [serviceId, ...additionalServices.map((s) => s.id)].join(',');
+    const combinedServiceName = [service.name, ...additionalServices.map((s) => s.name)].join(' + ');
+
     const timeNorm = time.length === 5 ? time : `${time}:00`;
     const startISO = localToISO(date, timeNorm, hours.timezone);
-    const durationMinutes = service.durationMinutes;
+    const durationMinutes = service.durationMinutes + additionalServices.reduce((sum, s) => sum + s.durationMinutes, 0);
 
     const dayStartISO = localToISO(date, '00:00', hours.timezone);
     const dayEndISO = localToISO(date, '23:59', hours.timezone);
@@ -351,8 +360,10 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
 
     let bonoId = '';
     let sessionNumberOut = '';
-    let serviceName = service.name;
-    let bookingPrice = price !== undefined && price !== '' ? Number(price) : service.price;
+    let serviceIdOut = combinedServiceId;
+    let serviceName = combinedServiceName;
+    const defaultPrice = service.price + additionalServices.reduce((sum, s) => sum + s.price, 0);
+    let bookingPrice = price !== undefined && price !== '' ? Number(price) : defaultPrice;
     let bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
     let paymentType = '';
 
@@ -399,7 +410,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       createdAt: new Date().toISOString(),
       status: 'confirmed',
       name, phone, email,
-      serviceId, serviceName,
+      serviceId: serviceIdOut, serviceName,
       employeeId, employeeName: employee.name,
       calendarId: employee.calendarId,
       eventId: best.id,

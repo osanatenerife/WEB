@@ -351,6 +351,8 @@
           </div>
           <div class="panel-field"><label>Profesional</label><select class="pi-employee"><option value="">Elige un tratamiento primero…</option></select></div>
         </div>
+        <div class="pi-extra-services"></div>
+        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pi-add-extra" style="margin-bottom:10px;">+ Añadir otro tratamiento a la misma cita</button>
         <div class="panel-field-row">
           <div class="panel-field"><label>Fecha</label><input type="date" class="pi-date"></div>
           <div class="panel-field"><label>Hora</label><input type="time" class="pi-time"></div>
@@ -396,15 +398,57 @@
     const notesInput = slot.querySelector('.pi-notes');
     const errorEl = slot.querySelector('.panel-error');
     const resultEl = slot.querySelector('.pi-result');
+    const extraServicesContainer = slot.querySelector('.pi-extra-services');
+    const addExtraBtn = slot.querySelector('.pi-add-extra');
+
+    // Varios tratamientos en la misma cita manual (p.ej. uno ya pagado y
+    // otro pendiente): cada fila extra es un tratamiento más que se suma
+    // al principal — el precio sugerido se recalcula con la suma de todos,
+    // pero sigue siendo editable a mano. Solo tiene sentido fuera del modo
+    // "sesión de bono" (el bono ya tiene su propio precio aparte).
+    function extraServiceSelects() {
+      return Array.from(extraServicesContainer.querySelectorAll('.pi-extra-service'));
+    }
+    function recomputeSuggestedPrice() {
+      const primary = allServices.find((s) => s.id === serviceSelect.value);
+      let sum = primary ? Number(primary.price) : 0;
+      extraServiceSelects().forEach((sel) => {
+        const svc = allServices.find((s) => s.id === sel.value);
+        if (svc) sum += Number(svc.price);
+      });
+      priceInput.value = sum || '';
+    }
+    function addExtraServiceRow() {
+      const row = document.createElement('div');
+      row.className = 'panel-field-row pi-extra-service-row';
+      row.innerHTML = `
+        <div class="panel-field" style="flex:1;"><label>Tratamiento añadido</label>
+          <select class="pi-extra-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select>
+        </div>
+        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pi-remove-extra" style="align-self:flex-end;margin-bottom:2px;">Quitar</button>
+      `;
+      row.querySelector('.pi-extra-service').addEventListener('change', recomputeSuggestedPrice);
+      row.querySelector('.pi-remove-extra').addEventListener('click', () => {
+        row.remove();
+        recomputeSuggestedPrice();
+      });
+      extraServicesContainer.appendChild(row);
+    }
+    addExtraBtn.addEventListener('click', addExtraServiceRow);
 
     isBonoCheck.addEventListener('change', () => {
       bonoFieldsRow.style.display = isBonoCheck.checked ? 'flex' : 'none';
       normalFieldsRow.style.display = isBonoCheck.checked ? 'none' : 'flex';
+      addExtraBtn.style.display = isBonoCheck.checked ? 'none' : 'inline-block';
+      if (isBonoCheck.checked) {
+        extraServicesContainer.innerHTML = '';
+        recomputeSuggestedPrice();
+      }
     });
 
     serviceSelect.addEventListener('change', async () => {
       const svc = allServices.find((s) => s.id === serviceSelect.value);
-      priceInput.value = svc ? svc.price : '';
+      recomputeSuggestedPrice();
       if (svc && !bonoPriceInput.value) bonoPriceInput.placeholder = totalSessionsInput.value ? (svc.price * Number(totalSessionsInput.value)).toFixed(2) : '';
       employeeSelect.innerHTML = '<option value="">Cargando…</option>';
       if (!serviceSelect.value) {
@@ -443,6 +487,7 @@
             isBono: isBonoCheck.checked,
             sessionNumber: sessionNumberInput.value, totalSessions: totalSessionsInput.value,
             bonoTotalPrice: bonoPriceInput.value, bonoAmountPaid: bonoPaidInput.value,
+            extraServiceIds: isBonoCheck.checked ? [] : extraServiceSelects().map((s) => s.value).filter(Boolean),
           }),
         });
         resultEl.textContent = isBonoCheck.checked
@@ -454,9 +499,11 @@
         paidInput.value = '0';
         serviceSelect.value = '';
         employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
+        extraServicesContainer.innerHTML = '';
         isBonoCheck.checked = false;
         bonoFieldsRow.style.display = 'none';
         normalFieldsRow.style.display = 'flex';
+        addExtraBtn.style.display = 'inline-block';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
