@@ -11,7 +11,7 @@ const {
   appendDiscount, getAllDiscounts, updateDiscountRow,
 } = require('../lib/sheets');
 const { isDiscountLive } = require('../lib/discounts');
-const { createBookingEvent, updateEvent, getEvent, listEvents } = require('../lib/googleCalendar');
+const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent } = require('../lib/googleCalendar');
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
@@ -831,6 +831,43 @@ router.post('/panel/no-show', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo marcar la ausencia.' });
+  }
+});
+
+// ── Eliminar una cita por error (duplicada, mal introducida...): libera el
+// hueco del calendario y la marca como anulada — no la borra físicamente de
+// la Sheet (para conservar el rastro), pero deja de contar como facturación
+// y desaparece de las acciones normales. OJO: esto NO tramita ningún
+// reembolso en Stripe si la cita se había pagado de verdad online — eso
+// sigue haciéndose a mano desde el Dashboard de Stripe si hace falta.
+router.post('/panel/delete-booking', async (req, res) => {
+  const { bookingId } = req.body || {};
+  if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
+  try {
+    const booking = await findBookingById(bookingId);
+    if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+    if (booking.status === 'cancelled_refunded') {
+      return res.json({ ok: true, alreadyDeleted: true });
+    }
+
+    if (booking.calendarId && booking.eventId) {
+      try {
+        await deleteEvent(booking.calendarId, booking.eventId);
+      } catch (calErr) {
+        console.error('No se pudo borrar el evento del calendario al eliminar la cita:', calErr.message);
+      }
+    }
+
+    const deletedNote = `Eliminada manualmente desde el panel el ${new Date().toISOString().slice(0, 10)}.`;
+    await updateBookingRow(booking._sheetRow, booking, {
+      status: 'cancelled_refunded',
+      notes: booking.notes ? `${booking.notes}\n${deletedNote}` : deletedNote,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo eliminar la cita.' });
   }
 });
 

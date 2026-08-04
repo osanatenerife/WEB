@@ -1119,6 +1119,7 @@
       <div class="panel-appt-top">
         <div class="panel-appt-date">${fmtDateParts(b.date).month}<span class="day">${fmtDateParts(b.date).day}</span></div>
         <div class="panel-appt-body">
+          <div class="client">${escapeHtml(client && client.name ? client.name : '')}${client && client.phone ? ` · ${escapeHtml(client.phone)}` : ''}</div>
           <div class="svc">${escapeHtml(b.serviceName)}</div>
           <div class="with">Con ${escapeHtml(b.employeeName) || '—'} · ${b.time}</div>
         </div>
@@ -1134,6 +1135,7 @@
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
         ${b.status === 'confirmed' && b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-close-toggle">💶 Cerrar cita</button>' : ''}
+        ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">🗑 Eliminar</button>' : ''}
       </div>
       <div class="panel-reschedule-slot"></div>
       <div class="panel-extend-slot"></div>
@@ -1172,6 +1174,21 @@
         } catch (e) {
           alert(e.message);
           noShowBtn.disabled = false;
+        }
+      });
+    }
+
+    const deleteBtn = el.querySelector('.panel-delete-btn');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', async () => {
+        if (!confirm(`¿Eliminar la cita de ${b.serviceName} el ${b.date} (${client && client.name ? client.name : ''})? Libera el hueco del calendario y deja de contar como facturación. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`)) return;
+        deleteBtn.disabled = true;
+        try {
+          await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
+          doSearch();
+        } catch (e) {
+          alert(e.message);
+          deleteBtn.disabled = false;
         }
       });
     }
