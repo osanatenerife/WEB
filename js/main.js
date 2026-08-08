@@ -51,3 +51,20 @@ function toggleSvc(id) {
     head.classList.add('open');
   }
 }
+
+// ── Aviso a Google Analytics cada vez que alguien pulsa un enlace de
+// contacto directo (WhatsApp, teléfono o email) en cualquier página — así
+// se puede ver en Analytics cuántas visitas acaban "contactando" de verdad,
+// no solo cuántas visitan la web. No hace falta tocar cada página: se
+// detecta por el propio enlace (href), esté donde esté.
+document.addEventListener('click', (e) => {
+  if (typeof gtag !== 'function') return;
+  const link = e.target.closest('a[href]');
+  if (!link) return;
+  const href = link.getAttribute('href') || '';
+  let method = null;
+  if (href.startsWith('https://wa.me') || href.includes('api.whatsapp.com')) method = 'whatsapp';
+  else if (href.startsWith('tel:')) method = 'telefono';
+  else if (href.startsWith('mailto:')) method = 'email';
+  if (method) gtag('event', 'contact_click', { method });
+});
