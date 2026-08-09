@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.get('/availability', async (req, res) => {
   try {
-    const { serviceId, employeeId, date, extraIds, extraServiceIds } = req.query;
+    const { serviceId, employeeId, date, extraIds, extraServiceIds, extraMinutes } = req.query;
     if (!serviceId || !employeeId || !date) {
       return res.status(400).json({ error: 'Faltan parámetros: serviceId, employeeId, date' });
     }
@@ -26,7 +26,12 @@ router.get('/availability', async (req, res) => {
       return res.json({ slots: [] });
     }
 
-    const duration = totalDuration(service, resolveExtras(parseExtraIds(extraIds)), resolveExtraServices(parseExtraIds(extraServiceIds)));
+    // extraMinutes: minutos de más que se sabe de antemano que va a llevar
+    // esta sesión en concreto (p.ej. sesiones de láser avanzadas que cada
+    // vez tardan más) — para que el hueco reservado sea el real, no el
+    // estándar del tratamiento.
+    const duration = totalDuration(service, resolveExtras(parseExtraIds(extraIds)), resolveExtraServices(parseExtraIds(extraServiceIds)))
+      + Math.max(0, Number(extraMinutes) || 0);
     const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
     res.json({ slots });
   } catch (err) {

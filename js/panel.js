@@ -1102,12 +1102,12 @@
     `;
     const bookBtn = el.querySelector('.panel-book-session');
     if (bookBtn) {
-      bookBtn.addEventListener('click', () => toggleBookSessionForm(el, bono, bookBtn));
+      bookBtn.addEventListener('click', () => toggleBookSessionForm(el, bono, bookBtn, client));
     }
     return el;
   }
 
-  async function toggleBookSessionForm(bonoEl, bono, btn) {
+  async function toggleBookSessionForm(bonoEl, bono, btn, client) {
     const slot = bonoEl.querySelector('.panel-new-appt-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
 
@@ -1116,6 +1116,32 @@
       const data = await panelFetch(`/employees?serviceIds=${encodeURIComponent(bono.serviceId || '')}`);
       employees = data.employees || [];
     } catch (e) { /* seguimos con la lista vacía si falla */ }
+
+    // Sugerimos como "minutos extra" por defecto los mismos que se usaron
+    // en la última sesión de este mismo bono (p.ej. sesiones avanzadas de
+    // láser que cada vez llevan más tiempo) — así no hay que recordarlo ni
+    // recalcularlo cada vez, solo ajustarlo si hiciera falta.
+    let defaultExtraMinutes = '';
+    let allServices = [];
+    try {
+      allServices = await loadImportServicesOnce();
+      const baseService = allServices.find((s) => s.id === bono.serviceId);
+      const previousSessions = (client && client.bookings || [])
+        .filter((b) => b.bonoId === bono.bonoId && Number(b.durationMinutes) > 0)
+        .sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`));
+      if (baseService && previousSessions.length) {
+        const extra = Number(previousSessions[0].durationMinutes) - baseService.durationMinutes;
+        if (extra > 0) defaultExtraMinutes = extra;
+      }
+    } catch (e) { /* si falla, se deja vacío y se pone a mano */ }
+
+    const byCategory = {};
+    allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
+    const treatmentOverrideOptions = Object.keys(byCategory).map((cat) => `
+      <optgroup label="${cat}">
+        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
+      </optgroup>
+    `).join('');
 
     slot.innerHTML = `
       <div class="panel-new-appt">
@@ -1127,6 +1153,16 @@
           <div class="panel-field"><label>Fecha</label><input type="date" class="pf-date"></div>
           <div class="panel-field"><label>Hora</label><select class="pf-time"><option>Elige fecha primero</option></select></div>
         </div>
+        <div class="panel-field-row">
+          <div class="panel-field" style="flex:2;"><label>Tratamiento de hoy (si usan el bono para otra zona/tratamiento del mismo precio)</label>
+            <select class="pf-treatment-override"><option value="">${escapeHtml(bono.serviceName)} (el del bono)</option>${treatmentOverrideOptions}</select>
+          </div>
+          <div class="panel-field"><label>Nº de sesiones que consume esta visita</label><input type="number" min="1" max="${bono.sessionsRemaining}" step="1" class="pf-sessions-used" value="1"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Minutos extra (opcional)${defaultExtraMinutes ? ' — igual que la última vez' : ''}</label><input type="number" min="0" step="5" class="pf-extra-minutes" placeholder="Ej. 15" value="${defaultExtraMinutes}"></div>
+          <div class="panel-field" style="flex:1;"><label>Notas (potencia, zona tratada, observaciones…)</label><textarea class="pf-notes" placeholder="Ej. potencia 18, zona íntimo completo"></textarea></div>
+        </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-session">Confirmar cita</button>
         <p class="panel-error" style="display:none;"></p>
       </div>
@@ -1135,13 +1171,19 @@
     const dateInput = slot.querySelector('.pf-date');
     const timeSelect = slot.querySelector('.pf-time');
     const employeeSelect = slot.querySelector('.pf-employee');
+    const treatmentOverrideSelect = slot.querySelector('.pf-treatment-override');
+    const sessionsUsedInput = slot.querySelector('.pf-sessions-used');
+    const extraMinutesInput = slot.querySelector('.pf-extra-minutes');
+    const notesInput = slot.querySelector('.pf-notes');
     const errorEl = slot.querySelector('.panel-error');
 
     async function loadTimes() {
       if (!dateInput.value || !employeeSelect.value) return;
       timeSelect.innerHTML = '<option>Cargando…</option>';
       try {
-        const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(bono.serviceId || '')}`);
+        const extra = Number(extraMinutesInput.value) || 0;
+        const svcId = treatmentOverrideSelect.value || bono.serviceId || '';
+        const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(svcId)}&extraMinutes=${extra}`);
         const slots = data.slots || [];
         timeSelect.innerHTML = slots.length
           ? slots.map((t) => `<option value="${t}">${t}</option>`).join('')
@@ -1152,6 +1194,8 @@
     }
     dateInput.addEventListener('change', loadTimes);
     employeeSelect.addEventListener('change', loadTimes);
+    extraMinutesInput.addEventListener('change', loadTimes);
+    treatmentOverrideSelect.addEventListener('change', loadTimes);
 
     slot.querySelector('.panel-confirm-session').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
@@ -1164,7 +1208,11 @@
       try {
         await panelFetch('/panel/book-session', {
           method: 'POST',
-          body: JSON.stringify({ bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value, time: timeSelect.value }),
+          body: JSON.stringify({
+            bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value, time: timeSelect.value,
+            sessionsToUse: sessionsUsedInput.value, extraMinutes: extraMinutesInput.value, notes: notesInput.value.trim(),
+            treatmentOverrideId: treatmentOverrideSelect.value || undefined,
+          }),
         });
         doSearch(); // recarga con los datos actualizados
       } catch (e) {

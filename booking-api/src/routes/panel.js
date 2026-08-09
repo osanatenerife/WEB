@@ -253,39 +253,63 @@ router.post('/panel/edit-booking', async (req, res) => {
 });
 
 // ── Agendar la siguiente sesión de un bono (sin cobrar, ya está pagada) ──
+// sessionsToUse permite consumir más de una sesión de golpe en la misma
+// visita (p.ej. dos zonas distintas del mismo bono el mismo día).
+// extraMinutes y notes se guardan también aquí mismo — así, en el mismo
+// paso de agendar la próxima cita, queda registrada la duración real y la
+// potencia/observaciones de esta sesión, sin tener que entrar luego a
+// otra pantalla a añadirlas.
 router.post('/panel/book-session', async (req, res) => {
-  const { bonoId, employeeId, date, time } = req.body || {};
+  const { bonoId, employeeId, date, time, sessionsToUse, extraMinutes, notes, treatmentOverrideId } = req.body || {};
   if (!bonoId || !employeeId || !date || !time) {
     return res.status(400).json({ error: 'Faltan datos para agendar la sesión.' });
   }
+  const useCount = Math.max(1, Math.round(Number(sessionsToUse) || 1));
+  const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
   try {
     const bono = await findSessionBonoById(bonoId);
     if (!bono) return res.status(404).json({ error: 'Bono no encontrado.' });
     const remaining = Number(bono.sessionsRemaining) || 0;
     if (remaining <= 0) return res.status(409).json({ error: 'Este bono no tiene sesiones restantes.' });
+    if (useCount > remaining) {
+      return res.status(400).json({ error: `Solo quedan ${remaining} sesión(es) en este bono — no se pueden consumir ${useCount}.` });
+    }
 
     const service = services.find((s) => s.id === bono.serviceId);
     const employee = employees.find((e) => e.id === employeeId);
     if (!service) return res.status(404).json({ error: 'Tratamiento del bono no encontrado.' });
     if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
 
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, service.durationMinutes, employee.weekly);
+    // Si esta visita en concreto se usa para otra zona/tratamiento del
+    // mismo bono (mismo precio, distinto nombre) — la sesión se sigue
+    // descontando del MISMO bono, solo cambia lo que se muestra/registra.
+    const displayService = treatmentOverrideId ? services.find((s) => s.id === treatmentOverrideId) : null;
+    const displayName = displayService ? displayService.name : bono.serviceName;
+
+    const durationMinutes = (displayService || service).durationMinutes + extra;
+    const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly);
     if (!freeSlots.includes(time)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
 
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
-    const endISO = addMinutes(startISO, service.durationMinutes);
-    const sessionNumber = (Number(bono.sessionsUsed) || 0) + 1;
+    const endISO = addMinutes(startISO, durationMinutes);
+    const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
+    const toSession = fromSession + useCount - 1;
+    const sessionLabel = useCount > 1 ? `${fromSession}-${toSession}/${bono.totalSessions}` : `${fromSession}/${bono.totalSessions}`;
+
+    const description = [
+      `Cliente: ${bono.clientName}`,
+      `Teléfono: ${bono.clientPhone}`,
+      `Bono: ${bono.serviceName} — sesión ${sessionLabel}`,
+      displayService ? `Tratamiento de hoy: ${displayName}` : '',
+      'Ya pagada como parte del bono.',
+      notes ? `\n📝 Notas internas (solo equipo):\n${notes}` : '',
+    ].filter(Boolean).join('\n');
 
     const event = await createBookingEvent(employee.calendarId, {
-      summary: `✅ Bono (${sessionNumber}/${bono.totalSessions}) — ${bono.clientName}`,
-      description: [
-        `Cliente: ${bono.clientName}`,
-        `Teléfono: ${bono.clientPhone}`,
-        `Bono: ${bono.serviceName} — sesión ${sessionNumber} de ${bono.totalSessions}`,
-        'Ya pagada como parte del bono.',
-      ].join('\n'),
+      summary: `✅ Bono (${sessionLabel}) — ${displayName} — ${bono.clientName}`,
+      description,
       startISO,
       endISO,
       clientEmail: bono.clientEmail,
@@ -301,13 +325,13 @@ router.post('/panel/book-session', async (req, res) => {
       phone: bono.clientPhone,
       email: bono.clientEmail,
       serviceId: bono.serviceId,
-      serviceName: `${bono.serviceName} (${sessionNumber}/${bono.totalSessions})`,
+      serviceName: `${displayName} (${sessionLabel})`,
       employeeId,
       employeeName: employee.name,
       calendarId: employee.calendarId,
       eventId: event.id,
       date, time,
-      durationMinutes: service.durationMinutes,
+      durationMinutes,
       price: '',
       amountPaid: 0,
       paymentType: 'bono',
@@ -316,12 +340,13 @@ router.post('/panel/book-session', async (req, res) => {
       reminderSent: '',
       birthdate: '',
       bonoId,
-      sessionNumber,
+      sessionNumber: useCount > 1 ? sessionLabel : fromSession,
+      notes: notes || '',
     });
 
-    const sessionsRemaining = remaining - 1;
+    const sessionsRemaining = remaining - useCount;
     await updateSessionBonoRow(bono._sheetRow, bono, {
-      sessionsUsed: sessionNumber,
+      sessionsUsed: toSession,
       sessionsRemaining,
       status: sessionsRemaining <= 0 ? 'completed' : 'active',
     });
