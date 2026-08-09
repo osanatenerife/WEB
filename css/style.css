@@ -356,8 +356,8 @@ nav#main-nav {
 
 /* ══════════════════ KLARNA ══════════════════ */
 .klarna-strip {
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-  padding: 64px 24px; background: var(--cream); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  padding: 26px 24px; background: var(--cream); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   text-align: center;
 }
 .klarna-headline {
@@ -372,7 +372,7 @@ nav#main-nav {
 }
 .klarna-note { margin: 2px 0 0; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt-soft); }
 @media (max-width: 560px) {
-  .klarna-strip { padding: 48px 24px; }
+  .klarna-strip { padding: 20px 24px; }
 }
 
 /* ══════════════════ PROGRAMA DE FIDELIDAD ══════════════════ */
