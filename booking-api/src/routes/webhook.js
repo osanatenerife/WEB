@@ -381,6 +381,25 @@ async function handleBonoSessionPayment(session) {
     });
   }
 
+  // Si la compra entera se pagó al 100% online (bono(s) + sueltos, sin
+  // nada pendiente de cobrar en el centro), cada reserva creada se cierra
+  // sola y acumula sus puntos al momento — igual que para una reserva
+  // suelta pagada al completo. Si queda un resto por cobrar en persona
+  // (seña), los puntos de ese bono se acumulan más tarde al cerrar la
+  // sesión 1 desde el panel, para no contar el mismo dinero dos veces.
+  async function autoCloseAndEarn(bookingId, amountPaid) {
+    if (paymentType !== 'total') return;
+    try {
+      const saved = await findBookingById(bookingId);
+      if (saved) {
+        await updateBookingRow(saved._sheetRow, saved, { finalAmount: amountPaid, remainderPaidHow: '' });
+        await earnLoyalty({ booking: saved, portionAmount: amountPaid, paidHow: 'tarjeta' });
+      }
+    } catch (earnErr) {
+      console.error('No se pudo cerrar automáticamente ni acumular puntos:', earnErr);
+    }
+  }
+
   for (const it of itemsWithShare) {
     if (it.isBono) {
       const totalSessions = Number(it.sessions) || 1;
@@ -419,8 +438,9 @@ async function handleBonoSessionPayment(session) {
       // — comparte la misma cita/hueco de calendario que el resto de
       // tratamientos combinados en esta compra.
       try {
+        const sessionBookingId = crypto.randomUUID();
         await appendBooking({
-          bookingId: crypto.randomUUID(),
+          bookingId: sessionBookingId,
           createdAt: new Date().toISOString(),
           status: 'confirmed',
           name: clientName || '',
@@ -446,6 +466,7 @@ async function handleBonoSessionPayment(session) {
           sessionNumber: 1,
           termsAcceptedAt: termsAcceptedAt || '',
         });
+        await autoCloseAndEarn(sessionBookingId, it.amountPaidOnline);
       } catch (sheetErr) {
         console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
       }
@@ -453,8 +474,9 @@ async function handleBonoSessionPayment(session) {
       // Tratamiento suelto añadido junto a uno o más bonos — reserva normal,
       // sin bonoId, compartiendo la misma cita/hueco de calendario.
       try {
+        const looseBookingId = crypto.randomUUID();
         await appendBooking({
-          bookingId: crypto.randomUUID(),
+          bookingId: looseBookingId,
           createdAt: new Date().toISOString(),
           status: 'confirmed',
           name: clientName || '',
@@ -478,6 +500,7 @@ async function handleBonoSessionPayment(session) {
           birthdate: clientBirthdate || '',
           termsAcceptedAt: termsAcceptedAt || '',
         });
+        await autoCloseAndEarn(looseBookingId, it.amountPaidOnline);
       } catch (sheetErr) {
         console.error('No se pudo guardar el tratamiento suelto en la Sheet:', sheetErr);
       }
