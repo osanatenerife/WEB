@@ -364,8 +364,8 @@ nav#main-nav {
   font-family: 'Raleway', sans-serif; font-weight: 800; font-style: italic; font-size: 15px; letter-spacing: -0.02em;
   color: #17120f; background: #ffb3c7; padding: 7px 16px; border-radius: 20px; flex: none;
 }
-.klarna-text { font-size: 13.5px; color: var(--txt-mid); margin: 0; }
-.klarna-text strong { color: var(--txt); }
+.klarna-text { font-family: 'Raleway', sans-serif; font-style: italic; font-size: 15px; color: var(--txt-mid); margin: 0; }
+.klarna-text strong { color: var(--brown); font-weight: 600; }
 @media (max-width: 560px) {
   .klarna-strip { padding: 22px 24px; }
 }
