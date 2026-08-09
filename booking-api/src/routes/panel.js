@@ -606,9 +606,14 @@ router.post('/panel/close', async (req, res) => {
           amount: redeemed,
         });
       }
-      await earnLoyalty({ booking, portionAmount: onlinePaid, paidHow: 'tarjeta' });
-      await earnLoyalty({ booking, portionAmount: part1, paidHow: paidHow || '' });
-      if (part2 > 0) await earnLoyalty({ booking, portionAmount: part2, paidHow: paidHow2 || '' });
+      // El saldo se acumula sobre TODO lo pagado de verdad (seña online +
+      // resto), con una sola tasa para el conjunto: si alguna parte del
+      // resto se pagó en efectivo, se aplica la tasa de efectivo al total
+      // (no solo a esa parte) — así la clienta no nota que "solo una parte"
+      // llevaba la bonificación, que da pie a quejas y confusión.
+      const cashInvolved = paidHow === 'efectivo' || (part2 > 0 && paidHow2 === 'efectivo');
+      const totalPaidReal = round2(onlinePaid + part1 + part2);
+      await earnLoyalty({ booking, portionAmount: totalPaidReal, paidHow: cashInvolved ? 'efectivo' : (paidHow || 'tarjeta') });
     }
 
     res.json({ ok: true });
