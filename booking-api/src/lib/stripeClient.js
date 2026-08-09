@@ -24,12 +24,25 @@ function getStripe() {
 async function createCheckoutSession({ amountEuros, description, successUrl, cancelUrl, metadata, allowKlarna }) {
   const stripeClient = getStripe();
   const amountCents = Math.round(amountEuros * 100);
-  const session = await stripeClient.checkout.sessions.create({
-    mode: 'payment',
+  // La cuenta de Stripe tiene varias "configuraciones de métodos de pago"
+  // (la propia + un par heredadas de WooCommerce/WooPayments de la web
+  // antigua) — sin especificar cuál usar, Stripe puede coger una de las de
+  // WooCommerce (donde no controlamos si Klarna está activo), y el pago
+  // sale con la marca "WooPayments" en vez de la nuestra. Si hay una
+  // configuración propia guardada en STRIPE_PAYMENT_METHOD_CONFIGURATION_ID,
+  // la usamos explícitamente cuando se permite Klarna, para evitar la
+  // ambigüedad. payment_method_types y payment_method_configuration son
+  // excluyentes en la API de Stripe, por eso es uno u otro.
+  const pmcId = process.env.STRIPE_PAYMENT_METHOD_CONFIGURATION_ID;
+  const paymentMethodParams = (allowKlarna && pmcId)
+    ? { payment_method_configuration: pmcId }
     // Klarna solo se ofrece cuando se paga el 100% online (p.ej. bonos de
     // sesiones con pago completo) — no tiene sentido financiar solo una
     // seña, así que el resto de flujos (seña, bono regalo...) solo usan tarjeta.
-    payment_method_types: allowKlarna ? ['card', 'klarna'] : ['card'],
+    : { payment_method_types: allowKlarna ? ['card', 'klarna'] : ['card'] };
+  const session = await stripeClient.checkout.sessions.create({
+    mode: 'payment',
+    ...paymentMethodParams,
     // Permite que el cliente introduzca un código de cupón en la propia
     // pantalla de pago de Stripe. Los cupones se crean y activan/desactivan
     // desde el Dashboard de Stripe (Productos > Cupones y códigos promocionales),
