@@ -4,6 +4,13 @@ const { getBusyIntervals } = require('./googleCalendar');
 
 const MIN_LEAD_MINUTES = 120; // no permitir reservar con menos de 2h de antelación
 
+// Si reservar en un hueco concreto dejaría, justo después, un tramo libre
+// más pequeño que esto (pero no cero) antes del siguiente compromiso, ese
+// hueco se considera "muerto" — no llega para un tratamiento de duración
+// normal (facial, radiofrecuencia...). Evita que un tratamiento corto
+// (p.ej. cejas de 20 min) fragmente el día dejando restos inservibles.
+const MIN_USABLE_GAP_MINUTES = 60;
+
 function overlaps(aStart, aEnd, bStart, bEnd) {
   return aStart < bEnd && bStart < aEnd;
 }
@@ -31,13 +38,21 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
   const dayEndISO = localToISO(dateStr, daySchedule.close, hours.timezone);
 
   const busy = await getBusyIntervals(calendarId, dayStartISO, dayEndISO);
-  const busyRanges = busy.map((b) => ({ start: new Date(b.start).getTime(), end: new Date(b.end).getTime() }));
+  const busyRanges = busy
+    .map((b) => ({ start: new Date(b.start).getTime(), end: new Date(b.end).getTime() }))
+    .sort((a, b) => a.start - b.start);
+  const busyStarts = busyRanges.map((r) => r.start);
 
   const now = Date.now() + MIN_LEAD_MINUTES * 60000;
   const step = hours.slotStepMinutes;
   const dayEndMs = new Date(dayEndISO).getTime();
 
-  const slots = [];
+  // Los huecos "buenos" (no dejan un tramo muerto detrás) van primero;
+  // los que sí dejan un tramo muerto solo se ofrecen si no hay ninguno
+  // bueno ese día — así nunca se le oculta a la clienta un hueco que
+  // realmente es el único disponible.
+  const goodSlots = [];
+  const fallbackSlots = [];
   let cursorISO = dayStartISO;
   while (true) {
     const slotStartMs = new Date(cursorISO).getTime();
@@ -52,11 +67,23 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
       const label = new Intl.DateTimeFormat('es-ES', {
         timeZone: hours.timezone, hour: '2-digit', minute: '2-digit', hour12: false,
       }).format(new Date(cursorISO));
-      slots.push(label);
+
+      // Solo cuenta como "hueco muerto" si deja un tramo corto antes de
+      // OTRA cita real — terminar un poco antes del cierre no desperdicia
+      // nada (no hay nadie después esperando ese rato).
+      const upcoming = busyStarts.filter((s) => s >= slotEndMs);
+      let leavesDeadGap = false;
+      if (upcoming.length) {
+        const nextBoundaryMs = Math.min(...upcoming);
+        const gapAfterMinutes = (nextBoundaryMs - slotEndMs) / 60000;
+        leavesDeadGap = gapAfterMinutes > 0.5 && gapAfterMinutes < MIN_USABLE_GAP_MINUTES;
+      }
+
+      (leavesDeadGap ? fallbackSlots : goodSlots).push(label);
     }
     cursorISO = addMinutes(cursorISO, step);
   }
-  return slots;
+  return goodSlots.length ? goodSlots : fallbackSlots;
 }
 
 /**
