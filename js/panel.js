@@ -871,10 +871,12 @@
           ${balance > 0 ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-redeem-toggle">Canjear saldo</button>' : ''}
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-addloyalty-toggle">➕ Añadir saldo</button>
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-followup-toggle">🔔 Marcar seguimiento</button>
+          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editclient-toggle">✎ Editar datos</button>
         </div>
         <div class="panel-redeem-slot"></div>
         <div class="panel-addloyalty-slot"></div>
         <div class="panel-followup-slot"></div>
+        <div class="panel-editclient-slot"></div>
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
@@ -890,6 +892,8 @@
     wrap.querySelector('.panel-addloyalty-toggle').addEventListener('click', () => toggleAddLoyalty(wrap, client));
 
     wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
+
+    wrap.querySelector('.panel-editclient-toggle').addEventListener('click', () => toggleEditClient(wrap, client));
 
     const bonosContainer = wrap.querySelector('.panel-bonos');
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
@@ -1012,6 +1016,58 @@
           body: JSON.stringify({ phone: client.phone, amount: amountInput.value, note: noteInput.value.trim() }),
         });
         slot.innerHTML = `<p class="panel-status">Saldo añadido ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €</p>`;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+  }
+
+  // Corrige nombre/teléfono/email en TODO el historial de la clienta a la
+  // vez (reservas, bonos, faltas y puntos) — para arreglar un dato mal
+  // introducido sin que los puntos ya ganados se queden huérfanos bajo el
+  // dato viejo.
+  function toggleEditClient(clientEl, client) {
+    const slot = clientEl.querySelector('.panel-editclient-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Corregir los datos de esta clienta (se aplica a todo su historial)</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Nombre</label><input type="text" class="ec-name" value="${escapeHtml(client.name || '')}"></div>
+          <div class="panel-field"><label>Teléfono</label><input type="text" class="ec-phone" value="${escapeHtml(client.phone || '')}"></div>
+          <div class="panel-field"><label>Email</label><input type="email" class="ec-email" value="${escapeHtml(client.email || '')}"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-editclient">Guardar corrección</button>
+        <p class="panel-error" style="display:none;"></p>
+        <p class="panel-status" style="display:none;"></p>
+      </div>
+    `;
+    const nameInput = slot.querySelector('.ec-name');
+    const phoneInput = slot.querySelector('.ec-phone');
+    const emailInput = slot.querySelector('.ec-email');
+    const errorEl = slot.querySelector('.panel-error');
+    const statusEl = slot.querySelector('.panel-status');
+    slot.querySelector('.panel-confirm-editclient').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      if (!nameInput.value.trim() || !phoneInput.value.trim()) {
+        errorEl.textContent = 'El nombre y el teléfono no pueden quedar vacíos.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        const data = await panelFetch('/panel/edit-client', {
+          method: 'POST',
+          body: JSON.stringify({
+            oldPhone: client.phone, name: nameInput.value.trim(),
+            phone: phoneInput.value.trim(), email: emailInput.value.trim(),
+          }),
+        });
+        statusEl.textContent = `Corregido ✓ (${data.bookingsUpdated} cita${data.bookingsUpdated === 1 ? '' : 's'} actualizada${data.bookingsUpdated === 1 ? '' : 's'}). Vuelve a buscarla con el dato nuevo.`;
+        statusEl.style.display = 'block';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

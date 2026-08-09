@@ -560,7 +560,22 @@ async function getAllLoyaltyMovements() {
   });
   const rows = res.data.values || [];
   if (rows.length < 2) return [];
-  return rows.slice(1).map(loyaltyRowToObject);
+  return rows.slice(1).map((row, i) => ({ ...loyaltyRowToObject(row), _sheetRow: i + 2 }));
+}
+
+// Solo para corregir la identidad (teléfono/email/nombre) de movimientos ya
+// guardados cuando se edita a una clienta desde el panel — nunca para tocar
+// el importe/tipo, que son el historial real de lo ganado o canjeado.
+async function updateLoyaltyMovementRow(sheetRow, currentMovement, updates) {
+  await ensureLoyaltyTab();
+  const merged = { ...currentMovement, ...updates };
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `'${LOYALTY_TAB_TITLE}'!A${sheetRow}:${LOYALTY_LAST_COL}${sheetRow}`,
+    valueInputOption: 'RAW',
+    requestBody: { values: [loyaltyObjectToRow(merged)] },
+  });
 }
 
 // ============================================================
@@ -880,7 +895,7 @@ module.exports = {
   getAllBirthdayRecords, upsertBirthdayRecord,
   appendSessionBono, getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
   getAllStrikeRecords, upsertStrikeRecord,
-  appendLoyaltyMovement, getLoyaltyMovementsForPhone, getAllLoyaltyMovements,
+  appendLoyaltyMovement, getLoyaltyMovementsForPhone, getAllLoyaltyMovements, updateLoyaltyMovementRow,
   appendProductSale, getAllProductSales,
   appendFollowup, getAllFollowups, updateFollowupRow,
   appendCustomQuote, getAllCustomQuotes, updateQuoteRow,

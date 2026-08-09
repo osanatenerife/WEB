@@ -4,7 +4,7 @@ const {
   getAllSessionBonos, findSessionBonoById, updateSessionBonoRow, appendSessionBono,
   getAllStrikeRecords, upsertStrikeRecord,
   appendLoyaltyMovement, appendProductSale, getAllProductSales,
-  getAllLoyaltyMovements, getLoyaltyMovementsForPhone,
+  getAllLoyaltyMovements, getLoyaltyMovementsForPhone, updateLoyaltyMovementRow,
   appendCustomQuote, getAllCustomQuotes,
   appendFollowup, getAllFollowups, updateFollowupRow,
   getAllGifts, updateGiftRow,
@@ -731,6 +731,62 @@ router.post('/panel/loyalty-adjust', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo añadir el saldo.' });
+  }
+});
+
+// ── Corregir los datos de una clienta (nombre, teléfono o email mal
+// escritos) en TODO su historial a la vez — reservas, bonos, avisos de
+// ausencia y puntos de fidelidad — para que quede todo bajo una sola
+// identidad y no se fragmenten los puntos ya ganados por un dato mal puesto.
+router.post('/panel/edit-client', async (req, res) => {
+  const { oldPhone, name, phone, email } = req.body || {};
+  if (!oldPhone || !name || !name.trim() || !phone || !phone.trim()) {
+    return res.status(400).json({ error: 'Indica el teléfono original y el nombre y teléfono corregidos.' });
+  }
+  try {
+    const oldPhoneN = normalizePhone(oldPhone);
+    if (!oldPhoneN) return res.status(400).json({ error: 'El teléfono original no es válido.' });
+    const cleanName = name.trim();
+    const cleanPhone = phone.trim();
+    const cleanEmail = (email || '').trim();
+    const newPhoneN = normalizePhone(cleanPhone);
+    const newEmailN = normalizeEmail(cleanEmail);
+
+    const [allBookings, allBonos, allStrikes, allLoyalty] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllStrikeRecords(), getAllLoyaltyMovements(),
+    ]);
+
+    let bookingsUpdated = 0;
+    for (const b of allBookings) {
+      if (normalizePhone(b.phone) === oldPhoneN) {
+        await updateBookingRow(b._sheetRow, b, { name: cleanName, phone: cleanPhone, email: cleanEmail || b.email });
+        bookingsUpdated += 1;
+      }
+    }
+    for (const bo of allBonos) {
+      if (normalizePhone(bo.clientPhone) === oldPhoneN) {
+        await updateSessionBonoRow(bo._sheetRow, bo, {
+          clientName: cleanName, clientPhone: cleanPhone, clientEmail: cleanEmail || bo.clientEmail,
+        });
+      }
+    }
+    for (const s of allStrikes) {
+      if (s.phoneNormalized === oldPhoneN) {
+        await upsertStrikeRecord({ phoneNormalized: newPhoneN, emailNormalized: newEmailN || s.emailNormalized, name: cleanName }, s);
+      }
+    }
+    for (const m of allLoyalty) {
+      if (m.phoneNormalized === oldPhoneN) {
+        await updateLoyaltyMovementRow(m._sheetRow, m, {
+          phoneNormalized: newPhoneN, emailNormalized: newEmailN || m.emailNormalized, name: cleanName,
+        });
+      }
+    }
+
+    res.json({ ok: true, bookingsUpdated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudieron actualizar los datos de la clienta.' });
   }
 });
 
