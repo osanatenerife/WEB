@@ -9,7 +9,7 @@
 // la comisión de tarjeta, así que tiene sentido devolver parte).
 // ============================================================
 
-const BASE_RATE = { cejas: 0.04, laser: 0.04, corporal: 0.04, facial: 0.04 };
+const BASE_RATE = { cejas: 0.04, laser: 0.04, corporal: 0.04, facial: 0.04, venta: 0.04 };
 const CASH_BONUS = 0.02; // +2% si esa parte se pagó en efectivo
 
 function earnRateFor(category, paidHow) {
@@ -17,8 +17,11 @@ function earnRateFor(category, paidHow) {
   return paidHow === 'efectivo' ? base + CASH_BONUS : base;
 }
 
-// Canjeable solo en tratamientos sueltos, nunca en bonos ni bono regalo.
-const REDEEMABLE_ON = ['treatment'];
+// El saldo se gana comprando cualquier cosa (tratamiento suelto, bono o
+// producto), pero solo se puede GASTAR en tratamientos sueltos y bonos —
+// nunca para pagar un producto ni un bono regalo (ver /panel/close y
+// /panel/redeem, que son los únicos sitios donde de verdad se aplica esta
+// restricción).
 
 // Importe mínimo por canje. Sin tope máximo.
 const MIN_REDEEM_AMOUNT = 10; // en euros
@@ -51,6 +54,6 @@ function currentExpiryDate() {
 }
 
 module.exports = {
-  BASE_RATE, CASH_BONUS, earnRateFor, REDEEMABLE_ON, MIN_REDEEM_AMOUNT,
+  BASE_RATE, CASH_BONUS, earnRateFor, MIN_REDEEM_AMOUNT,
   computeLoyaltyBalance, currentExpiryDate,
 };

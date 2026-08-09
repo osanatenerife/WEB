@@ -575,15 +575,15 @@ router.post('/panel/close', async (req, res) => {
 
     // Calcular canje de saldo (si se pide): se resta del resto antes de
     // repartirlo en formas de pago, y nunca puede superar ni lo que queda
-    // por pagar ni el saldo real disponible de la clienta. Solo vale en
-    // tratamientos sueltos (no en sesiones de un bono) y con un mínimo de
+    // por pagar ni el saldo real disponible de la clienta. Vale tanto en
+    // tratamientos sueltos como en sesiones de un bono, con un mínimo de
     // MIN_REDEEM_AMOUNT por canje. Solo se CALCULA aquí; el movimiento en
     // el libro de saldo se escribe más abajo, después de marcar la cita
     // como cerrada, para que un reintento tras un fallo a mitad de camino
     // no pueda duplicar el canje (ver nota junto a updateBookingRow).
     let redeemed = 0;
     let phoneN = '';
-    if (!alreadyClosed && !booking.bonoId && redeemAmount && Number(redeemAmount) >= MIN_REDEEM_AMOUNT) {
+    if (!alreadyClosed && redeemAmount && Number(redeemAmount) >= MIN_REDEEM_AMOUNT) {
       phoneN = normalizePhone(booking.phone);
       const movements = await getLoyaltyMovementsForPhone(phoneN);
       const balance = computeLoyaltyBalance(movements);
@@ -653,16 +653,20 @@ router.post('/panel/close', async (req, res) => {
   }
 });
 
-// ── Registrar venta de producto suelta (no ligada a ninguna cita) ──
+// ── Registrar venta de producto suelta (no ligada a ninguna cita) — si se
+// identifica a la clienta (teléfono), también acumula saldo de fidelidad
+// sobre el importe, igual que un tratamiento o un bono (pero ese saldo
+// nunca se podrá gastar para pagar otro producto, solo tratamientos/bonos).
 router.post('/panel/product-sale', async (req, res) => {
-  const { date, product, amount, paidHow, notes } = req.body || {};
+  const { date, product, amount, paidHow, notes, clientPhone, clientName, clientEmail } = req.body || {};
   if (!date || !product || !amount) return res.status(400).json({ error: 'Faltan datos de la venta.' });
   if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ error: 'El importe no es un número válido.' });
   }
   try {
+    const saleId = crypto.randomUUID();
     await appendProductSale({
-      saleId: crypto.randomUUID(),
+      saleId,
       createdAt: new Date().toISOString(),
       date,
       product,
@@ -670,6 +674,19 @@ router.post('/panel/product-sale', async (req, res) => {
       paidHow: paidHow || '',
       notes: notes || '',
     });
+
+    if (clientPhone && clientPhone.trim()) {
+      await earnLoyalty({
+        booking: {
+          phone: clientPhone.trim(), email: clientEmail || '', name: clientName || '',
+          bookingId: saleId, serviceName: product,
+        },
+        portionAmount: Number(amount),
+        paidHow: paidHow || 'tarjeta',
+        category: 'venta',
+      });
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

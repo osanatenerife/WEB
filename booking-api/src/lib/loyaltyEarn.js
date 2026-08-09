@@ -13,10 +13,12 @@ function round2(n) {
 
 // Registra en el libro de saldo lo ganado por una parte del importe (la
 // pagada online siempre es tarjeta; la del centro depende de paidHow).
-async function earnLoyalty({ booking, portionAmount, paidHow }) {
+// "category" es opcional — solo hace falta cuando no hay un serviceId real
+// del que deducirla (p.ej. venta de producto suelta).
+async function earnLoyalty({ booking, portionAmount, paidHow, category: categoryOverride }) {
   if (!portionAmount || portionAmount <= 0) return;
   const firstServiceId = String(booking.serviceId || '').split(',')[0].trim();
-  const category = accountingCategoryFor(firstServiceId);
+  const category = categoryOverride || accountingCategoryFor(firstServiceId);
   const rate = earnRateFor(category, paidHow);
   const amount = round2(portionAmount * rate);
   if (amount <= 0) return;

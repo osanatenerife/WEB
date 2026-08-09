@@ -143,6 +143,10 @@
             </select>
           </div>
         </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Teléfono de la clienta (opcional, para acumular puntos)</label><input type="text" class="ps-phone"></div>
+          <div class="panel-field"><label>Nombre (opcional)</label><input type="text" class="ps-name"></div>
+        </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-sale">Guardar venta</button>
         <p class="panel-error" style="display:none;"></p>
       </div>
@@ -152,6 +156,8 @@
     const productInput = slot.querySelector('.ps-product');
     const amountInput = slot.querySelector('.ps-amount');
     const paidHowSelect = slot.querySelector('.ps-paidhow');
+    const phoneInput = slot.querySelector('.ps-phone');
+    const nameInput = slot.querySelector('.ps-name');
     const errorEl = slot.querySelector('.panel-error');
     slot.querySelector('.panel-confirm-sale').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
@@ -167,9 +173,12 @@
           body: JSON.stringify({
             date: dateInput.value, product: productInput.value.trim(),
             amount: amountInput.value, paidHow: paidHowSelect.value,
+            clientPhone: phoneInput.value.trim(), clientName: nameInput.value.trim(),
           }),
         });
-        slot.innerHTML = '<p class="panel-status">Venta registrada ✓</p>';
+        slot.innerHTML = phoneInput.value.trim()
+          ? '<p class="panel-status">Venta registrada ✓ — puntos acumulados a esa clienta.</p>'
+          : '<p class="panel-status">Venta registrada ✓ (sin teléfono, no se acumulan puntos a nadie).</p>';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
