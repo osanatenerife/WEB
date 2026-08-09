@@ -194,7 +194,7 @@ router.post('/panel/note', async (req, res) => {
 // ── Corregir el tratamiento/precio/pagado/nº de sesión de una cita ya
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
-  const { bookingId, serviceId, price, amountPaid, sessionNumber } = req.body || {};
+  const { bookingId, serviceId, employeeId, price, amountPaid, sessionNumber } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   try {
     const booking = await findBookingById(bookingId);
@@ -207,6 +207,16 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (!newService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
       updates.serviceId = serviceId;
       updates.durationMinutes = newService.durationMinutes;
+    }
+    if (employeeId) {
+      // Solo corrige el dato en el registro (para informes y la ficha de la
+      // clienta) — NO mueve el evento ya creado en Google Calendar de una
+      // profesional a otra, eso hay que hacerlo a mano en el calendario si
+      // hiciera falta.
+      const newEmployee = employees.find((e) => e.id === employeeId);
+      if (!newEmployee) return res.status(404).json({ error: 'Profesional no encontrada.' });
+      updates.employeeId = employeeId;
+      updates.employeeName = newEmployee.name;
     }
     if (price !== undefined && price !== '') {
       if (!Number.isFinite(Number(price))) return res.status(400).json({ error: 'El precio no es un número válido.' });

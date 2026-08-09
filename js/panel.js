@@ -1283,9 +1283,9 @@
     return el;
   }
 
-  // Corrige el tratamiento, precio, importe pagado o nº de sesión de una
-  // cita ya registrada — por si al darla de alta a mano te equivocaste en
-  // algo.
+  // Corrige el tratamiento, profesional, precio, importe pagado o nº de
+  // sesión de una cita ya registrada — por si al darla de alta a mano te
+  // equivocaste en algo (p.ej. puso Raquel y en realidad fue Vanessa).
   async function toggleEditBooking(apptEl, b) {
     const slot = apptEl.querySelector('.panel-editbooking-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
@@ -1298,6 +1298,11 @@
         ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
       </optgroup>
     `).join('');
+    const employeesRes = await fetch(`${BOOKING_API_BASE}/employees`);
+    const employeesData = await employeesRes.json();
+    const employeeOptions = (employeesData.employees || [])
+      .map((e) => `<option value="${e.id}" ${e.id === b.employeeId ? 'selected' : ''}>${e.name}</option>`)
+      .join('');
     const isBonoSession = !!b.bonoId;
 
     slot.innerHTML = `
@@ -1306,6 +1311,9 @@
         <div class="panel-field-row">
           <div class="panel-field" style="flex:2;"><label>Tratamiento (deja igual si no se equivocó)</label>
             <select class="eb-service"><option value="">No cambiar</option>${serviceOptions}</select>
+          </div>
+          <div class="panel-field"><label>Profesional</label>
+            <select class="eb-employee"><option value="">No cambiar</option>${employeeOptions}</select>
           </div>
           ${isBonoSession ? '<div class="panel-field"><label>Nº de esta sesión</label><input type="number" min="1" step="1" class="eb-session-number" value="' + (b.sessionNumber || '') + '"></div>' : ''}
         </div>
@@ -1319,6 +1327,7 @@
       </div>
     `;
     const serviceSelect = slot.querySelector('.eb-service');
+    const employeeSelect = slot.querySelector('.eb-employee');
     const sessionNumberInput = slot.querySelector('.eb-session-number');
     const priceInput = slot.querySelector('.eb-price');
     const paidInput = slot.querySelector('.eb-paid');
@@ -1334,6 +1343,7 @@
           body: JSON.stringify({
             bookingId: b.bookingId,
             serviceId: serviceSelect.value || undefined,
+            employeeId: employeeSelect.value || undefined,
             price: priceInput.value,
             amountPaid: paidInput.value,
             sessionNumber: sessionNumberInput ? sessionNumberInput.value : undefined,
