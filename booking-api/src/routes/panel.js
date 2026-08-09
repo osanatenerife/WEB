@@ -191,6 +191,57 @@ router.post('/panel/note', async (req, res) => {
   }
 });
 
+// ── Corregir el tratamiento/precio/pagado/nº de sesión de una cita ya
+// registrada (por si al darla de alta a mano hubo algún error) ──
+router.post('/panel/edit-booking', async (req, res) => {
+  const { bookingId, serviceId, price, amountPaid, sessionNumber } = req.body || {};
+  if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
+  try {
+    const booking = await findBookingById(bookingId);
+    if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+
+    const updates = {};
+    let newService = null;
+    if (serviceId) {
+      newService = services.find((s) => s.id === serviceId);
+      if (!newService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
+      updates.serviceId = serviceId;
+      updates.durationMinutes = newService.durationMinutes;
+    }
+    if (price !== undefined && price !== '') {
+      if (!Number.isFinite(Number(price))) return res.status(400).json({ error: 'El precio no es un número válido.' });
+      updates.price = Number(price);
+    }
+    if (amountPaid !== undefined && amountPaid !== '') {
+      if (!Number.isFinite(Number(amountPaid))) return res.status(400).json({ error: 'El importe pagado no es un número válido.' });
+      updates.amountPaid = Number(amountPaid);
+    }
+
+    // Si es una sesión de un bono, el nombre lleva "(n/total)" — lo
+    // reconstruimos con el total real del bono para no tener que pedirlo.
+    if (booking.bonoId) {
+      const bono = await findSessionBonoById(booking.bonoId);
+      const num = sessionNumber !== undefined && sessionNumber !== '' ? Number(sessionNumber) : Number(booking.sessionNumber);
+      if (sessionNumber !== undefined && sessionNumber !== '') updates.sessionNumber = num;
+      const baseName = newService ? newService.name : (bono ? bono.serviceName : String(booking.serviceName || '').replace(/\s*\(\d+\/\d+\)\s*$/, ''));
+      const total = bono ? bono.totalSessions : (String(booking.serviceName || '').match(/\((\d+)\/(\d+)\)/) || [])[2];
+      if (baseName && total && num) updates.serviceName = `${baseName} (${num}/${total})`;
+    } else if (newService) {
+      updates.serviceName = newService.name;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: 'No hay ningún cambio que guardar.' });
+    }
+
+    await updateBookingRow(booking._sheetRow, booking, updates);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo editar la cita.' });
+  }
+});
+
 // ── Agendar la siguiente sesión de un bono (sin cobrar, ya está pagada) ──
 router.post('/panel/book-session', async (req, res) => {
   const { bonoId, employeeId, date, time } = req.body || {};

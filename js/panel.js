@@ -1192,16 +1192,23 @@
       </div>
       <div class="panel-appt-actions">
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-note-toggle">✎ Nota</button>
+        ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editbooking-toggle">✎ Editar cita</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
         ${b.status === 'confirmed' && b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-close-toggle">💶 Cerrar cita</button>' : ''}
         ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">🗑 Eliminar</button>' : ''}
       </div>
+      <div class="panel-editbooking-slot"></div>
       <div class="panel-reschedule-slot"></div>
       <div class="panel-extend-slot"></div>
       <div class="panel-close-slot"></div>
     `;
+
+    const editBookingBtn = el.querySelector('.panel-editbooking-toggle');
+    if (editBookingBtn) {
+      editBookingBtn.addEventListener('click', () => toggleEditBooking(el, b));
+    }
 
     const noteEdit = el.querySelector('.panel-appt-note-edit');
     const noteView = el.querySelector('.panel-appt-note-view');
@@ -1265,6 +1272,72 @@
     }
 
     return el;
+  }
+
+  // Corrige el tratamiento, precio, importe pagado o nº de sesión de una
+  // cita ya registrada — por si al darla de alta a mano te equivocaste en
+  // algo.
+  async function toggleEditBooking(apptEl, b) {
+    const slot = apptEl.querySelector('.panel-editbooking-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
+    const allServices = await loadImportServicesOnce();
+    const byCategory = {};
+    allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
+    const serviceOptions = Object.keys(byCategory).map((cat) => `
+      <optgroup label="${cat}">
+        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
+      </optgroup>
+    `).join('');
+    const isBonoSession = !!b.bonoId;
+
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Editar cita — ${escapeHtml(b.serviceName)}</div>
+        <div class="panel-field-row">
+          <div class="panel-field" style="flex:2;"><label>Tratamiento (deja igual si no se equivocó)</label>
+            <select class="eb-service"><option value="">No cambiar</option>${serviceOptions}</select>
+          </div>
+          ${isBonoSession ? '<div class="panel-field"><label>Nº de esta sesión</label><input type="number" min="1" step="1" class="eb-session-number" value="' + (b.sessionNumber || '') + '"></div>' : ''}
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Precio (€)</label><input type="number" step="0.01" class="eb-price" value="${b.price || ''}"></div>
+          <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="eb-paid" value="${b.amountPaid || ''}"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>
+        <p class="panel-error" style="display:none;"></p>
+        <p class="panel-status" style="display:none;"></p>
+      </div>
+    `;
+    const serviceSelect = slot.querySelector('.eb-service');
+    const sessionNumberInput = slot.querySelector('.eb-session-number');
+    const priceInput = slot.querySelector('.eb-price');
+    const paidInput = slot.querySelector('.eb-paid');
+    const errorEl = slot.querySelector('.panel-error');
+    const statusEl = slot.querySelector('.panel-status');
+    slot.querySelector('.panel-confirm-editbooking').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/edit-booking', {
+          method: 'POST',
+          body: JSON.stringify({
+            bookingId: b.bookingId,
+            serviceId: serviceSelect.value || undefined,
+            price: priceInput.value,
+            amountPaid: paidInput.value,
+            sessionNumber: sessionNumberInput ? sessionNumberInput.value : undefined,
+          }),
+        });
+        statusEl.textContent = 'Guardado ✓ — vuelve a buscar a la clienta para ver los cambios.';
+        statusEl.style.display = 'block';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+      ev.target.disabled = false;
+    });
   }
 
   function toggleExtend(apptEl, b) {
