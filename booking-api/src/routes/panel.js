@@ -16,8 +16,8 @@ const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
-const { accountingCategoryFor } = require('../config/accountingCategories');
-const { earnRateFor, computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -34,30 +34,9 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
-// Registra en el libro de saldo lo ganado por una parte del importe (la
-// pagada online siempre es tarjeta; la del centro depende de paidHow).
-async function earnLoyalty({ booking, portionAmount, paidHow }) {
-  if (!portionAmount || portionAmount <= 0) return;
-  const firstServiceId = String(booking.serviceId || '').split(',')[0].trim();
-  const category = accountingCategoryFor(firstServiceId);
-  const rate = earnRateFor(category, paidHow);
-  const amount = round2(portionAmount * rate);
-  if (amount <= 0) return;
-  await appendLoyaltyMovement({
-    date: new Date().toISOString().slice(0, 10),
-    phoneNormalized: normalizePhone(booking.phone),
-    emailNormalized: normalizeEmail(booking.email),
-    name: booking.name,
-    type: 'earn',
-    bookingId: booking.bookingId,
-    serviceName: booking.serviceName,
-    category,
-    baseAmount: portionAmount,
-    paidHow,
-    rateApplied: rate,
-    amount,
-  });
-}
+// earnLoyalty vive en lib/loyaltyEarn.js (compartida con webhook.js, que
+// cierra sola y acumula puntos al momento cuando una reserva se paga al
+// 100% online — ver handleBookingPayment).
 
 // ── Todas las rutas del panel exigen la clave interna ──
 function safeEqual(a, b) {

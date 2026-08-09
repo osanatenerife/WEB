@@ -6,6 +6,7 @@ const { appendBooking, appendGift, appendSessionBono, getAllBookings, getAllCust
 const { earnRateFor, computeLoyaltyBalance, currentExpiryDate } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
+const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
 const services = require('../config/services');
@@ -241,6 +242,19 @@ async function handleBookingPayment(session) {
         birthdate: clientBirthdate || '',
         termsAcceptedAt: termsAcceptedAt || '',
       });
+
+      // Si se pagó el 100% online (no queda nada por cobrar en el centro),
+      // se cierra sola y se acumulan los puntos de fidelidad al momento —
+      // así la clienta no depende de que pase la fecha de la cita ni de que
+      // alguien la cierre a mano desde el panel (eso solo hace falta cuando
+      // queda un resto por cobrar en efectivo/tarjeta en el centro).
+      if (paymentType === 'total') {
+        const saved = await findBookingById(bookingId);
+        if (saved) {
+          await updateBookingRow(saved._sheetRow, saved, { finalAmount: realAmountPaid, remainderPaidHow: '' });
+          await earnLoyalty({ booking: saved, portionAmount: realAmountPaid, paidHow: 'tarjeta' });
+        }
+      }
     } catch (sheetErr) {
       // No bloqueamos la confirmación de la cita si falla el registro en la Sheet
       console.error('No se pudo guardar la reserva en la Sheet:', sheetErr);
