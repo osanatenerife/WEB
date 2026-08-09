@@ -354,6 +354,22 @@ nav#main-nav {
 .reviews-nav button svg { width: 18px; height: 18px; }
 .reviews-loading { font-size: 12px; color: var(--txt-soft); padding: 32px 28px; }
 
+/* ══════════════════ KLARNA ══════════════════ */
+.klarna-strip {
+  display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;
+  padding: 28px 48px; background: var(--cream2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+.klarna-badge {
+  font-family: 'Raleway', sans-serif; font-weight: 800; font-style: italic; font-size: 15px; letter-spacing: -0.02em;
+  color: #17120f; background: #ffb3c7; padding: 7px 16px; border-radius: 20px; flex: none;
+}
+.klarna-text { font-size: 13.5px; color: var(--txt-mid); margin: 0; }
+.klarna-text strong { color: var(--txt); }
+@media (max-width: 560px) {
+  .klarna-strip { padding: 22px 24px; }
+}
+
 /* ══════════════════ PROGRAMA DE FIDELIDAD ══════════════════ */
 .loyalty-section { background: var(--dark); padding: 90px 48px; text-align: center; }
 .loyalty-eyebrow { display: block; font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); margin-bottom: 18px; }
