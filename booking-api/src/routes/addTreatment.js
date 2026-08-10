@@ -3,7 +3,7 @@ const services = require('../config/services');
 const employees = require('../config/employees');
 const hours = require('../config/hours');
 const { findBookingById } = require('../lib/sheets');
-const { updateEvent } = require('../lib/googleCalendar');
+const { updateEvent, isEventUsable, createBookingEvent } = require('../lib/googleCalendar');
 const { isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { createCheckoutSession } = require('../lib/stripeClient');
@@ -87,7 +87,23 @@ router.post('/my-bookings/add-treatment', async (req, res) => {
     // nueva), para que nadie más pueda ocuparlo mientras se completa el pago.
     // Si el pago expira sin completarse, el webhook revierte el final del
     // evento a currentEndISO (ver checkout.session.expired en webhook.js).
-    await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } });
+    // Si el evento original ya no es usable (p.ej. quedó "cancelado" en
+    // Google tras un borrado anterior), un simple patch no bloquea nada de
+    // verdad — creamos uno nuevo que cubra toda la cita (desde el inicio
+    // original hasta el nuevo final) y usamos ESE id de aquí en adelante.
+    let effectiveEventId = booking.eventId;
+    let createdFreshEvent = false;
+    if (await isEventUsable(booking.calendarId, booking.eventId)) {
+      await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } });
+    } else {
+      const event = await createBookingEvent(booking.calendarId, {
+        summary: booking.serviceName || 'Cita Osana',
+        description: `Clienta: ${booking.name || ''} · ${booking.phone || ''}`,
+        startISO, endISO: newEndISO,
+      });
+      effectiveEventId = event.id;
+      createdFreshEvent = true;
+    }
 
     const { amount, type } = computeAmount(service, paymentChoice);
     const origin = resolveOrigin(req);
@@ -103,7 +119,11 @@ router.post('/my-bookings/add-treatment', async (req, res) => {
         type: 'addon_treatment',
         bookingId,
         calendarId: booking.calendarId,
-        eventId: booking.eventId,
+        eventId: effectiveEventId,
+        // Si tuvimos que crear un evento nuevo, no había nada real que
+        // "revertir" ante una expiración — hay que borrarlo entero en vez
+        // de encogerlo de vuelta a currentEndISO (ver webhook.js).
+        revertOnExpiry: createdFreshEvent ? 'delete' : 'shrink',
         serviceId,
         addedDuration: String(service.durationMinutes),
         addedPrice: String(service.price),

@@ -232,6 +232,26 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (!newService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
       updates.serviceId = serviceId;
       updates.durationMinutes = newService.durationMinutes;
+
+      // Si cambia la duración, intentamos ajustar también el bloqueo real
+      // en Google Calendar — solo cuando esta cita no comparte el evento
+      // con otro tratamiento activo (ahí el bloque representa la suma de
+      // varios tratamientos, y recalcularlo entero queda fuera de esta
+      // corrección puntual) y el evento sigue siendo usable.
+      const oldDuration = Number(booking.durationMinutes) || 0;
+      const durationDelta = newService.durationMinutes - oldDuration;
+      if (durationDelta !== 0 && booking.calendarId && booking.eventId && booking.date && booking.time) {
+        const allBookingsForCheck = await getAllBookings();
+        const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
+        if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
+          const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
+          const startISO = localToISO(booking.date, time, hours.timezone);
+          const newEndISO = addMinutes(startISO, newService.durationMinutes);
+          await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } }).catch((e) => {
+            console.error('No se pudo ajustar la duración del evento al editar la cita:', e.message);
+          });
+        }
+      }
     }
     if (employeeId) {
       // Solo corrige el dato en el registro (para informes y la ficha de la
@@ -244,11 +264,11 @@ router.post('/panel/edit-booking', async (req, res) => {
       updates.employeeName = newEmployee.name;
     }
     if (price !== undefined && price !== '') {
-      if (!Number.isFinite(Number(price))) return res.status(400).json({ error: 'El precio no es un número válido.' });
+      if (!Number.isFinite(Number(price)) || Number(price) < 0) return res.status(400).json({ error: 'El precio no es un número válido.' });
       updates.price = Number(price);
     }
     if (amountPaid !== undefined && amountPaid !== '') {
-      if (!Number.isFinite(Number(amountPaid))) return res.status(400).json({ error: 'El importe pagado no es un número válido.' });
+      if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0) return res.status(400).json({ error: 'El importe pagado no es un número válido.' });
       updates.amountPaid = Number(amountPaid);
     }
 
@@ -416,6 +436,14 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
   }
   if (isBono && (!totalSessions || !sessionNumber)) {
     return res.status(400).json({ error: 'Indica el número de sesión de esta cita y el total de sesiones del bono.' });
+  }
+  for (const [label, val] of [
+    ['El precio', price], ['El importe pagado', amountPaid],
+    ['El precio del bono', bonoTotalPrice], ['El importe pagado del bono', bonoAmountPaid],
+  ]) {
+    if (val !== undefined && val !== '' && (!Number.isFinite(Number(val)) || Number(val) < 0)) {
+      return res.status(400).json({ error: `${label} no es un número válido.` });
+    }
   }
   try {
     const service = services.find((s) => s.id === serviceId);
@@ -633,8 +661,21 @@ router.post('/panel/extend-time', async (req, res) => {
       return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para ampliar ese tiempo.' });
     }
 
-    await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } });
-    await updateBookingRow(booking._sheetRow, booking, { durationMinutes: duration + extra });
+    // Si el evento ya no es usable (p.ej. quedó "cancelado" en Google tras
+    // un borrado anterior), un simple patch no lo alarga de verdad —
+    // creamos uno nuevo que cubra toda la cita.
+    let newEventId = booking.eventId;
+    if (await isEventUsable(booking.calendarId, booking.eventId)) {
+      await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } });
+    } else {
+      const event = await createBookingEvent(booking.calendarId, {
+        summary: booking.serviceName || 'Cita Osana',
+        description: `Clienta: ${booking.name || ''} · ${booking.phone || ''}`,
+        startISO, endISO: newEndISO,
+      });
+      newEventId = event.id;
+    }
+    await updateBookingRow(booking._sheetRow, booking, { durationMinutes: duration + extra, eventId: newEventId });
 
     res.json({ ok: true, newDurationMinutes: duration + extra });
   } catch (err) {

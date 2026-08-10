@@ -38,12 +38,12 @@ module.exports = [
   { id: 'laser-pecho-abdomen', category: 'Depilación Láser SHR', categoryEn: 'SHR Laser Hair Removal', name: 'Pecho y abdomen', nameEn: 'Chest and abdomen', durationMinutes: 40, price: 75, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'laser-espalda', category: 'Depilación Láser SHR', categoryEn: 'SHR Laser Hair Removal', name: 'Espalda', nameEn: 'Back', durationMinutes: 40, price: 75, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'laser-piernas-completas', category: 'Depilación Láser SHR', categoryEn: 'SHR Laser Hair Removal', name: 'Piernas completas', nameEn: 'Full legs', durationMinutes: 40, price: 75, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'laser-cuerpo-completo', category: 'Depilación Láser SHR', categoryEn: 'SHR Laser Hair Removal', name: 'Cuerpo completo', nameEn: 'Full body', durationMinutes: 60, price: 210, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'laser-cuerpo-completo', category: 'Depilación Láser SHR', categoryEn: 'SHR Laser Hair Removal', name: 'Cuerpo completo', nameEn: 'Full body', durationMinutes: 80, price: 210, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
 
   // ── 02 · HILO & LIFTING ──
   { id: 'hilo-labio', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Labio (hilo)', nameEn: 'Lip (thread)', durationMinutes: 10, price: 5, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'hilo-menton', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Mentón (hilo)', nameEn: 'Chin (thread)', durationMinutes: 10, price: 5, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'hilo-cejas', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Cejas (hilo)', nameEn: 'Eyebrows (thread)', durationMinutes: 20, price: 15, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'hilo-cejas', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Cejas (hilo)', nameEn: 'Eyebrows (thread)', durationMinutes: 30, price: 15, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'henna-cejas', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Henna', nameEn: 'Henna', durationMinutes: 15, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'hilo-facial', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Facial (hilo)', nameEn: 'Face (thread)', durationMinutes: 30, price: 30, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'lifting-pestanas-tradicional', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Lifting de pestañas tradicional', nameEn: 'Traditional eyelash lifting', durationMinutes: 45, price: 35, paymentPolicy: 'deposit_or_full', depositPercent: 30 },

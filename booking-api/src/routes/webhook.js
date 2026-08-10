@@ -750,6 +750,10 @@ async function handleAddonTreatmentPayment(session) {
     durationMinutes: newDuration,
     price: newPrice,
     amountPaid: newAmountPaid,
+    // Si /my-bookings/add-treatment tuvo que crear un evento nuevo (el
+    // original ya no era usable), hay que guardar ESE id, o la reserva se
+    // quedaría apuntando a un evento que ya no representa la cita real.
+    eventId,
     ...(addonMarker ? { notes: booking.notes ? `${booking.notes}\n${addonMarker}` : addonMarker } : {}),
   });
 
@@ -809,14 +813,17 @@ router.post('/webhook/stripe', async (req, res) => {
 
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object;
-      const { calendarId, eventId, type: sessionType, originalEndISO } = session.metadata || {};
+      const { calendarId, eventId, type: sessionType, originalEndISO, revertOnExpiry } = session.metadata || {};
       if (calendarId && eventId) {
-        if (sessionType === 'addon_treatment' && originalEndISO) {
+        if (sessionType === 'addon_treatment' && originalEndISO && revertOnExpiry !== 'delete') {
           // No se pagó a tiempo: revertimos solo la ampliación del hueco,
           // la cita original (ya confirmada antes) se queda tal cual.
           await updateEvent(calendarId, eventId, { end: { dateTime: originalEndISO } }).catch(() => {});
         } else {
-          // No se pagó a tiempo: liberamos el hueco bloqueado
+          // No se pagó a tiempo: liberamos el hueco bloqueado. También
+          // aplica si el "evento original" de un addon_treatment tuvo que
+          // crearse de cero (revertOnExpiry='delete') — no había nada real
+          // que encoger de vuelta, hay que borrarlo entero.
           await deleteEvent(calendarId, eventId);
         }
       }
