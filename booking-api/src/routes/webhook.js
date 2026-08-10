@@ -9,6 +9,7 @@ const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
+const { withLock } = require('../lib/asyncLock');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const bonos = require('../config/bonos');
@@ -798,17 +799,26 @@ router.post('/webhook/stripe', async (req, res) => {
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const sessionType = (session.metadata || {}).type;
-      if (sessionType === 'gift') {
-        await handleGiftPayment(session);
-      } else if (sessionType === 'bono_session') {
-        await handleBonoSessionPayment(session);
-      } else if (sessionType === 'custom_quote') {
-        await handleCustomQuotePayment(session);
-      } else if (sessionType === 'addon_treatment') {
-        await handleAddonTreatmentPayment(session);
-      } else {
-        await handleBookingPayment(session);
-      }
+      // Cada handler ya comprueba si este pago se procesó antes (por
+      // bookingId/quoteId/giftId/payment_intent), pero esa comprobación por
+      // sí sola es "leer y luego decidir" — si Stripe entregara el mismo
+      // evento dos veces de verdad en paralelo (no solo un reintento
+      // secuencial), las dos podrían leer "aún no procesado" antes de que
+      // ninguna escribiera. El bloqueo por payment_intent lo hace atómico.
+      const lockKey = `stripe-pi:${session.payment_intent || session.id}`;
+      await withLock(lockKey, async () => {
+        if (sessionType === 'gift') {
+          await handleGiftPayment(session);
+        } else if (sessionType === 'bono_session') {
+          await handleBonoSessionPayment(session);
+        } else if (sessionType === 'custom_quote') {
+          await handleCustomQuotePayment(session);
+        } else if (sessionType === 'addon_treatment') {
+          await handleAddonTreatmentPayment(session);
+        } else {
+          await handleBookingPayment(session);
+        }
+      });
     }
 
     if (event.type === 'checkout.session.expired') {
