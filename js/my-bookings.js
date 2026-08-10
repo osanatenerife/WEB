@@ -21,6 +21,8 @@
     confirmCancel: { es: '¿Seguro que quieres cancelar esta cita?', en: 'Are you sure you want to cancel this appointment?' },
     cancelledRefunded: { es: '✓ Cita cancelada — se ha reembolsado el importe pagado.', en: '✓ Appointment cancelled — the amount paid has been refunded.' },
     cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 48h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 48h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
+    cancelledNothingToRefund: { es: '✓ Cita cancelada.', en: '✓ Appointment cancelled.' },
+    cancelledRefundFailed: { es: '✓ Cita cancelada — avisaste con tiempo suficiente, así que te corresponde el reembolso, pero ha habido un problema técnico al procesarlo automáticamente. Nuestro equipo lo revisará y te lo devolverá a mano en breve. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — you gave enough notice so a refund applies, but there was a technical issue processing it automatically. Our team will review it and refund you by hand shortly. Message us on WhatsApp if you have questions.' },
     cancel: { es: 'Cancelar cita', en: 'Cancel appointment' },
     reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time' },
     addTreatment: { es: 'Añadir tratamiento', en: 'Add treatment' },
@@ -310,7 +312,13 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));
-      card.innerHTML = `<p class="mybooking-status-note ok">${data.refunded ? t('cancelledRefunded') : t('cancelledNoRefund')}</p>`;
+      const msgKey = {
+        refunded: 'cancelledRefunded',
+        not_eligible: 'cancelledNoRefund',
+        nothing_to_refund: 'cancelledNothingToRefund',
+        failed: 'cancelledRefundFailed',
+      }[data.refundStatus] || (data.refunded ? 'cancelledRefunded' : 'cancelledNoRefund');
+      card.innerHTML = `<p class="mybooking-status-note ok">${t(msgKey)}</p>`;
     } catch (e) {
       alert(e.message);
     }

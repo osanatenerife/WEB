@@ -8,6 +8,15 @@ const hours = require('../config/hours');
 const employees = require('../config/employees');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance } = require('../config/loyalty');
+const { sendEmail } = require('../lib/email');
+
+const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
+
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 function weeklyScheduleFor(booking) {
   const employee = employees.find((e) => e.id === booking.employeeId);
@@ -168,14 +177,31 @@ router.post('/my-bookings/cancel', async (req, res) => {
     }
 
     const eligibleForRefund = hrs >= FREE_CANCEL_HOURS;
+    const hadOnlinePayment = !!booking.paymentIntentId && Number(booking.amountPaid) > 0;
     let refunded = false;
-    if (eligibleForRefund && booking.paymentIntentId && Number(booking.amountPaid) > 0) {
-      try {
-        await refundPayment(booking.paymentIntentId);
-        refunded = true;
-      } catch (refundErr) {
-        console.error('Error al reembolsar:', refundErr);
-        // seguimos cancelando la cita aunque el reembolso falle; se resuelve a mano
+    // 'not_eligible' | 'nothing_to_refund' | 'failed' | 'refunded' — el
+    // frontend usa esto para no decir "menos de 48h" cuando en realidad sí
+    // se avisó con tiempo pero el reembolso automático falló por otro motivo
+    // (p.ej. el pago se hizo con una cuenta de Stripe que ya no es la activa).
+    let refundStatus = 'not_eligible';
+    if (eligibleForRefund) {
+      refundStatus = hadOnlinePayment ? 'failed' : 'nothing_to_refund'; // se corrige abajo si el reembolso sale bien
+      if (hadOnlinePayment) {
+        try {
+          await refundPayment(booking.paymentIntentId);
+          refunded = true;
+          refundStatus = 'refunded';
+        } catch (refundErr) {
+          console.error('Error al reembolsar:', refundErr);
+          // Seguimos cancelando la cita aunque el reembolso falle — avisamos
+          // al salón por email para que lo resuelva a mano cuanto antes, en
+          // vez de que se quede solo en el log del servidor.
+          sendEmail({
+            to: SALON_EMAIL,
+            subject: `⚠️ Reembolso automático fallido — ${booking.name || 'clienta'}`,
+            html: `<p><strong>${escapeHtml(booking.name || '')}</strong> (${escapeHtml(booking.phone || '')}) ha cancelado su cita de <strong>${escapeHtml(booking.serviceName || '')}</strong> del ${booking.date} a las ${booking.time} con más de 48h de antelación, así que le corresponde reembolso — pero el reembolso automático de <strong>${Number(booking.amountPaid).toFixed(2)} €</strong> ha fallado.</p><p>Hay que reembolsarlo a mano desde Stripe (revisa si el pago se hizo con la cuenta de Stripe antigua). Motivo del fallo: ${escapeHtml(refundErr.message || '')}</p>`,
+          }).catch((e) => console.error('No se pudo avisar del fallo de reembolso:', e));
+        }
       }
     }
 
@@ -187,7 +213,7 @@ router.post('/my-bookings/cancel', async (req, res) => {
       status: refunded ? 'cancelled_refunded' : 'cancelled_no_refund',
     });
 
-    res.json({ ok: true, refunded, amountRefunded: refunded ? Number(booking.amountPaid) : 0 });
+    res.json({ ok: true, refunded, refundStatus, amountRefunded: refunded ? Number(booking.amountPaid) : 0 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo cancelar la reserva.' });
