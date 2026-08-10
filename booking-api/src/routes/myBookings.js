@@ -1,5 +1,5 @@
 const express = require('express');
-const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone } = require('../lib/sheets');
+const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone, findSessionBonoById, updateSessionBonoRow } = require('../lib/sheets');
 const { deleteEvent, updateEvent, createBookingEvent, isEventUsable } = require('../lib/googleCalendar');
 const { refundPayment } = require('../lib/stripeClient');
 const { getAvailableSlots } = require('../lib/availability');
@@ -10,6 +10,7 @@ const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance } = require('../config/loyalty');
 const { sendEmail } = require('../lib/email');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
+const { withLock } = require('../lib/asyncLock');
 
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
@@ -165,6 +166,11 @@ router.post('/my-bookings/cancel', async (req, res) => {
     return res.status(400).json({ error: 'Faltan datos para cancelar la reserva.' });
   }
   try {
+    // Dos cancelaciones casi simultáneas de la misma cita (doble clic, dos
+    // pestañas) podrían leer status="confirmed" las dos antes de que
+    // ninguna escriba, y las dos intentar reembolsar — el bloqueo serializa
+    // las peticiones sobre la misma cita.
+    return await withLock(`booking:${bookingId}`, async () => {
     const booking = await findBookingById(bookingId);
     if (!booking || !isOwner(booking, phone, email)) {
       return res.status(404).json({ error: 'No se ha encontrado esa reserva con esos datos.' });
@@ -189,7 +195,11 @@ router.post('/my-bookings/cancel', async (req, res) => {
       refundStatus = hadOnlinePayment ? 'failed' : 'nothing_to_refund'; // se corrige abajo si el reembolso sale bien
       if (hadOnlinePayment) {
         try {
-          await refundPayment(booking.paymentIntentId);
+          // Reembolsamos solo lo que esta fila dice haber cobrado online —
+          // el payment_intent puede cubrir VARIOS tratamientos comprados
+          // juntos (p.ej. un bono + un tratamiento suelto en la misma
+          // compra), y reembolsar sin importe devolvería la compra entera.
+          await refundPayment(booking.paymentIntentId, Number(booking.amountPaid));
           refunded = true;
           refundStatus = 'refunded';
         } catch (refundErr) {
@@ -215,11 +225,29 @@ router.post('/my-bookings/cancel', async (req, res) => {
       }
     }
 
+    // Si es la sesión de un bono y avisó con tiempo suficiente, le
+    // devolvemos la sesión — no la ha disfrutado, así que no debería
+    // perderla (igual que un no-show con antelación no debería costarle
+    // dinero, cancelar con tiempo no debería costarle una sesión).
+    if (booking.bonoId && eligibleForRefund) {
+      const bono = await findSessionBonoById(booking.bonoId);
+      if (bono) {
+        const sessionsUsed = Math.max(0, (Number(bono.sessionsUsed) || 0) - 1);
+        const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) + 1;
+        await updateSessionBonoRow(bono._sheetRow, bono, {
+          sessionsUsed,
+          sessionsRemaining,
+          status: 'active',
+        });
+      }
+    }
+
     await updateBookingRow(booking._sheetRow, booking, {
       status: refunded ? 'cancelled_refunded' : 'cancelled_no_refund',
     });
 
     res.json({ ok: true, refunded, refundStatus, amountRefunded: refunded ? Number(booking.amountPaid) : 0 });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo cancelar la reserva.' });
@@ -233,6 +261,10 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     return res.status(400).json({ error: 'Faltan datos para reprogramar la reserva.' });
   }
   try {
+    // Evita que esta reprogramación se pise con un cierre/edición/cancelación
+    // casi simultánea de la misma cita desde el panel (o desde esta misma
+    // pantalla en dos pestañas).
+    return await withLock(`booking:${bookingId}`, async () => {
     const booking = await findBookingById(bookingId);
     if (!booking || !isOwner(booking, phone, email)) {
       return res.status(404).json({ error: 'No se ha encontrado esa reserva con esos datos.' });
@@ -259,11 +291,16 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     const startISO = localToISO(newDate, newTime.length === 5 ? newTime : `${newTime}:00`, hours.timezone);
     const endISO = addMinutes(startISO, duration);
 
-    // Si el evento original ya no es usable (p.ej. quedó "cancelado" en
-    // Google tras un borrado anterior), un simple patch no vuelve a
-    // bloquear el hueco de verdad — hace falta crear un evento nuevo.
+    // Si otro tratamiento de la misma cita sigue activo y comparte este
+    // evento, no podemos parchear el evento compartido — se movería la
+    // cita entera para esos otros tratamientos sin actualizar sus filas.
+    // En ese caso (o si el evento original ya no es usable, p.ej. quedó
+    // "cancelado" en Google tras un borrado anterior) creamos un evento
+    // nuevo solo para este tratamiento.
+    const allBookingsForCheck = await getAllBookings();
+    const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
     let newEventId = booking.eventId;
-    if (await isEventUsable(booking.calendarId, booking.eventId)) {
+    if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
       await updateEvent(booking.calendarId, booking.eventId, {
         start: { dateTime: startISO },
         end: { dateTime: endISO },
@@ -280,6 +317,7 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     await updateBookingRow(booking._sheetRow, booking, { date: newDate, time: newTime, eventId: newEventId });
 
     res.json({ ok: true, date: newDate, time: newTime });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo reprogramar la reserva.' });

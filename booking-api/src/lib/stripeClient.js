@@ -80,11 +80,20 @@ function constructWebhookEvent(rawBody, signature) {
 }
 
 /**
- * Reembolsa el 100% de un pago ya cobrado (usado al cancelar con ≥24h de antelación).
+ * Reembolsa un pago ya cobrado (usado al cancelar con antelación suficiente).
+ * amountEuros es opcional: si no se indica, reembolsa el 100% del pago. Hace
+ * falta indicarlo cuando el payment_intent cubre VARIOS tratamientos pagados
+ * juntos en una sola compra (p.ej. un bono + un tratamiento suelto) y solo se
+ * está cancelando uno de ellos — reembolsar sin importe devolvería el total
+ * de la compra entera, no solo la parte de este tratamiento.
  */
-async function refundPayment(paymentIntentId) {
+async function refundPayment(paymentIntentId, amountEuros) {
   const stripeClient = getStripe();
-  return stripeClient.refunds.create({ payment_intent: paymentIntentId });
+  const params = { payment_intent: paymentIntentId };
+  if (amountEuros !== undefined && amountEuros !== null) {
+    params.amount = Math.round(amountEuros * 100);
+  }
+  return stripeClient.refunds.create(params);
 }
 
 module.exports = { getStripe, createCheckoutSession, constructWebhookEvent, refundPayment };

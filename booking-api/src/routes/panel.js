@@ -19,6 +19,7 @@ const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
+const { withLock } = require('../lib/asyncLock');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -291,6 +292,11 @@ router.post('/panel/book-session', async (req, res) => {
   const useCount = Math.max(1, Math.round(Number(sessionsToUse) || 1));
   const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
   try {
+    // Dos peticiones casi simultáneas para el mismo bono (doble clic, o dos
+    // pestañas del panel) podrían leer el mismo "sessionsRemaining" antes de
+    // que ninguna escriba, y agendar dos sesiones descontando solo una —
+    // el bloqueo serializa las peticiones sobre el mismo bono.
+    return await withLock(`bono:${bonoId}`, async () => {
     const bono = await findSessionBonoById(bonoId);
     if (!bono) return res.status(404).json({ error: 'Bono no encontrado.' });
     const remaining = Number(bono.sessionsRemaining) || 0;
@@ -376,6 +382,7 @@ router.post('/panel/book-session', async (req, res) => {
     });
 
     res.json({ ok: true, bookingId, sessionsRemaining });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo agendar la sesión.' });
@@ -551,8 +558,15 @@ router.post('/panel/reschedule', async (req, res) => {
   const { bookingId, date, time } = req.body || {};
   if (!bookingId || !date || !time) return res.status(400).json({ error: 'Faltan datos para reprogramar.' });
   try {
+    // Evita que esto se pise con una cancelación/reprogramación casi
+    // simultánea de la misma cita desde "Mis reservas" o desde otra
+    // pestaña del panel.
+    return await withLock(`booking:${bookingId}`, async () => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+    if (booking.status !== 'confirmed') {
+      return res.status(409).json({ error: 'Esta cita no está activa (cancelada o marcada como falta) — no se puede reprogramar así.' });
+    }
 
     const duration = Number(booking.durationMinutes) || 60;
     const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true });
@@ -563,11 +577,16 @@ router.post('/panel/reschedule', async (req, res) => {
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
     const endISO = addMinutes(startISO, duration);
 
-    // Si el evento original ya no es usable (p.ej. quedó "cancelado" en
-    // Google tras un borrado anterior), un simple patch no vuelve a
-    // bloquear el hueco de verdad — hace falta crear un evento nuevo.
+    // Si otro tratamiento de la misma cita sigue activo y comparte este
+    // evento, no podemos parchear el evento compartido — se movería la
+    // cita entera para esos otros tratamientos sin actualizar sus filas.
+    // En ese caso (o si el evento original ya no es usable, p.ej. quedó
+    // "cancelado" en Google tras un borrado anterior) creamos un evento
+    // nuevo solo para este tratamiento.
+    const allBookingsForCheck = await getAllBookings();
+    const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
     let newEventId = booking.eventId;
-    if (await isEventUsable(booking.calendarId, booking.eventId)) {
+    if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
       await updateEvent(booking.calendarId, booking.eventId, { start: { dateTime: startISO }, end: { dateTime: endISO } });
     } else {
       const event = await createBookingEvent(booking.calendarId, {
@@ -581,6 +600,7 @@ router.post('/panel/reschedule', async (req, res) => {
     await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId });
 
     res.json({ ok: true });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo reprogramar.' });
@@ -637,8 +657,15 @@ router.post('/panel/close', async (req, res) => {
     return res.status(400).json({ error: 'El importe total no es un número válido.' });
   }
   try {
+    // Doble clic en "Cerrar cita", o dos pestañas del panel a la vez,
+    // podrían leer "alreadyClosed=false" ambas antes de que ninguna
+    // escriba — el bloqueo serializa las peticiones sobre la misma cita.
+    return await withLock(`booking:${bookingId}`, async () => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+    if (booking.status !== 'confirmed') {
+      return res.status(409).json({ error: 'Esta cita ya no está activa (cancelada o marcada como falta) — revisa su estado antes de cerrarla.' });
+    }
 
     // Ya cerrada antes: no volver a acumular saldo por duplicado.
     const alreadyClosed = booking.finalAmount !== undefined && booking.finalAmount !== '';
@@ -721,6 +748,7 @@ router.post('/panel/close', async (req, res) => {
     }
 
     res.json({ ok: true });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo cerrar la cita.' });
@@ -780,6 +808,10 @@ router.post('/panel/redeem', async (req, res) => {
   }
   try {
     const phoneN = normalizePhone(phone);
+    // Dos canjes casi simultáneos para el mismo teléfono podrían leer el
+    // mismo saldo antes de que ninguno escriba, y los dos pasar el chequeo
+    // de saldo suficiente — el bloqueo serializa las peticiones.
+    return await withLock(`loyalty:${phoneN}`, async () => {
     const movements = await getLoyaltyMovementsForPhone(phoneN);
     const balance = computeLoyaltyBalance(movements);
     if (redeemAmount > balance) {
@@ -789,12 +821,7 @@ router.post('/panel/redeem', async (req, res) => {
     let name = '';
     if (bookingId) {
       const booking = await findBookingById(bookingId);
-      if (booking) {
-        if (booking.bonoId) {
-          return res.status(400).json({ error: 'El saldo no se puede canjear en sesiones de un bono, solo en tratamientos sueltos.' });
-        }
-        name = booking.name;
-      }
+      if (booking) name = booking.name;
     }
     if (!name && movements.length) name = movements[movements.length - 1].name;
 
@@ -814,6 +841,7 @@ router.post('/panel/redeem', async (req, res) => {
     });
 
     res.json({ ok: true, newBalance: round2(balance - redeemAmount) });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo canjear el saldo.' });
