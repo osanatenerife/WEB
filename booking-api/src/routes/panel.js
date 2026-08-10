@@ -538,7 +538,7 @@ router.get('/panel/reschedule-slots', async (req, res) => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
     const duration = Number(booking.durationMinutes) || 60;
-    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId));
+    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true });
     res.json({ slots });
   } catch (err) {
     console.error(err);
@@ -555,7 +555,7 @@ router.post('/panel/reschedule', async (req, res) => {
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
 
     const duration = Number(booking.durationMinutes) || 60;
-    const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId));
+    const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true });
     if (!freeSlots.includes(time)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }

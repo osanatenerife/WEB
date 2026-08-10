@@ -28,7 +28,8 @@ function isClosureDate(dateStr) {
  *   pásale el de la empleada (employee.weekly) para respetar su horario personal.
  * @returns {Promise<string[]>} horas de inicio disponibles, formato "HH:mm"
  */
-async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySchedule) {
+async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySchedule, opts) {
+  const skipGapHeuristic = !!(opts && opts.skipGapHeuristic);
   if (isClosureDate(dateStr)) return [];
   const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
   const daySchedule = (weeklySchedule || hours.weekly)[weekday];
@@ -83,6 +84,12 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
     }
     cursorISO = addMinutes(cursorISO, step);
   }
+  // El equipo, al reprogramar una cita ya existente desde el panel, necesita
+  // poder encajar tratamientos justo pegados a otros (p.ej. reconstruir una
+  // cita con varios tratamientos consecutivos) — para eso se salta el
+  // criterio de "no dejar huecos muertos", que solo tiene sentido de cara a
+  // nuevas reservas de clientas.
+  if (skipGapHeuristic) return [...goodSlots, ...fallbackSlots].sort();
   return goodSlots.length ? goodSlots : fallbackSlots;
 }
 
