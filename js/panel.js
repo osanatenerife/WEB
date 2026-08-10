@@ -42,6 +42,8 @@
     giftSlot: document.getElementById('panel-gift-slot'),
     discountToggle: document.getElementById('panel-discount-toggle'),
     discountSlot: document.getElementById('panel-discount-slot'),
+    campaignToggle: document.getElementById('panel-campaign-toggle'),
+    campaignSlot: document.getElementById('panel-campaign-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -299,7 +301,7 @@
             amount: amountInput.value, category: categorySelect.value,
           }),
         });
-        const waText = encodeURIComponent(`Hola ${nameInput.value.trim()}, aquí tienes el link para pagar tu presupuesto (${descInput.value.trim()}, ${Number(amountInput.value).toFixed(2)} €): ${data.url}`);
+        const waText = encodeURIComponent(`Hola ${nameInput.value.trim()}, aquí tienes el link para pagar tu presupuesto (${descInput.value.trim()}, ${Number(amountInput.value).toFixed(2)} €): ${data.url}\n\nPuedes pagarlo de una vez o fraccionarlo en 3 pagos sin intereses con Klarna — al entrar al link, elige la opción Klarna y te dejará elegir cómo dividirlo.`);
         resultEl.innerHTML = `
           <p class="panel-status">Link generado ✓</p>
           <input type="text" class="pq-link-out" readonly value="${data.url}" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:12.5px;margin-bottom:10px;">
@@ -856,6 +858,49 @@
     }
 
     loadDiscountList();
+  });
+
+  els.campaignToggle.addEventListener('click', () => {
+    if (els.campaignSlot.innerHTML) { els.campaignSlot.innerHTML = ''; return; }
+    els.campaignSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Enviar campaña de email a todas las clientas</div>
+        <p style="font-size:12px;color:var(--ink-soft);margin:-4px 0 12px;">Para fechas especiales, artículos, avisos de formaciones... Se envía a todas las clientas con email registrado. Si quieres incluir un código de descuento, créalo antes en "🏷️ Descuentos" y menciónalo en el texto.</p>
+        <div class="panel-field"><label>Asunto</label><input type="text" class="cp-subject" placeholder="Ej. Feliz Navidad desde Osana"></div>
+        <div class="panel-field" style="margin-top:10px;"><label>Mensaje</label><textarea class="cp-body" rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:13px;" placeholder="Escribe aquí el texto del email. Deja una línea en blanco entre párrafos."></textarea></div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-campaign" style="margin-top:12px;">Enviar a todas las clientas</button>
+        <p class="panel-error" style="display:none;"></p>
+        <p class="panel-status" style="display:none;"></p>
+      </div>
+    `;
+    const slot = els.campaignSlot;
+    const subjectInput = slot.querySelector('.cp-subject');
+    const bodyInput = slot.querySelector('.cp-body');
+    const errorEl = slot.querySelector('.panel-error');
+    const statusEl = slot.querySelector('.panel-status');
+    slot.querySelector('.panel-confirm-campaign').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      if (!subjectInput.value.trim() || !bodyInput.value.trim()) {
+        errorEl.textContent = 'Escribe el asunto y el mensaje.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (!confirm('¿Enviar este email a todas las clientas registradas? No se puede deshacer.')) return;
+      ev.target.disabled = true;
+      try {
+        const data = await panelFetch('/panel/campaign-email', {
+          method: 'POST',
+          body: JSON.stringify({ subject: subjectInput.value.trim(), body: bodyInput.value.trim() }),
+        });
+        statusEl.textContent = `Enviando a ${data.recipients} clientas…`;
+        statusEl.style.display = 'block';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   });
 
   function renderClient(client) {

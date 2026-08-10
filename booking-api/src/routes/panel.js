@@ -34,6 +34,27 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
+function escapeHtml(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Todas las clientas con email registrado en alguna reserva, sin duplicados
+// — la lista base para cualquier envío masivo (descuentos, campañas...).
+async function getUniqueClientEmails() {
+  const bookings = await getAllBookings();
+  const uniqueEmails = new Map();
+  bookings.forEach((b) => {
+    const email = normalizeEmail(b.email);
+    if (email && !uniqueEmails.has(email)) uniqueEmails.set(email, b.email);
+  });
+  return uniqueEmails;
+}
+
 // earnLoyalty vive en lib/loyaltyEarn.js (compartida con webhook.js, que
 // cierra sola y acumula puntos al momento cuando una reserva se paga al
 // 100% online — ver handleBookingPayment).
@@ -1233,12 +1254,7 @@ router.post('/panel/discount-email-blast', async (req, res) => {
     const discount = all.find((d) => d.discountId === discountId);
     if (!discount) return res.status(404).json({ error: 'No se ha encontrado ese descuento.' });
 
-    const bookings = await getAllBookings();
-    const uniqueEmails = new Map();
-    bookings.forEach((b) => {
-      const email = normalizeEmail(b.email);
-      if (email && !uniqueEmails.has(email)) uniqueEmails.set(email, b.email);
-    });
+    const uniqueEmails = await getUniqueClientEmails();
 
     res.json({ ok: true, recipients: uniqueEmails.size });
 
@@ -1252,6 +1268,40 @@ router.post('/panel/discount-email-blast', async (req, res) => {
         }
       }
       await updateDiscountRow(discount._sheetRow, { emailSentAt: new Date().toISOString() }).catch(() => {});
+    })();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo enviar la campaña.' });
+  }
+});
+
+// ── Campaña de email libre: para fechas especiales, artículos, avisos de
+// formaciones... cualquier comunicado que no sea un código de descuento
+// (para eso está el blast de arriba). Se envía a las mismas destinatarias
+// (todas las clientas con email registrado) con el asunto y texto que
+// escriba el equipo en el momento — sin plantilla fija.
+router.post('/panel/campaign-email', async (req, res) => {
+  const { subject, body } = req.body || {};
+  if (!subject || !subject.trim() || !body || !body.trim()) {
+    return res.status(400).json({ error: 'Indica el asunto y el mensaje.' });
+  }
+  try {
+    const uniqueEmails = await getUniqueClientEmails();
+
+    res.json({ ok: true, recipients: uniqueEmails.size });
+
+    (async () => {
+      const bodyHtml = body.trim().split(/\n{2,}/)
+        .map((para) => `<p style="margin:0 0 14px;">${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+      const html = `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">${bodyHtml}<p style="margin-top:20px;">Osana</p></div>`;
+      for (const email of uniqueEmails.values()) {
+        try {
+          await sendEmail({ to: email, subject: subject.trim(), html });
+        } catch (err) {
+          console.error(`Error enviando campaña de email a ${email}:`, err.message);
+        }
+      }
     })();
   } catch (err) {
     console.error(err);
