@@ -625,7 +625,17 @@ router.post('/panel/reschedule', async (req, res) => {
       newEventId = event.id;
     }
 
+    const oldDate = booking.date;
+    const oldTime = booking.time;
     await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId });
+
+    if (booking.email) {
+      sendEmail({
+        to: booking.email,
+        subject: booking.lang === 'en' ? 'Your appointment was rescheduled — Osana' : 'Tu cita ha sido reprogramada — Osana',
+        html: rescheduleEmailHtml({ booking, oldDate, oldTime, newDate: date, newTime: time }),
+      }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
+    }
 
     res.json({ ok: true });
     });
@@ -1022,6 +1032,30 @@ function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
         ${remainingLine}
         <p>Tu comodín de falta ya fue utilizado anteriormente.</p>
         <p>¿Quieres reprogramar? Entra en Mis Reservas o escríbenos por WhatsApp.</p>
+      </div>`;
+}
+
+// Aviso a la clienta cuando el equipo cambia la fecha/hora de su cita desde
+// el panel (a diferencia de cuando reprograma ella misma desde "Mis
+// Reservas", donde ya lo ve confirmado en pantalla al momento).
+function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime }) {
+  const isEn = booking.lang === 'en';
+  return isEn
+    ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Your appointment was rescheduled</h2>
+        <p>Hi ${escapeHtml(booking.name || '')},</p>
+        <p>Our team has moved your appointment for <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
+        <p>Was: ${oldDate} at ${oldTime}<br>Now: <b>${newDate} at ${newTime}</b></p>
+        <p>If this doesn't work for you, message us on WhatsApp and we'll find another time.</p>
+        <p>See you soon!<br>Osana</p>
+      </div>`
+    : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Tu cita ha sido reprogramada</h2>
+        <p>Hola ${escapeHtml(booking.name || '')},</p>
+        <p>Nuestro equipo ha movido tu cita de <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
+        <p>Antes: ${oldDate} a las ${oldTime}<br>Ahora: <b>${newDate} a las ${newTime}</b></p>
+        <p>Si no te viene bien, escríbenos por WhatsApp y buscamos otro hueco.</p>
+        <p>¡Te esperamos!<br>Osana</p>
       </div>`;
 }
 
