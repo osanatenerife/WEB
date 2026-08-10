@@ -45,12 +45,14 @@ function escapeHtml(str) {
 
 // Todas las clientas con email registrado en alguna reserva, sin duplicados
 // — la lista base para cualquier envío masivo (descuentos, campañas...).
+// Se queda con el nombre de la reserva más reciente de cada email (las
+// filas están en orden cronológico), para poder personalizar los envíos.
 async function getUniqueClientEmails() {
   const bookings = await getAllBookings();
   const uniqueEmails = new Map();
   bookings.forEach((b) => {
     const email = normalizeEmail(b.email);
-    if (email && !uniqueEmails.has(email)) uniqueEmails.set(email, b.email);
+    if (email) uniqueEmails.set(email, { email: b.email, name: b.name || '' });
   });
   return uniqueEmails;
 }
@@ -1260,7 +1262,7 @@ router.post('/panel/discount-email-blast', async (req, res) => {
 
     (async () => {
       const html = discountEmailHtml(discount);
-      for (const email of uniqueEmails.values()) {
+      for (const { email } of uniqueEmails.values()) {
         try {
           await sendEmail({ to: email, subject: `Un descuento especial de Osana para ti`, html });
         } catch (err) {
@@ -1280,24 +1282,61 @@ router.post('/panel/discount-email-blast', async (req, res) => {
 // (para eso está el blast de arriba). Se envía a las mismas destinatarias
 // (todas las clientas con email registrado) con el asunto y texto que
 // escriba el equipo en el momento — sin plantilla fija.
+// El "{nombre}" en asunto/mensaje se sustituye por el nombre (de pila) de
+// cada clienta antes de enviar, usando el nombre de su reserva más reciente.
+const HEADER_IMAGE_RE = /^data:image\/(png|jpe?g|gif|webp);base64,/;
+
 router.post('/panel/campaign-email', async (req, res) => {
-  const { subject, body } = req.body || {};
+  const { subject, body, headerImageDataUrl, ctaText, ctaUrl } = req.body || {};
   if (!subject || !subject.trim() || !body || !body.trim()) {
     return res.status(400).json({ error: 'Indica el asunto y el mensaje.' });
   }
+  if (headerImageDataUrl && (!HEADER_IMAGE_RE.test(headerImageDataUrl) || headerImageDataUrl.length > 6_000_000)) {
+    return res.status(400).json({ error: 'La imagen no es válida o pesa demasiado (máx. ~4 MB).' });
+  }
+  if ((ctaText && ctaText.trim() && !(ctaUrl && ctaUrl.trim())) || (ctaUrl && ctaUrl.trim() && !(ctaText && ctaText.trim()))) {
+    return res.status(400).json({ error: 'Si añades un botón, indica el texto y el enlace.' });
+  }
   try {
-    const uniqueEmails = await getUniqueClientEmails();
+    const uniqueClients = await getUniqueClientEmails();
 
-    res.json({ ok: true, recipients: uniqueEmails.size });
+    res.json({ ok: true, recipients: uniqueClients.size });
 
     (async () => {
-      const bodyHtml = body.trim().split(/\n{2,}/)
-        .map((para) => `<p style="margin:0 0 14px;">${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
-        .join('');
-      const html = `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">${bodyHtml}<p style="margin-top:20px;">Osana</p></div>`;
-      for (const email of uniqueEmails.values()) {
+      // Mismo estilo de marca que el email de confirmación de reserva:
+      // cabecera oscura (con el logo, o la imagen que suba el equipo),
+      // cuerpo en crema, botón dorado, pie oscuro con enlaces de contacto.
+      const headerHtml = headerImageDataUrl
+        ? `<img src="${headerImageDataUrl}" alt="" style="width:100%;display:block;">`
+        : `<div style="background:#1a1612;padding:26px 24px;text-align:center;"><img src="https://osana.es/images/logo-full-blanco.png" alt="Osana" style="height:32px;width:auto;"></div>`;
+      const showCta = ctaText && ctaText.trim() && ctaUrl && ctaUrl.trim();
+      const ctaHtml = showCta
+        ? `<div style="text-align:center;margin:26px 0 4px;"><a href="${escapeHtml(ctaUrl.trim())}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${escapeHtml(ctaText.trim())}</a></div>`
+        : '';
+      const footerHtml = `
+        <div style="background:#1a1612;padding:22px 24px;text-align:center;">
+          <p style="margin:0 0 6px;color:#ac977e;font-size:12px;letter-spacing:1px;text-transform:uppercase;">Osana Tenerife</p>
+          <p style="margin:0;color:#cbbfae;font-size:11.5px;">
+            <a href="https://osana.es" style="color:#cbbfae;text-decoration:underline;">osana.es</a>
+            · <a href="https://instagram.com/osana_tenerife" style="color:#cbbfae;text-decoration:underline;">Instagram</a>
+            · <a href="https://wa.me/34623725551" style="color:#cbbfae;text-decoration:underline;">WhatsApp</a>
+          </p>
+        </div>`;
+      for (const { email, name } of uniqueClients.values()) {
         try {
-          await sendEmail({ to: email, subject: subject.trim(), html });
+          const firstName = (name || '').trim().split(' ')[0] || 'clienta';
+          const subjectPersonal = subject.trim().replaceAll('{nombre}', firstName);
+          const bodyPersonal = body.trim().replaceAll('{nombre}', firstName);
+          const bodyHtml = bodyPersonal.split(/\n{2,}/)
+            .map((para) => `<p style="margin:0 0 14px;color:#1a1612;font-size:14.5px;">${escapeHtml(para).replace(/\n/g, '<br>')}</p>`)
+            .join('');
+          const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;background:#f6eeda;">
+            ${headerHtml}
+            <div style="padding:28px 24px 8px;">${bodyHtml}${ctaHtml}</div>
+            <div style="height:22px;"></div>
+            ${footerHtml}
+          </div>`;
+          await sendEmail({ to: email, subject: subjectPersonal, html });
         } catch (err) {
           console.error(`Error enviando campaña de email a ${email}:`, err.message);
         }

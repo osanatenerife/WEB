@@ -865,19 +865,50 @@
     els.campaignSlot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Enviar campaña de email a todas las clientas</div>
-        <p style="font-size:12px;color:var(--ink-soft);margin:-4px 0 12px;">Para fechas especiales, artículos, avisos de formaciones... Se envía a todas las clientas con email registrado. Si quieres incluir un código de descuento, créalo antes en "🏷️ Descuentos" y menciónalo en el texto.</p>
-        <div class="panel-field"><label>Asunto</label><input type="text" class="cp-subject" placeholder="Ej. Feliz Navidad desde Osana"></div>
-        <div class="panel-field" style="margin-top:10px;"><label>Mensaje</label><textarea class="cp-body" rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:13px;" placeholder="Escribe aquí el texto del email. Deja una línea en blanco entre párrafos."></textarea></div>
+        <p style="font-size:12px;color:var(--ink-soft);margin:-4px 0 12px;">Para fechas especiales, artículos, avisos de formaciones... Se envía a todas las clientas con email registrado. Escribe <code>{nombre}</code> donde quieras que aparezca el nombre de cada clienta. Si quieres incluir un código de descuento, créalo antes en "🏷️ Descuentos" y menciónalo en el texto.</p>
+        <div class="panel-field"><label>Imagen de cabecera (opcional)</label><input type="file" accept="image/*" class="cp-image"></div>
+        <img class="cp-image-preview" style="display:none;width:100%;max-width:420px;margin-top:8px;border-radius:4px;">
+        <div class="panel-field" style="margin-top:10px;"><label>Asunto</label><input type="text" class="cp-subject" placeholder="Ej. Feliz Navidad, {nombre}"></div>
+        <div class="panel-field" style="margin-top:10px;"><label>Mensaje</label><textarea class="cp-body" rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:13px;" placeholder="Hola {nombre},&#10;&#10;Escribe aquí el texto del email. Deja una línea en blanco entre párrafos."></textarea></div>
+        <div class="panel-field-row" style="margin-top:10px;">
+          <div class="panel-field"><label>Texto del botón (opcional)</label><input type="text" class="cp-cta-text" placeholder="Ej. Reserva tu sesión"></div>
+          <div class="panel-field"><label>Enlace del botón</label><input type="text" class="cp-cta-url" placeholder="https://osana.es/reserva.html"></div>
+        </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-campaign" style="margin-top:12px;">Enviar a todas las clientas</button>
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status" style="display:none;"></p>
       </div>
     `;
     const slot = els.campaignSlot;
+    const imageInput = slot.querySelector('.cp-image');
+    const imagePreview = slot.querySelector('.cp-image-preview');
     const subjectInput = slot.querySelector('.cp-subject');
     const bodyInput = slot.querySelector('.cp-body');
+    const ctaTextInput = slot.querySelector('.cp-cta-text');
+    const ctaUrlInput = slot.querySelector('.cp-cta-url');
     const errorEl = slot.querySelector('.panel-error');
     const statusEl = slot.querySelector('.panel-status');
+
+    let headerImageDataUrl = '';
+    imageInput.addEventListener('change', () => {
+      const file = imageInput.files[0];
+      errorEl.style.display = 'none';
+      if (!file) { headerImageDataUrl = ''; imagePreview.style.display = 'none'; return; }
+      if (file.size > 4 * 1024 * 1024) {
+        errorEl.textContent = 'La imagen pesa demasiado, usa una de menos de 4 MB.';
+        errorEl.style.display = 'block';
+        imageInput.value = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        headerImageDataUrl = reader.result;
+        imagePreview.src = headerImageDataUrl;
+        imagePreview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+
     slot.querySelector('.panel-confirm-campaign').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       statusEl.style.display = 'none';
@@ -886,12 +917,22 @@
         errorEl.style.display = 'block';
         return;
       }
+      if (!!ctaTextInput.value.trim() !== !!ctaUrlInput.value.trim()) {
+        errorEl.textContent = 'Si añades un botón, indica el texto y el enlace.';
+        errorEl.style.display = 'block';
+        return;
+      }
       if (!confirm('¿Enviar este email a todas las clientas registradas? No se puede deshacer.')) return;
       ev.target.disabled = true;
       try {
         const data = await panelFetch('/panel/campaign-email', {
           method: 'POST',
-          body: JSON.stringify({ subject: subjectInput.value.trim(), body: bodyInput.value.trim() }),
+          body: JSON.stringify({
+            subject: subjectInput.value.trim(), body: bodyInput.value.trim(),
+            headerImageDataUrl: headerImageDataUrl || undefined,
+            ctaText: ctaTextInput.value.trim() || undefined,
+            ctaUrl: ctaUrlInput.value.trim() || undefined,
+          }),
         });
         statusEl.textContent = `Enviando a ${data.recipients} clientas…`;
         statusEl.style.display = 'block';

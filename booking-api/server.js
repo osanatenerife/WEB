@@ -38,7 +38,10 @@ app.use(cors({ origin: true }));
 app.use('/api/webhook/stripe', express.raw({ type: 'application/json' }));
 app.use('/api', webhookRouter);
 
-app.use(express.json());
+// Límite por defecto (100kb) se queda corto para la campaña de email con
+// imagen de cabecera (se manda como base64 en el body) — 8mb da margen de
+// sobra para una imagen de banner sin abrir la puerta a payloads enormes.
+app.use(express.json({ limit: '8mb' }));
 app.use('/api', servicesRouter);
 app.use('/api', availabilityRouter);
 app.use('/api', checkoutRouter);
