@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift, appendSessionBono, getAllBookings, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
+const { appendBooking, appendGift, getAllGifts, appendSessionBono, getAllBookings, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
 const { earnRateFor, computeLoyaltyBalance, currentExpiryDate } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
@@ -541,9 +541,18 @@ async function handleCustomQuotePayment(session) {
     ? Math.round(session.amount_total) / 100
     : Number(amount) || 0;
 
+  const quotes = await getAllCustomQuotes();
+  const quote = quotes.find((q) => q.quoteId === quoteId);
+
+  // Stripe puede reenviar el mismo evento más de una vez — si este
+  // presupuesto ya se marcó como pagado, no volvemos a sumar puntos ni a
+  // reenviar el email.
+  if (quote && quote.status === 'paid') {
+    console.log(`checkout.session.completed (presupuesto) repetido para quoteId ${quoteId} — se omite.`);
+    return;
+  }
+
   try {
-    const quotes = await getAllCustomQuotes();
-    const quote = quotes.find((q) => q.quoteId === quoteId);
     if (quote) {
       await updateQuoteRow(quote._sheetRow, {
         status: 'paid',
@@ -617,6 +626,18 @@ function buildGiftEmailHtml({ lang }) {
 
 async function handleGiftPayment(session) {
   const { giftId, giftType, serviceId, amount, fromName, toName, message, buyerEmail, buyerPhone, lang } = session.metadata || {};
+
+  // Stripe puede reenviar el mismo evento más de una vez — sin este chequeo,
+  // un reenvío generaría un SEGUNDO bono regalo válido (con otro código)
+  // para el mismo pago.
+  if (giftId) {
+    const already = (await getAllGifts()).some((g) => g.bonoId === giftId);
+    if (already) {
+      console.log(`checkout.session.completed (bono regalo) repetido para giftId ${giftId} — se omite.`);
+      return;
+    }
+  }
+
   const isEn = lang === 'en';
   const service = giftType === 'service' ? services.find((s) => s.id === serviceId) : null;
   const itemLabel = giftType === 'service'
@@ -694,6 +715,18 @@ async function handleAddonTreatmentPayment(session) {
     console.error('No se encontró la reserva original al confirmar un tratamiento añadido:', bookingId);
     return;
   }
+
+  // Stripe puede reenviar el mismo evento más de una vez — sin este
+  // chequeo, un reenvío sumaría el precio/duración del añadido DOS veces
+  // sobre la misma reserva. No hay un id propio de este "extra" en la
+  // Sheet, así que usamos el payment_intent (único por cobro real) como
+  // marca dentro de las notas internas de la cita.
+  const addonMarker = session.payment_intent ? `[addon:${session.payment_intent}]` : '';
+  if (addonMarker && (booking.notes || '').includes(addonMarker)) {
+    console.log(`checkout.session.completed (tratamiento añadido) repetido para payment_intent ${session.payment_intent} — se omite.`);
+    return;
+  }
+
   const service = services.find((s) => s.id === serviceId);
   const addedName = service ? service.name : serviceId;
   const combinedServiceName = `${booking.serviceName} + ${addedName}`;
@@ -717,6 +750,7 @@ async function handleAddonTreatmentPayment(session) {
     durationMinutes: newDuration,
     price: newPrice,
     amountPaid: newAmountPaid,
+    ...(addonMarker ? { notes: booking.notes ? `${booking.notes}\n${addonMarker}` : addonMarker } : {}),
   });
 
   const isEn = lang === 'en';
