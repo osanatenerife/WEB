@@ -8,6 +8,7 @@ const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
+const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -100,11 +101,6 @@ router.post('/bono-checkout', async (req, res) => {
 
   let eventId = null;
   try {
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, totalDuration, employee.weekly);
-    if (!freeSlots.includes(time)) {
-      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
-    }
-
     const startISO = localToISO(date, time.length === 5 ? time : time + ':00', hours.timezone);
     const endISO = addMinutes(startISO, totalDuration);
 
@@ -126,15 +122,27 @@ router.post('/bono-checkout', async (req, res) => {
     const allNames = [...bonoItems, ...singleItems].map((it) => it.service.name).join(' + ');
     const customerAllNames = [...bonoItems, ...singleItems]
       .map((it) => (lang === 'en' ? (it.service.nameEn || it.service.name) : it.service.name)).join(' + ');
-    const event = await createBookingEvent(employee.calendarId, {
-      summary: `⏳ Pendiente de pago — ${allNames} — ${clientName}`,
-      description,
-      startISO,
-      endISO,
-      clientEmail,
-      clientName,
+
+    // Revalidar disponibilidad y crear el evento "pendiente de pago" dentro
+    // del mismo bloqueo en memoria por profesional+día — evita que dos
+    // personas pidiendo el mismo último hueco casi a la vez pasen las dos
+    // la comprobación antes de que ninguna haya creado el evento todavía.
+    eventId = await withLock(`slot:${employeeId}:${date}`, async () => {
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, totalDuration, employee.weekly);
+      if (!freeSlots.includes(time)) return null;
+      const event = await createBookingEvent(employee.calendarId, {
+        summary: `⏳ Pendiente de pago — ${allNames} — ${clientName}`,
+        description,
+        startISO,
+        endISO,
+        clientEmail,
+        clientName,
+      });
+      return event.id;
     });
-    eventId = event.id;
+    if (!eventId) {
+      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+    }
 
     const bonoItemsMeta = bonoItems.map((it) => ({
       serviceId: it.service.id, bonoId: it.bonoId, sessions: it.bono.sessions, price: it.bono.price,

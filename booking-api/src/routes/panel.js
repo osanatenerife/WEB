@@ -337,11 +337,6 @@ router.post('/panel/book-session', async (req, res) => {
     const displayName = displayService ? displayService.name : bono.serviceName;
 
     const durationMinutes = (displayService || service).durationMinutes + extra;
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly);
-    if (!freeSlots.includes(time)) {
-      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
-    }
-
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
     const endISO = addMinutes(startISO, durationMinutes);
     const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
@@ -357,14 +352,25 @@ router.post('/panel/book-session', async (req, res) => {
       notes ? `\n📝 Notas internas (solo equipo):\n${notes}` : '',
     ].filter(Boolean).join('\n');
 
-    const event = await createBookingEvent(employee.calendarId, {
-      summary: `✅ Bono (${sessionLabel}) — ${displayName} — ${bono.clientName}`,
-      description,
-      startISO,
-      endISO,
-      clientEmail: bono.clientEmail,
-      clientName: bono.clientName,
+    // Revalidar disponibilidad y crear el evento dentro del mismo bloqueo
+    // en memoria por profesional+día — evita que esto choque con una
+    // clienta reservando online ese mismo hueco casi a la vez.
+    const newEventId = await withLock(`slot:${employeeId}:${date}`, async () => {
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly);
+      if (!freeSlots.includes(time)) return null;
+      const event = await createBookingEvent(employee.calendarId, {
+        summary: `✅ Bono (${sessionLabel}) — ${displayName} — ${bono.clientName}`,
+        description,
+        startISO,
+        endISO,
+        clientEmail: bono.clientEmail,
+        clientName: bono.clientName,
+      });
+      return event.id;
     });
+    if (!newEventId) {
+      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+    }
 
     const bookingId = crypto.randomUUID();
     await appendBooking({
@@ -379,7 +385,7 @@ router.post('/panel/book-session', async (req, res) => {
       employeeId,
       employeeName: employee.name,
       calendarId: employee.calendarId,
-      eventId: event.id,
+      eventId: newEventId,
       date, time,
       durationMinutes,
       price: '',

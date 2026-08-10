@@ -11,6 +11,7 @@ const { resolveOrigin } = require('../lib/origin');
 const { getAllDiscounts } = require('../lib/sheets');
 const { isDiscountLive, findDiscountByCode, computeDiscountAmount } = require('../lib/discounts');
 const { handleBookingPayment } = require('./webhook');
+const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
 
 const router = express.Router();
@@ -93,32 +94,10 @@ router.post('/checkout', async (req, res) => {
     const discount = await resolveDiscount(discountCode, [service, ...additionalServices]);
     const price = round2(priceBeforeDiscount - (discount ? discount.amount : 0));
 
-    // 1) Revalidar que el hueco sigue libre justo antes de bloquearlo
-    const freeSlots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
-    if (!freeSlots.includes(time)) {
-      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
-    }
-
     const startISO = localToISO(date, time.length === 5 ? time : time + ':00', hours.timezone);
     const endISO = addMinutes(startISO, duration);
 
     const { amount, type } = computeAmount(service, price, paymentChoice);
-
-    // 2) Bloquear el hueco de inmediato con un evento "pendiente de pago"
-    //    (evita que dos personas paguen por el mismo hueco a la vez)
-    const description = [
-      `Cliente: ${clientName}`,
-      `Teléfono: ${clientPhone}`,
-      clientEmail ? `Email: ${clientEmail}` : null,
-      `Servicio: ${service.name} (${service.category})`,
-      additionalServices.length ? `Tratamientos añadidos: ${additionalServices.map((s) => s.name).join(', ')}` : null,
-      selectedExtras.length ? `Extras: ${selectedExtras.map((e) => e.name).join(', ')}` : null,
-      discount ? `Código de descuento: ${discount.code} (-${discount.amount.toFixed(2)} €)` : null,
-      `Pago online: ${amount.toFixed(2)} € (${type})`,
-      amount < price ? `Resto a pagar en centro: ${(price - amount).toFixed(2)} €` : null,
-      '',
-      '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
-    ].filter(Boolean).join('\n');
 
     // El evento de calendario es de uso interno del centro: siempre en español, independientemente del idioma del cliente
     const allNames = [service.name, ...additionalServices.map((s) => s.name)];
@@ -126,15 +105,43 @@ router.post('/checkout', async (req, res) => {
     // Lo que ve el cliente en Stripe sí respeta su idioma
     const customerAllNames = [service.nameEn || service.name, ...additionalServices.map((s) => s.nameEn || s.name)];
     const customerServiceName = lang === 'en' ? customerAllNames.join(' + ') : allNames.join(' + ');
-    const event = await createBookingEvent(employee.calendarId, {
-      summary: `⏳ Pendiente de pago — ${summaryTitle} — ${clientName}`,
-      description,
-      startISO,
-      endISO,
-      clientEmail,
-      clientName,
+
+    // 1) Revalidar que el hueco sigue libre y 2) bloquearlo de inmediato con
+    // un evento "pendiente de pago", todo dentro del mismo bloqueo en
+    // memoria por profesional+día — así dos personas pidiendo el mismo
+    // último hueco casi a la vez no pueden las dos pasar la comprobación
+    // antes de que ninguna haya creado el evento todavía.
+    eventId = await withLock(`slot:${employeeId}:${date}`, async () => {
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
+      if (!freeSlots.includes(time)) return null;
+
+      const description = [
+        `Cliente: ${clientName}`,
+        `Teléfono: ${clientPhone}`,
+        clientEmail ? `Email: ${clientEmail}` : null,
+        `Servicio: ${service.name} (${service.category})`,
+        additionalServices.length ? `Tratamientos añadidos: ${additionalServices.map((s) => s.name).join(', ')}` : null,
+        selectedExtras.length ? `Extras: ${selectedExtras.map((e) => e.name).join(', ')}` : null,
+        discount ? `Código de descuento: ${discount.code} (-${discount.amount.toFixed(2)} €)` : null,
+        `Pago online: ${amount.toFixed(2)} € (${type})`,
+        amount < price ? `Resto a pagar en centro: ${(price - amount).toFixed(2)} €` : null,
+        '',
+        '⏳ PENDIENTE DE PAGO — se confirma automáticamente al completar el pago.',
+      ].filter(Boolean).join('\n');
+
+      const event = await createBookingEvent(employee.calendarId, {
+        summary: `⏳ Pendiente de pago — ${summaryTitle} — ${clientName}`,
+        description,
+        startISO,
+        endISO,
+        clientEmail,
+        clientName,
+      });
+      return event.id;
     });
-    eventId = event.id;
+    if (!eventId) {
+      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+    }
 
     const origin = resolveOrigin(req);
 
