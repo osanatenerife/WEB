@@ -1,5 +1,5 @@
 const hours = require('../config/hours');
-const { localToISO, addMinutes } = require('./timezone');
+const { localToISO } = require('./timezone');
 const { getBusyIntervals } = require('./googleCalendar');
 
 const MIN_LEAD_MINUTES = 120; // no permitir reservar con menos de 2h de antelación
@@ -37,6 +37,8 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
 
   const dayStartISO = localToISO(dateStr, daySchedule.open, hours.timezone);
   const dayEndISO = localToISO(dateStr, daySchedule.close, hours.timezone);
+  const dayStartMs = new Date(dayStartISO).getTime();
+  const dayEndMs = new Date(dayEndISO).getTime();
 
   const busy = await getBusyIntervals(calendarId, dayStartISO, dayEndISO);
   const busyRanges = busy
@@ -45,8 +47,18 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
   const busyStarts = busyRanges.map((r) => r.start);
 
   const now = Date.now() + MIN_LEAD_MINUTES * 60000;
-  const step = hours.slotStepMinutes;
-  const dayEndMs = new Date(dayEndISO).getTime();
+  const stepMs = hours.slotStepMinutes * 60000;
+
+  // Candidatos: la rejilla habitual de cada `slotStepMinutes`, MÁS el
+  // instante exacto en que termina cada compromiso ya existente ese día —
+  // así un tratamiento puede empezar justo cuando acaba el anterior aunque
+  // ese instante no caiga en la rejilla. Sin esto, cualquier servicio cuya
+  // duración no sea múltiplo del paso (hay varios de 20, 40, 55, 70, 100
+  // min con una rejilla de 15) deja huecos de pocos minutos que nunca se
+  // llegan a ofrecer, aunque estén libres de verdad.
+  const candidateMs = new Set();
+  for (let t = dayStartMs; t < dayEndMs; t += stepMs) candidateMs.add(t);
+  busyRanges.forEach((r) => { if (r.end >= dayStartMs && r.end < dayEndMs) candidateMs.add(r.end); });
 
   // Los huecos "buenos" (no dejan un tramo muerto detrás) van primero;
   // los que sí dejan un tramo muerto solo se ofrecen si no hay ninguno
@@ -54,12 +66,9 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
   // realmente es el único disponible.
   const goodSlots = [];
   const fallbackSlots = [];
-  let cursorISO = dayStartISO;
-  while (true) {
-    const slotStartMs = new Date(cursorISO).getTime();
-    const slotEndISO = addMinutes(cursorISO, durationMinutes);
-    const slotEndMs = new Date(slotEndISO).getTime();
-    if (slotEndMs > dayEndMs) break;
+  for (const slotStartMs of Array.from(candidateMs).sort((a, b) => a - b)) {
+    const slotEndMs = slotStartMs + durationMinutes * 60000;
+    if (slotEndMs > dayEndMs) continue;
 
     const isFree = !busyRanges.some((r) => overlaps(slotStartMs, slotEndMs, r.start, r.end));
     const isFuture = slotStartMs >= now;
@@ -67,7 +76,7 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
       // Extraemos "HH:mm" en la zona horaria del centro para mostrarlo
       const label = new Intl.DateTimeFormat('es-ES', {
         timeZone: hours.timezone, hour: '2-digit', minute: '2-digit', hour12: false,
-      }).format(new Date(cursorISO));
+      }).format(new Date(slotStartMs));
 
       // Solo cuenta como "hueco muerto" si deja un tramo corto antes de
       // OTRA cita real — terminar un poco antes del cierre no desperdicia
@@ -82,7 +91,6 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
 
       (leavesDeadGap ? fallbackSlots : goodSlots).push(label);
     }
-    cursorISO = addMinutes(cursorISO, step);
   }
   // El equipo, al reprogramar una cita ya existente desde el panel, necesita
   // poder encajar tratamientos justo pegados a otros (p.ej. reconstruir una
