@@ -997,6 +997,9 @@ router.post('/panel/no-show', async (req, res) => {
     if (booking.status === 'no_show') {
       return res.json({ ok: true, alreadyMarked: true });
     }
+    if (booking.status !== 'confirmed') {
+      return res.status(409).json({ error: 'Esta cita ya está cancelada — no tiene sentido marcarla como falta.' });
+    }
 
     await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
 
@@ -1081,8 +1084,13 @@ router.post('/panel/delete-booking', async (req, res) => {
     }
 
     const deletedNote = `Eliminada manualmente desde el panel el ${new Date().toISOString().slice(0, 10)}.`;
+    // Si ya estaba "cancelled_no_refund" (la clienta canceló tarde y se
+    // quedó el importe), no lo reetiquetamos como "reembolsada" — eso
+    // borraría ese ingreso real del informe trimestral, que solo excluye
+    // las citas marcadas como reembolsadas de verdad.
+    const newStatus = booking.status === 'cancelled_no_refund' ? booking.status : 'cancelled_refunded';
     await updateBookingRow(booking._sheetRow, booking, {
-      status: 'cancelled_refunded',
+      status: newStatus,
       notes: booking.notes ? `${booking.notes}\n${deletedNote}` : deletedNote,
     });
 
