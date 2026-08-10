@@ -9,6 +9,7 @@ const employees = require('../config/employees');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance } = require('../config/loyalty');
 const { sendEmail } = require('../lib/email');
+const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
 
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
@@ -206,7 +207,12 @@ router.post('/my-bookings/cancel', async (req, res) => {
     }
 
     if (booking.calendarId && booking.eventId) {
-      await deleteEvent(booking.calendarId, booking.eventId);
+      const allBookings = await getAllBookings();
+      // Si otro tratamiento de la misma cita sigue activo, no borramos el
+      // evento compartido — solo se borra cuando este era el último.
+      if (!hasOtherActiveBookingsOnSameEvent(booking, allBookings)) {
+        await deleteEvent(booking.calendarId, booking.eventId);
+      }
     }
 
     await updateBookingRow(booking._sheetRow, booking, {

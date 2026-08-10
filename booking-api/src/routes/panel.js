@@ -18,6 +18,7 @@ const { sendEmail } = require('../lib/email');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
+const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -1023,10 +1024,16 @@ router.post('/panel/delete-booking', async (req, res) => {
     }
 
     if (booking.calendarId && booking.eventId) {
-      try {
-        await deleteEvent(booking.calendarId, booking.eventId);
-      } catch (calErr) {
-        console.error('No se pudo borrar el evento del calendario al eliminar la cita:', calErr.message);
+      const allBookings = await getAllBookings();
+      // Otros tratamientos de la misma cita comparten el mismo evento de
+      // Calendar — si alguno sigue activo, no lo borramos, o desaparecería
+      // también su cita aunque su fila siga diciendo "confirmed".
+      if (!hasOtherActiveBookingsOnSameEvent(booking, allBookings)) {
+        try {
+          await deleteEvent(booking.calendarId, booking.eventId);
+        } catch (calErr) {
+          console.error('No se pudo borrar el evento del calendario al eliminar la cita:', calErr.message);
+        }
       }
     }
 
