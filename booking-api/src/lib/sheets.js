@@ -142,12 +142,21 @@ async function findBookingById(bookingId) {
  * Actualiza campos concretos de una reserva ya existente (por su fila real).
  */
 async function updateBookingRow(sheetRow, currentBooking, updates) {
-  const merged = { ...currentBooking, ...updates };
   const sheets = getSheetsClient();
   const tab = await getTabName();
+  const range = `'${tab}'!A${sheetRow}:${LAST_COL}${sheetRow}`;
+  // Releemos la fila justo antes de escribir en vez de fiarnos del snapshot
+  // que tenía quien nos llamó — si otra petición escribió esta misma fila
+  // mientras tanto (p.ej. la clienta canceló mientras el equipo tenía
+  // abierta la ficha para cerrarla), un campo que esta llamada no toca
+  // (como "status") no se revierte sin querer a su valor viejo.
+  const fresh = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range });
+  const freshRow = fresh.data.values && fresh.data.values[0];
+  const base = freshRow ? rowToObject(freshRow) : currentBooking;
+  const merged = { ...base, ...updates };
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId(),
-    range: `'${tab}'!A${sheetRow}:${LAST_COL}${sheetRow}`,
+    range,
     valueInputOption: 'RAW',
     requestBody: { values: [objectToRow(merged)] },
   });
@@ -397,11 +406,18 @@ async function findSessionBonoById(bonoId) {
 
 async function updateSessionBonoRow(sheetRow, currentBono, updates) {
   await ensureSessionBonoTab();
-  const merged = { ...currentBono, ...updates };
   const sheets = getSheetsClient();
+  const range = `'${SESSION_BONO_TAB_TITLE}'!A${sheetRow}:${SESSION_BONO_LAST_COL}${sheetRow}`;
+  // Releemos la fila justo antes de escribir — ver el mismo comentario en
+  // updateBookingRow. Aquí importa especialmente para sessionsUsed/
+  // sessionsRemaining, que dos peticiones casi simultáneas podrían pisarse.
+  const fresh = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range });
+  const freshRow = fresh.data.values && fresh.data.values[0];
+  const base = freshRow ? sessionBonoRowToObject(freshRow) : currentBono;
+  const merged = { ...base, ...updates };
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId(),
-    range: `'${SESSION_BONO_TAB_TITLE}'!A${sheetRow}:${SESSION_BONO_LAST_COL}${sheetRow}`,
+    range,
     valueInputOption: 'RAW',
     requestBody: { values: [sessionBonoObjectToRow(merged)] },
   });
