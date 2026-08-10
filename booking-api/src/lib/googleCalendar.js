@@ -121,4 +121,20 @@ async function deleteEvent(calendarId, eventId) {
   }
 }
 
-module.exports = { getBusyIntervals, createBookingEvent, getEvent, listEvents, updateEvent, deleteEvent, getAuth };
+// Google no siempre purga un evento borrado al instante — a veces el
+// recurso sigue existiendo con status "cancelled" un tiempo, y un PATCH
+// sobre él (p.ej. al reprogramar) "tiene éxito" sin volver a bloquear el
+// hueco de verdad, porque un evento cancelado no cuenta como ocupado.
+// Hay que comprobar esto antes de fiarse de un updateEvent sobre un
+// eventId que pudiera venir de una cita cancelada y reutilizada.
+async function isEventUsable(calendarId, eventId) {
+  if (!eventId) return false;
+  try {
+    const current = await getEvent(calendarId, eventId);
+    return !!current && current.status !== 'cancelled';
+  } catch (e) {
+    return false;
+  }
+}
+
+module.exports = { getBusyIntervals, createBookingEvent, getEvent, listEvents, updateEvent, deleteEvent, isEventUsable, getAuth };

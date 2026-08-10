@@ -11,7 +11,7 @@ const {
   appendDiscount, getAllDiscounts, updateDiscountRow,
 } = require('../lib/sheets');
 const { isDiscountLive } = require('../lib/discounts');
-const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent } = require('../lib/googleCalendar');
+const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent, isEventUsable } = require('../lib/googleCalendar');
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
@@ -562,8 +562,23 @@ router.post('/panel/reschedule', async (req, res) => {
 
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
     const endISO = addMinutes(startISO, duration);
-    await updateEvent(booking.calendarId, booking.eventId, { start: { dateTime: startISO }, end: { dateTime: endISO } });
-    await updateBookingRow(booking._sheetRow, booking, { date, time });
+
+    // Si el evento original ya no es usable (p.ej. quedó "cancelado" en
+    // Google tras un borrado anterior), un simple patch no vuelve a
+    // bloquear el hueco de verdad — hace falta crear un evento nuevo.
+    let newEventId = booking.eventId;
+    if (await isEventUsable(booking.calendarId, booking.eventId)) {
+      await updateEvent(booking.calendarId, booking.eventId, { start: { dateTime: startISO }, end: { dateTime: endISO } });
+    } else {
+      const event = await createBookingEvent(booking.calendarId, {
+        summary: booking.serviceName || 'Cita Osana',
+        description: `Clienta: ${booking.name || ''} · ${booking.phone || ''}`,
+        startISO, endISO,
+      });
+      newEventId = event.id;
+    }
+
+    await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId });
 
     res.json({ ok: true });
   } catch (err) {
