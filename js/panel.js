@@ -1478,6 +1478,11 @@
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status" style="display:none;"></p>
         ${removeRowsHtml ? `<div class="panel-section-label" style="margin-top:18px;">Quitar un tratamiento de esta cita</div>${removeRowsHtml}` : ''}
+        <div class="panel-section-label" style="margin-top:18px;">Añadir un tratamiento a esta cita</div>
+        <div class="panel-field-row">
+          <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select></div>
+          <div class="panel-field"><button type="button" class="panel-btn panel-btn-ghost eb-confirm-add">+ Añadir</button></div>
+        </div>
       </div>
     `;
     const serviceSelect = slot.querySelector('.eb-service');
@@ -1505,6 +1510,30 @@
         });
         statusEl.textContent = 'Guardado ✓ — vuelve a buscar a la clienta para ver los cambios.';
         statusEl.style.display = 'block';
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+      }
+      ev.target.disabled = false;
+    });
+    slot.querySelector('.eb-confirm-add').addEventListener('click', async (ev) => {
+      const addServiceSelect = slot.querySelector('.eb-add-service');
+      if (!addServiceSelect.value) {
+        errorEl.textContent = 'Elige qué tratamiento añadir.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      errorEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/edit-booking', {
+          method: 'POST',
+          body: JSON.stringify({ bookingId: b.bookingId, addServiceId: addServiceSelect.value }),
+        });
+        statusEl.textContent = 'Tratamiento añadido ✓ — vuelve a buscar a la clienta para ver los cambios.';
+        statusEl.style.display = 'block';
+        addServiceSelect.value = '';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
