@@ -1439,6 +1439,25 @@
       .join('');
     const isBonoSession = !!b.bonoId;
 
+    // Si esta cita tiene varios tratamientos combinados en la misma fila
+    // (p.ej. "Axilas + Medios brazos + Limpieza facial", dados de alta con
+    // "+ Añadir otro tratamiento a la misma cita"), permite quitar uno sin
+    // cancelar la cita entera. El del bono (primero, si esta es una sesión
+    // de bono) no se puede quitar por aquí.
+    const idParts = String(b.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const nameParts = String(b.serviceName || '').split(' + ');
+    const canRemoveTreatments = idParts.length > 1 && nameParts.length === idParts.length;
+    const removeRowsHtml = canRemoveTreatments
+      ? idParts.map((id, i) => {
+          if (isBonoSession && i === 0) return ''; // tratamiento del bono, protegido
+          return `
+            <div class="panel-agenda-row" style="padding:6px 0;">
+              <div style="font-size:13px;">${escapeHtml(nameParts[i])}</div>
+              <div class="actions"><button type="button" class="panel-btn panel-btn-ghost panel-btn-sm eb-remove-treatment" data-service-id="${id}">🗑 Quitar</button></div>
+            </div>`;
+        }).join('')
+      : '';
+
     slot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Editar cita — ${escapeHtml(b.serviceName)}</div>
@@ -1458,6 +1477,7 @@
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status" style="display:none;"></p>
+        ${removeRowsHtml ? `<div class="panel-section-label" style="margin-top:18px;">Quitar un tratamiento de esta cita</div>${removeRowsHtml}` : ''}
       </div>
     `;
     const serviceSelect = slot.querySelector('.eb-service');
@@ -1490,6 +1510,28 @@
         errorEl.style.display = 'block';
       }
       ev.target.disabled = false;
+    });
+    slot.querySelectorAll('.eb-remove-treatment').forEach((btn) => {
+      btn.addEventListener('click', async (ev) => {
+        const serviceIdToRemove = ev.target.getAttribute('data-service-id');
+        if (!confirm('¿Quitar este tratamiento de la cita? Los demás se quedan igual.')) return;
+        errorEl.style.display = 'none';
+        statusEl.style.display = 'none';
+        ev.target.disabled = true;
+        try {
+          await panelFetch('/panel/edit-booking', {
+            method: 'POST',
+            body: JSON.stringify({ bookingId: b.bookingId, removeServiceId: serviceIdToRemove }),
+          });
+          statusEl.textContent = 'Tratamiento quitado ✓ — vuelve a buscar a la clienta para ver los cambios.';
+          statusEl.style.display = 'block';
+          ev.target.closest('.panel-agenda-row').remove();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
     });
   }
 
