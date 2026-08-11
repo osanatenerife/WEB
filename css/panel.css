@@ -27,8 +27,11 @@ body {
 .panel-lock { font-size: 11px; font-weight: 600; color: var(--ink-faint); text-transform: none; letter-spacing: 0; border: 1px solid var(--line); padding: 3px 9px; border-radius: 20px; }
 .panel-link-btn { background: none; border: none; font-family: inherit; font-size: 12.5px; color: var(--ink-soft); cursor: pointer; text-decoration: underline; }
 
-.panel-search-row { display: flex; gap: 8px; margin-bottom: 12px; }
-.panel-search-input { flex: 1; padding: 13px 16px; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 4px; font-family: inherit; }
+/* flex-wrap: con 8 botones de herramientas + el buscador, en pantallas
+   más estrechas (tablet) no caben todos en una fila — sin wrap, los
+   últimos quedaban cortados fuera de la pantalla, invisibles del todo. */
+.panel-search-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.panel-search-input { flex: 1 1 240px; padding: 13px 16px; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 4px; font-family: inherit; }
 .panel-btn { font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; padding: 12px 22px; border-radius: 4px; cursor: pointer; border: 1px solid transparent; }
 .panel-btn-primary { background: var(--clay); color: var(--panel); }
 .panel-btn-primary:disabled { opacity: 0.55; cursor: default; }
