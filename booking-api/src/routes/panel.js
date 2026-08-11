@@ -401,7 +401,7 @@ router.post('/panel/book-session', async (req, res) => {
     // en memoria por profesional+día — evita que esto choque con una
     // clienta reservando online ese mismo hueco casi a la vez.
     const newEventId = await withLock(`slot:${employeeId}:${date}`, async () => {
-      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly);
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true });
       if (!freeSlots.includes(time)) return null;
       const event = await createBookingEvent(employee.calendarId, {
         summary: `✅ Bono (${sessionLabel}) — ${displayName} — ${bono.clientName}`,
@@ -624,7 +624,7 @@ router.get('/panel/reschedule-slots', async (req, res) => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
     const duration = Number(booking.durationMinutes) || 60;
-    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true });
+    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
     res.json({ slots });
   } catch (err) {
     console.error(err);
@@ -648,7 +648,7 @@ router.post('/panel/reschedule', async (req, res) => {
     }
 
     const duration = Number(booking.durationMinutes) || 60;
-    const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true });
+    const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
     if (!freeSlots.includes(time)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
@@ -717,7 +717,7 @@ router.post('/panel/extend-time', async (req, res) => {
     const currentEndISO = addMinutes(startISO, duration);
     const newEndISO = addMinutes(currentEndISO, extra);
 
-    const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId));
+    const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId), { ignoreClosingTime: true });
     if (!free) {
       return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para ampliar ese tiempo.' });
     }

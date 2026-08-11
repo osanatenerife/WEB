@@ -30,13 +30,18 @@ function isClosureDate(dateStr) {
  */
 async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySchedule, opts) {
   const skipGapHeuristic = !!(opts && opts.skipGapHeuristic);
+  // El equipo, desde el panel, a veces necesita agendar una cita puntual
+  // después de la hora normal de cierre (un caso especial, la última
+  // clienta del día...) — las clientas, reservando online, siguen sin
+  // poder pasar de la hora de cierre real.
+  const ignoreClosingTime = !!(opts && opts.ignoreClosingTime);
   if (isClosureDate(dateStr)) return [];
   const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
   const daySchedule = (weeklySchedule || hours.weekly)[weekday];
   if (!daySchedule || daySchedule.closed) return [];
 
   const dayStartISO = localToISO(dateStr, daySchedule.open, hours.timezone);
-  const dayEndISO = localToISO(dateStr, daySchedule.close, hours.timezone);
+  const dayEndISO = localToISO(dateStr, ignoreClosingTime ? '23:00' : daySchedule.close, hours.timezone);
   const dayStartMs = new Date(dayStartISO).getTime();
   const dayEndMs = new Date(dayEndISO).getTime();
 
@@ -106,13 +111,14 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
  * usado para ampliar una cita ya confirmada con un tratamiento añadido
  * justo a continuación (no busca huecos, valida uno concreto).
  */
-async function isRangeFree(dateStr, calendarId, startISO, endISO, weeklySchedule) {
+async function isRangeFree(dateStr, calendarId, startISO, endISO, weeklySchedule, opts) {
+  const ignoreClosingTime = !!(opts && opts.ignoreClosingTime);
   if (isClosureDate(dateStr)) return false;
   const weekday = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
   const daySchedule = (weeklySchedule || hours.weekly)[weekday];
   if (!daySchedule || daySchedule.closed) return false;
 
-  const dayEndISO = localToISO(dateStr, daySchedule.close, hours.timezone);
+  const dayEndISO = localToISO(dateStr, ignoreClosingTime ? '23:00' : daySchedule.close, hours.timezone);
   if (new Date(endISO).getTime() > new Date(dayEndISO).getTime()) return false; // se saldría del horario
 
   const busy = await getBusyIntervals(calendarId, startISO, endISO);
