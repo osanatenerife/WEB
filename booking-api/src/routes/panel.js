@@ -233,6 +233,7 @@ router.post('/panel/edit-booking', async (req, res) => {
     const updates = {};
     let newService = null;
     let newDurationForCalendar = null; // si cambia, se intenta ajustar el evento real más abajo
+    let restoredBonoSession = false;
 
     if (serviceId) {
       newService = services.find((s) => s.id === serviceId);
@@ -255,8 +256,20 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (currentIds.length <= 1) {
         return res.status(400).json({ error: 'Es el único tratamiento de esta cita — usa "Eliminar" para cancelarla entera.' });
       }
+      // Si lo que se quita es el propio tratamiento del bono (no un extra),
+      // la sesión no se ha llegado a usar de verdad — se le devuelve a la
+      // clienta y esta cita deja de estar vinculada al bono (se queda solo
+      // con los extras que le sigan quedando).
       if (booking.bonoId && idx === 0) {
-        return res.status(400).json({ error: 'No se puede quitar el tratamiento del bono, solo los tratamientos extra añadidos a esta cita.' });
+        const bono = await findSessionBonoById(booking.bonoId);
+        if (bono) {
+          const sessionsUsed = Math.max(0, (Number(bono.sessionsUsed) || 0) - 1);
+          const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) + 1;
+          await updateSessionBonoRow(bono._sheetRow, bono, { sessionsUsed, sessionsRemaining, status: 'active' });
+          restoredBonoSession = true;
+        }
+        updates.bonoId = '';
+        updates.sessionNumber = '';
       }
       // Los nombres se guardaron en el mismo orden que los ids (se
       // construyeron a la vez) — quitamos por posición en vez de
@@ -309,24 +322,39 @@ router.post('/panel/edit-booking', async (req, res) => {
     }
 
     // Si cambia la duración total (por cambiar el tratamiento, quitar uno de
-    // varios combinados o añadir uno nuevo), intentamos ajustar también el
-    // bloqueo real en Google Calendar — solo cuando esta cita no comparte el
-    // evento con otro tratamiento activo (eso son filas aparte, no este caso
-    // de varios tratamientos combinados en una sola fila) y el evento sigue
-    // usable. Al añadir ya comprobamos arriba que el tiempo extra está
-    // libre, así que aquí no hace falta repetirlo.
-    if (newDurationForCalendar !== null && booking.calendarId && booking.eventId && booking.date && booking.time) {
+    // varios combinados o añadir uno nuevo), ajustamos también el bloqueo
+    // real en Google Calendar — SIEMPRE que sea posible, no solo "si es
+    // fácil": antes, cuando el evento no era usable (p.ej. quedó cancelado
+    // tras un borrado anterior), este bloque no hacía nada en absoluto,
+    // dejando la Sheet con una duración mayor de la que el calendario
+    // realmente bloqueaba — eso hacía que, al buscar hueco para otra cosa
+    // más tarde, el sistema pensara que esta cita ocupaba más tiempo del
+    // que de verdad bloqueaba en Google, y escondiera huecos libres de
+    // verdad. Ahora, si no se puede parchear el evento, se crea uno nuevo
+    // que cubra la duración correcta (igual que ya hace "Ampliar tiempo").
+    if (newDurationForCalendar !== null && booking.calendarId && booking.date && booking.time) {
       const oldDuration = Number(booking.durationMinutes) || 0;
       if (newDurationForCalendar !== oldDuration) {
-        const allBookingsForCheck = await getAllBookings();
-        const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
-        if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
-          const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
-          const startISO = localToISO(booking.date, time, hours.timezone);
-          const newEndISO = addMinutes(startISO, newDurationForCalendar);
-          await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } }).catch((e) => {
-            console.error('No se pudo ajustar la duración del evento al editar la cita:', e.message);
-          });
+        const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
+        const startISO = localToISO(booking.date, time, hours.timezone);
+        const newEndISO = addMinutes(startISO, newDurationForCalendar);
+        try {
+          const allBookingsForCheck = await getAllBookings();
+          const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
+          if (hasActiveSiblings) {
+            console.error(`No se pudo ajustar el calendario de la cita ${booking.bookingId}: comparte evento con otro tratamiento activo.`);
+          } else if (booking.eventId && await isEventUsable(booking.calendarId, booking.eventId)) {
+            await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } });
+          } else {
+            const event = await createBookingEvent(booking.calendarId, {
+              summary: updates.serviceName || booking.serviceName || 'Cita Osana',
+              description: `Clienta: ${booking.name || ''} · ${booking.phone || ''}`,
+              startISO, endISO: newEndISO,
+            });
+            updates.eventId = event.id;
+          }
+        } catch (e) {
+          console.error('No se pudo ajustar la duración del evento al editar la cita:', e.message);
         }
       }
     }
@@ -370,7 +398,7 @@ router.post('/panel/edit-booking', async (req, res) => {
     }
 
     await updateBookingRow(booking._sheetRow, booking, updates);
-    res.json({ ok: true });
+    res.json({ ok: true, restoredBonoSession });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo editar la cita.' });
@@ -669,8 +697,9 @@ router.get('/panel/reschedule-slots', async (req, res) => {
 
 // ── Reprogramar cualquier cita (sin límite de 48h — lo decide el equipo) ──
 router.post('/panel/reschedule', async (req, res) => {
-  const { bookingId, date, time } = req.body || {};
+  const { bookingId, date, time, force } = req.body || {};
   if (!bookingId || !date || !time) return res.status(400).json({ error: 'Faltan datos para reprogramar.' });
+  if (!/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: 'Formato de hora inválido.' });
   try {
     // Evita que esto se pise con una cancelación/reprogramación casi
     // simultánea de la misma cita desde "Mis reservas" o desde otra
@@ -683,9 +712,16 @@ router.post('/panel/reschedule', async (req, res) => {
     }
 
     const duration = Number(booking.durationMinutes) || 60;
-    const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
-    if (!freeSlots.includes(time)) {
-      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+    // "force" permite al equipo saltarse el cálculo automático de huecos
+    // cuando sabe que en realidad sí cabe (p.ej. la duración guardada no
+    // es del todo exacta, o quiere aprovechar un hueco que el sistema
+    // descarta por criterios que aquí no aplican) — es una herramienta
+    // interna, se confía en el criterio de quien la usa.
+    if (!force) {
+      const freeSlots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
+      if (!freeSlots.includes(time)) {
+        return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora (o fuerza igualmente si sabes que sí cabe).' });
+      }
     }
 
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);

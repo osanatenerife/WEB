@@ -1479,20 +1479,17 @@
     // Si esta cita tiene varios tratamientos combinados en la misma fila
     // (p.ej. "Axilas + Medios brazos + Limpieza facial", dados de alta con
     // "+ Añadir otro tratamiento a la misma cita"), permite quitar uno sin
-    // cancelar la cita entera. El del bono (primero, si esta es una sesión
-    // de bono) no se puede quitar por aquí.
+    // cancelar la cita entera. Si se quita el del bono (el primero, cuando
+    // es una sesión de bono), la sesión se devuelve automáticamente.
     const idParts = String(b.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
     const nameParts = String(b.serviceName || '').split(' + ');
     const canRemoveTreatments = idParts.length > 1 && nameParts.length === idParts.length;
     const removeRowsHtml = canRemoveTreatments
-      ? idParts.map((id, i) => {
-          if (isBonoSession && i === 0) return ''; // tratamiento del bono, protegido
-          return `
+      ? idParts.map((id, i) => `
             <div class="panel-agenda-row" style="padding:6px 0;">
-              <div style="font-size:13px;">${escapeHtml(nameParts[i])}</div>
-              <div class="actions"><button type="button" class="panel-btn panel-btn-accent panel-btn-sm eb-remove-treatment" data-service-id="${id}">🗑 Quitar</button></div>
-            </div>`;
-        }).join('')
+              <div style="font-size:13px;">${escapeHtml(nameParts[i])}${isBonoSession && i === 0 ? ' <span style="color:var(--ink-faint);">(del bono)</span>' : ''}</div>
+              <div class="actions"><button type="button" class="panel-btn panel-btn-accent panel-btn-sm eb-remove-treatment" data-service-id="${id}" data-is-bono-core="${isBonoSession && i === 0 ? '1' : ''}">🗑 Quitar</button></div>
+            </div>`).join('')
       : '';
 
     slot.innerHTML = `
@@ -1577,7 +1574,11 @@
     slot.querySelectorAll('.eb-remove-treatment').forEach((btn) => {
       btn.addEventListener('click', async (ev) => {
         const serviceIdToRemove = ev.target.getAttribute('data-service-id');
-        if (!confirm('¿Quitar este tratamiento de la cita? Los demás se quedan igual.')) return;
+        const isBonoCore = ev.target.getAttribute('data-is-bono-core') === '1';
+        const confirmMsg = isBonoCore
+          ? '¿Quitar el tratamiento del bono de esta cita? Se le devolverá la sesión a la clienta (no se cuenta como usada) y esta cita se queda solo con los tratamientos extra, si los hay.'
+          : '¿Quitar este tratamiento de la cita? Los demás se quedan igual.';
+        if (!confirm(confirmMsg)) return;
         errorEl.style.display = 'none';
         statusEl.style.display = 'none';
         ev.target.disabled = true;
@@ -1729,14 +1730,17 @@
         <div class="panel-label">Reprogramar — ${escapeHtml(b.serviceName)} (ahora: ${b.date} a las ${b.time})</div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Nueva fecha</label><input type="date" class="pf-date"></div>
-          <div class="panel-field"><label>Nueva hora</label><select class="pf-time"><option>Elige fecha primero</option></select></div>
+          <div class="panel-field"><label>Nueva hora (huecos libres)</label><select class="pf-time"><option>Elige fecha primero</option></select></div>
+          <div class="panel-field"><label>O escribe una hora a mano</label><input type="time" step="300" class="pf-time-manual"></div>
         </div>
+        <p style="font-size:11.5px;color:var(--ink-soft);margin:-6px 0 10px;">Si escribes la hora a mano, se usa esa en vez del desplegable — úsalo si sabes que en realidad sí hay hueco aunque el sistema no lo vea.</p>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-resched">Confirmar cambio</button>
         <p class="panel-error" style="display:none;"></p>
       </div>
     `;
     const dateInput = slot.querySelector('.pf-date');
     const timeSelect = slot.querySelector('.pf-time');
+    const timeManualInput = slot.querySelector('.pf-time-manual');
     const errorEl = slot.querySelector('.panel-error');
 
     dateInput.addEventListener('change', async () => {
@@ -1752,14 +1756,20 @@
 
     slot.querySelector('.panel-confirm-resched').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
-      if (!dateInput.value || !timeSelect.value) {
+      const manualTime = timeManualInput.value; // "HH:MM" o vacío
+      const chosenTime = manualTime || timeSelect.value;
+      if (!dateInput.value || !chosenTime) {
         errorEl.textContent = 'Elige fecha y hora.';
         errorEl.style.display = 'block';
         return;
       }
+      if (manualTime && !confirm(`Vas a forzar la cita a las ${manualTime}, aunque el sistema no la vea como libre. ¿Seguro?`)) return;
       ev.target.disabled = true;
       try {
-        await panelFetch('/panel/reschedule', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, date: dateInput.value, time: timeSelect.value }) });
+        await panelFetch('/panel/reschedule', {
+          method: 'POST',
+          body: JSON.stringify({ bookingId: b.bookingId, date: dateInput.value, time: chosenTime, force: !!manualTime }),
+        });
         doSearch();
       } catch (e) {
         errorEl.textContent = e.message;
