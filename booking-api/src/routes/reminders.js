@@ -132,4 +132,29 @@ router.get('/send-reminders', async (req, res) => {
   }
 });
 
+// ── Prueba manual: manda la plantilla de recordatorio ya mismo a un
+// teléfono concreto, sin esperar a que una cita real entre en la ventana
+// de 47-49h — solo para verificar que Twilio/WhatsApp están bien
+// configurados (nuevo número, plantilla aprobada...) antes de confiar en
+// el envío automático.
+router.get('/test-whatsapp', async (req, res) => {
+  const expected = process.env.REMINDER_CRON_SECRET;
+  if (!expected || req.query.secret !== expected) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  if (!req.query.phone) {
+    return res.status(400).json({ error: 'Indica ?phone=612345678' });
+  }
+  try {
+    const data = await sendWhatsAppTemplate({
+      to: req.query.phone,
+      variables: { 1: 'Prueba', 2: 'hoy', 3: '12:00', 4: 'Mensaje de prueba', 5: '0.00 €' },
+    });
+    res.json({ ok: true, sid: data.sid, status: data.status });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo enviar el WhatsApp de prueba.' });
+  }
+});
+
 module.exports = router;
