@@ -182,7 +182,7 @@ router.get('/panel/search', async (req, res) => {
     res.json({ clients });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo buscar.' });
+    res.status(500).json({ error: 'No se pudo buscar.' });
   }
 });
 
@@ -214,7 +214,7 @@ router.post('/panel/note', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo guardar la nota.' });
+    res.status(500).json({ error: 'No se pudo guardar la nota.' });
   }
 });
 
@@ -373,7 +373,7 @@ router.post('/panel/edit-booking', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo editar la cita.' });
+    res.status(500).json({ error: 'No se pudo editar la cita.' });
   }
 });
 
@@ -491,7 +491,7 @@ router.post('/panel/book-session', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo agendar la sesión.' });
+    res.status(500).json({ error: 'No se pudo agendar la sesión.' });
   }
 });
 
@@ -647,7 +647,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     res.json({ ok: true, bookingId, bonoId: bonoId || undefined });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo dar de alta la reserva.' });
+    res.status(500).json({ error: 'No se pudo dar de alta la reserva.' });
   }
 });
 
@@ -663,7 +663,7 @@ router.get('/panel/reschedule-slots', async (req, res) => {
     res.json({ slots });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo consultar la disponibilidad.' });
+    res.status(500).json({ error: 'No se pudo consultar la disponibilidad.' });
   }
 });
 
@@ -727,7 +727,7 @@ router.post('/panel/reschedule', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo reprogramar.' });
+    res.status(500).json({ error: 'No se pudo reprogramar.' });
   }
 });
 
@@ -776,7 +776,7 @@ router.post('/panel/extend-time', async (req, res) => {
     res.json({ ok: true, newDurationMinutes: duration + extra });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo ampliar el tiempo de la cita.' });
+    res.status(500).json({ error: 'No se pudo ampliar el tiempo de la cita.' });
   }
 });
 
@@ -888,7 +888,7 @@ router.post('/panel/close', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo cerrar la cita.' });
+    res.status(500).json({ error: 'No se pudo cerrar la cita.' });
   }
 });
 
@@ -929,7 +929,7 @@ router.post('/panel/product-sale', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo registrar la venta.' });
+    res.status(500).json({ error: 'No se pudo registrar la venta.' });
   }
 });
 
@@ -981,7 +981,7 @@ router.post('/panel/redeem', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo canjear el saldo.' });
+    res.status(500).json({ error: 'No se pudo canjear el saldo.' });
   }
 });
 
@@ -1021,7 +1021,7 @@ router.post('/panel/loyalty-adjust', async (req, res) => {
     res.json({ ok: true, newBalance: computeLoyaltyBalance([...movements, { type: 'manual_adjustment', amount: addAmount, date: new Date().toISOString().slice(0, 10) }]) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo añadir el saldo.' });
+    res.status(500).json({ error: 'No se pudo añadir el saldo.' });
   }
 });
 
@@ -1077,7 +1077,7 @@ router.post('/panel/edit-client', async (req, res) => {
     res.json({ ok: true, bookingsUpdated });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudieron actualizar los datos de la clienta.' });
+    res.status(500).json({ error: 'No se pudieron actualizar los datos de la clienta.' });
   }
 });
 
@@ -1210,7 +1210,7 @@ router.post('/panel/no-show', async (req, res) => {
     res.json({ ok: true, isFirstTime, sessionsRemaining: bono ? bono.sessionsRemaining : null });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo marcar la ausencia.' });
+    res.status(500).json({ error: 'No se pudo marcar la ausencia.' });
   }
 });
 
@@ -1258,7 +1258,7 @@ router.post('/panel/delete-booking', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo eliminar la cita.' });
+    res.status(500).json({ error: 'No se pudo eliminar la cita.' });
   }
 });
 
@@ -1282,7 +1282,7 @@ router.get('/panel/report', async (req, res) => {
     res.end();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo generar el informe.' });
+    res.status(500).json({ error: 'No se pudo generar el informe.' });
   }
 });
 
@@ -1338,7 +1338,7 @@ router.post('/panel/custom-quote', async (req, res) => {
     res.json({ ok: true, url: session.url });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo generar el link de pago.' });
+    res.status(500).json({ error: 'No se pudo generar el link de pago.' });
   }
 });
 
@@ -1353,7 +1353,7 @@ router.get('/panel/gift', async (req, res) => {
     res.json({ gift });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo buscar el bono regalo.' });
+    res.status(500).json({ error: 'No se pudo buscar el bono regalo.' });
   }
 });
 
@@ -1371,7 +1371,7 @@ router.post('/panel/gift-redeem', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo marcar el bono como canjeado.' });
+    res.status(500).json({ error: 'No se pudo marcar el bono como canjeado.' });
   }
 });
 
@@ -1413,7 +1413,7 @@ router.post('/panel/discount', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo crear el descuento.' });
+    res.status(500).json({ error: 'No se pudo crear el descuento.' });
   }
 });
 
@@ -1431,7 +1431,7 @@ router.get('/panel/discounts', async (req, res) => {
     res.json({ discounts: list });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudieron cargar los descuentos.' });
+    res.status(500).json({ error: 'No se pudieron cargar los descuentos.' });
   }
 });
 
@@ -1446,7 +1446,7 @@ router.post('/panel/discount-deactivate', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo desactivar el descuento.' });
+    res.status(500).json({ error: 'No se pudo desactivar el descuento.' });
   }
 });
 
@@ -1492,7 +1492,7 @@ router.post('/panel/discount-email-blast', async (req, res) => {
     })();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo enviar la campaña.' });
+    res.status(500).json({ error: 'No se pudo enviar la campaña.' });
   }
 });
 
@@ -1563,7 +1563,7 @@ router.post('/panel/campaign-email', async (req, res) => {
     })();
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo enviar la campaña.' });
+    res.status(500).json({ error: 'No se pudo enviar la campaña.' });
   }
 });
 
@@ -1592,7 +1592,7 @@ router.post('/panel/followup', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo guardar el seguimiento.' });
+    res.status(500).json({ error: 'No se pudo guardar el seguimiento.' });
   }
 });
 
@@ -1607,7 +1607,7 @@ router.post('/panel/followup-done', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo marcar como hecho.' });
+    res.status(500).json({ error: 'No se pudo marcar como hecho.' });
   }
 });
 
@@ -1681,7 +1681,7 @@ router.get('/panel/agenda', async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: err.message || 'No se pudo cargar la agenda.' });
+    res.status(500).json({ error: 'No se pudo cargar la agenda.' });
   }
 });
 

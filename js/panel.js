@@ -583,10 +583,23 @@
       b.phone,
     )).join('');
 
-    const upcomingHtml = data.upcomingBookings.map((b) => agendaRow(
+    // Agrupado por Hoy/Mañana/resto — antes era una lista plana de 7 días
+    // y había que leer la fecha de cada fila una por una para saber qué
+    // tocaba hoy mismo.
+    const todayISO = new Date().toISOString().slice(0, 10);
+    const tomorrowISO = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const upcomingRow = (b) => agendaRow(
       `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time} · ${escapeHtml(b.employeeName) || ''}`,
       b.phone,
-    )).join('');
+    );
+    const todayBookings = data.upcomingBookings.filter((b) => b.date === todayISO);
+    const tomorrowBookings = data.upcomingBookings.filter((b) => b.date === tomorrowISO);
+    const laterBookings = data.upcomingBookings.filter((b) => b.date !== todayISO && b.date !== tomorrowISO);
+    const upcomingHtml = [
+      todayBookings.length ? `<div class="panel-agenda-subheader">Hoy</div>${todayBookings.map(upcomingRow).join('')}` : '',
+      tomorrowBookings.length ? `<div class="panel-agenda-subheader">Mañana</div>${tomorrowBookings.map(upcomingRow).join('')}` : '',
+      laterBookings.length ? `<div class="panel-agenda-subheader">Resto de la semana</div>${laterBookings.map(upcomingRow).join('')}` : '',
+    ].join('');
 
     const followupsHtml = data.dueFollowups.map((f) => agendaRow(
       `<b>${escapeHtml(f.clientName) || '(sin nombre)'}</b> — vence ${fmtDateShort(f.dueDate)}${f.note ? ` · ${escapeHtml(f.note)}` : ''}`,
@@ -1060,6 +1073,8 @@
     const errorEl = slot.querySelector('.panel-error');
     slot.querySelector('.panel-confirm-redeem').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
+      const amountToConfirm = Number(amountInput.value) || 0;
+      if (!confirm(`¿Canjear ${amountToConfirm.toFixed(2)} € de saldo como descuento?`)) return;
       ev.target.disabled = true;
       try {
         const data = await panelFetch('/panel/redeem', {
@@ -1161,8 +1176,13 @@
             phone: phoneInput.value.trim(), email: emailInput.value.trim(),
           }),
         });
-        statusEl.textContent = `Corregido ✓ (${data.bookingsUpdated} cita${data.bookingsUpdated === 1 ? '' : 's'} actualizada${data.bookingsUpdated === 1 ? '' : 's'}). Vuelve a buscarla con el dato nuevo.`;
+        statusEl.textContent = `Corregido ✓ (${data.bookingsUpdated} cita${data.bookingsUpdated === 1 ? '' : 's'} actualizada${data.bookingsUpdated === 1 ? '' : 's'}).`;
         statusEl.style.display = 'block';
+        // El teléfono/nombre buscado pudo cambiar — actualizamos el buscador
+        // con el dato nuevo antes de recargar, o la búsqueda anterior ya no
+        // encontraría a esta clienta.
+        els.searchInput.value = phoneInput.value.trim();
+        doSearch();
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
@@ -1175,12 +1195,14 @@
     const el = document.createElement('div');
     el.className = 'panel-bono';
     const pct = bono.totalSessions ? Math.round((bono.sessionsUsed / bono.totalSessions) * 100) : 0;
+    const remaining = Number(bono.remainingAmount) || 0;
     el.innerHTML = `
       <div class="panel-bono-top">
         <div class="panel-bono-name">${bono.serviceName}</div>
         <div class="panel-bono-sessions"><b>${bono.sessionsUsed}</b> de ${bono.totalSessions} usadas</div>
       </div>
       <div class="panel-progress-track"><div class="panel-progress-fill" style="width:${pct}%;"></div></div>
+      ${remaining > 0 ? `<p class="panel-status" style="margin-top:6px;">Pendiente de pago del bono: <b>${remaining.toFixed(2)} €</b></p>` : ''}
       <div class="panel-bono-actions">
         ${bono.sessionsRemaining > 0 ? '<button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-book-session">+ Agendar siguiente sesión</button>' : '<span class="panel-status">Bono completado</span>'}
       </div>
@@ -1319,6 +1341,20 @@
       cancelled_no_refund: '<span class="panel-pill panel-pill-warn"><span class="dot"></span>Cancelada (sin reembolso)</span>',
     }[b.status] || `<span class="panel-pill panel-pill-warn"><span class="dot"></span>${b.status || ''}</span>`;
 
+    // Pagado/pendiente de un vistazo, sin tener que abrir "Cerrar cita" o
+    // "Editar cita" para calcularlo — solo tiene sentido en citas activas.
+    let paymentLine = '';
+    if (b.status === 'confirmed') {
+      if (b.finalAmount !== null && b.finalAmount !== undefined) {
+        paymentLine = '<div class="with">✓ Pagado</div>';
+      } else {
+        const pending = Math.max(0, (Number(b.price) || 0) - (Number(b.amountPaid) || 0));
+        paymentLine = pending > 0
+          ? `<div class="with">Pendiente: <b>${pending.toFixed(2)} €</b></div>`
+          : '<div class="with">✓ Pagado</div>';
+      }
+    }
+
     el.innerHTML = `
       <div class="panel-appt-top">
         <div class="panel-appt-date">${fmtDateParts(b.date).month}<span class="day">${fmtDateParts(b.date).day}</span></div>
@@ -1326,6 +1362,7 @@
           <div class="client">${escapeHtml(client && client.name ? client.name : '')}${client && client.phone ? ` · ${escapeHtml(client.phone)}` : ''}</div>
           <div class="svc">${escapeHtml(b.serviceName)}</div>
           <div class="with">Con ${escapeHtml(b.employeeName) || '—'} · ${b.time}</div>
+          ${paymentLine}
         </div>
         <div>${statusPill}</div>
       </div>
@@ -1338,7 +1375,7 @@
         ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editbooking-toggle">✎ Editar cita</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
-        ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
+        ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-warn panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
         ${b.status === 'confirmed' && b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-close-toggle">💶 Cerrar cita</button>' : ''}
         ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">🗑 Eliminar</button>' : ''}
       </div>
@@ -1453,7 +1490,7 @@
           return `
             <div class="panel-agenda-row" style="padding:6px 0;">
               <div style="font-size:13px;">${escapeHtml(nameParts[i])}</div>
-              <div class="actions"><button type="button" class="panel-btn panel-btn-ghost panel-btn-sm eb-remove-treatment" data-service-id="${id}">🗑 Quitar</button></div>
+              <div class="actions"><button type="button" class="panel-btn panel-btn-accent panel-btn-sm eb-remove-treatment" data-service-id="${id}">🗑 Quitar</button></div>
             </div>`;
         }).join('')
       : '';
@@ -1481,7 +1518,7 @@
         <div class="panel-section-label" style="margin-top:18px;">Añadir un tratamiento a esta cita</div>
         <div class="panel-field-row">
           <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select></div>
-          <div class="panel-field"><button type="button" class="panel-btn panel-btn-ghost eb-confirm-add">+ Añadir</button></div>
+          <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-add">+ Añadir</button></div>
         </div>
       </div>
     `;
@@ -1508,13 +1545,12 @@
             sessionNumber: sessionNumberInput ? sessionNumberInput.value : undefined,
           }),
         });
-        statusEl.textContent = 'Guardado ✓ — vuelve a buscar a la clienta para ver los cambios.';
-        statusEl.style.display = 'block';
+        doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
+        ev.target.disabled = false;
       }
-      ev.target.disabled = false;
     });
     slot.querySelector('.eb-confirm-add').addEventListener('click', async (ev) => {
       const addServiceSelect = slot.querySelector('.eb-add-service');
@@ -1531,14 +1567,12 @@
           method: 'POST',
           body: JSON.stringify({ bookingId: b.bookingId, addServiceId: addServiceSelect.value }),
         });
-        statusEl.textContent = 'Tratamiento añadido ✓ — vuelve a buscar a la clienta para ver los cambios.';
-        statusEl.style.display = 'block';
-        addServiceSelect.value = '';
+        doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
+        ev.target.disabled = false;
       }
-      ev.target.disabled = false;
     });
     slot.querySelectorAll('.eb-remove-treatment').forEach((btn) => {
       btn.addEventListener('click', async (ev) => {
@@ -1552,9 +1586,7 @@
             method: 'POST',
             body: JSON.stringify({ bookingId: b.bookingId, removeServiceId: serviceIdToRemove }),
           });
-          statusEl.textContent = 'Tratamiento quitado ✓ — vuelve a buscar a la clienta para ver los cambios.';
-          statusEl.style.display = 'block';
-          ev.target.closest('.panel-agenda-row').remove();
+          doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';
@@ -1608,9 +1640,18 @@
     const closedNote = b.finalAmount !== null && b.finalAmount !== undefined
       ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow}${b.remainderAmount2 ? ` + ${b.remainderPaidHow2} ${b.remainderAmount2.toFixed(2)} €` : ''})` : ''}${b.redeemedAmount ? ` · saldo canjeado: ${b.redeemedAmount.toFixed(2)} €` : ''}</p>`
       : '';
+    // Cuánto pagó ya la clienta y cuánto queda pendiente, calculado aquí
+    // mismo — antes había que restar de memoria para no cobrar de más/menos.
+    const alreadyPaid = Number(b.amountPaid) || 0;
+    const expectedTotal = Number(b.price) || alreadyPaid;
+    const pendingAtCenter = Math.max(0, expectedTotal - alreadyPaid);
+    const paidSummary = (b.finalAmount === null || b.finalAmount === undefined)
+      ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b> · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>`
+      : '';
     slot.innerHTML = `
       <div class="panel-new-appt">
         ${closedNote}
+        ${paidSummary}
         <div class="panel-label">Cerrar cita — importe total real</div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.finalAmount || b.price || b.amountPaid || ''}"></div>
@@ -1658,6 +1699,8 @@
     });
     slot.querySelector('.panel-confirm-close').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
+      const totalToConfirm = Number(amountInput.value) || 0;
+      if (!confirm(`¿Confirmas el cierre con un total de ${totalToConfirm.toFixed(2)} €?`)) return;
       ev.target.disabled = true;
       try {
         await panelFetch('/panel/close', {
@@ -1669,7 +1712,7 @@
             redeemAmount: redeemInput ? redeemInput.value : 0,
           }),
         });
-        slot.innerHTML = '<p class="panel-status">Guardado ✓</p>';
+        doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
@@ -1683,6 +1726,7 @@
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     slot.innerHTML = `
       <div class="panel-new-appt">
+        <div class="panel-label">Reprogramar — ${escapeHtml(b.serviceName)} (ahora: ${b.date} a las ${b.time})</div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Nueva fecha</label><input type="date" class="pf-date"></div>
           <div class="panel-field"><label>Nueva hora</label><select class="pf-time"><option>Elige fecha primero</option></select></div>

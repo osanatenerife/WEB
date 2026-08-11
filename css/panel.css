@@ -33,11 +33,18 @@ body {
 .panel-search-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .panel-search-input { flex: 1 1 240px; padding: 13px 16px; font-size: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 4px; font-family: inherit; }
 .panel-btn { font-family: inherit; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; padding: 12px 22px; border-radius: 4px; cursor: pointer; border: 1px solid transparent; }
+.panel-btn:disabled { opacity: 0.55; cursor: default; }
 .panel-btn-primary { background: var(--clay); color: var(--panel); }
-.panel-btn-primary:disabled { opacity: 0.55; cursor: default; }
 .panel-btn-ghost { background: transparent; color: var(--ink-soft); border-color: var(--line); }
 .panel-btn-sm { font-size: 11px; padding: 7px 12px; }
+/* "Eliminar" (borra la cita entera, más grave) se queda en rojo/rose;
+   "Marcar como no-show" usa ámbar — antes compartían el mismo estilo
+   rosa y era fácil confundirlas al pulsar deprisa. */
 .panel-btn-noshow { background: transparent; color: var(--rose); border: 1px solid var(--rose-bg); }
+.panel-btn-warn { background: transparent; color: var(--amber); border: 1px solid var(--amber-bg); }
+/* Quitar/añadir un tratamiento dentro de "Editar cita" — un color propio
+   para que no se pierdan entre el resto de botones grises del formulario. */
+.panel-btn-accent { background: var(--panel-2); color: var(--clay); border: 1px solid var(--gold); }
 
 .panel-error { color: var(--rose); font-size: 13px; margin: 6px 0 0; }
 .panel-status { color: var(--ink-soft); font-size: 13px; margin: 6px 0 0; }
@@ -63,6 +70,8 @@ body {
 .panel-agenda-row:last-child { border-bottom: none; }
 .panel-agenda-row > div:first-child { flex: 1; min-width: 200px; }
 .panel-agenda-row .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.panel-agenda-subheader { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--clay); margin: 14px 0 4px; }
+.panel-agenda-subheader:first-child { margin-top: 4px; }
 
 /* ── Bono card ── */
 .panel-bono { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; margin-bottom: 10px; }
