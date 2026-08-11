@@ -155,7 +155,9 @@ router.get('/panel/search', async (req, res) => {
           .sort((a, b) => appointmentDateTime(b) - appointmentDateTime(a))
           .map((b) => ({
             bookingId: b.bookingId,
+            serviceId: b.serviceId || '',
             serviceName: b.serviceName,
+            employeeId: b.employeeId || '',
             employeeName: b.employeeName,
             date: b.date,
             time: b.time,
@@ -219,40 +221,81 @@ router.post('/panel/note', async (req, res) => {
 // ── Corregir el tratamiento/precio/pagado/nº de sesión de una cita ya
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
-  const { bookingId, serviceId, employeeId, price, amountPaid, sessionNumber } = req.body || {};
+  const { bookingId, serviceId, removeServiceId, employeeId, price, amountPaid, sessionNumber } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
+  if (serviceId && removeServiceId) {
+    return res.status(400).json({ error: 'No se puede cambiar el tratamiento y quitar uno a la vez.' });
+  }
   try {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
 
     const updates = {};
     let newService = null;
+    let newDurationForCalendar = null; // si cambia, se intenta ajustar el evento real más abajo
+
     if (serviceId) {
       newService = services.find((s) => s.id === serviceId);
       if (!newService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
       updates.serviceId = serviceId;
       updates.durationMinutes = newService.durationMinutes;
+      newDurationForCalendar = newService.durationMinutes;
+    }
 
-      // Si cambia la duración, intentamos ajustar también el bloqueo real
-      // en Google Calendar — solo cuando esta cita no comparte el evento
-      // con otro tratamiento activo (ahí el bloque representa la suma de
-      // varios tratamientos, y recalcularlo entero queda fuera de esta
-      // corrección puntual) y el evento sigue siendo usable.
+    // Quitar UN tratamiento de una cita con varios combinados (p.ej. "Axilas
+    // + Medios brazos + Limpieza facial") sin cancelar los demás — el
+    // formulario de "Añadir reserva manual" ya permite añadir varios de
+    // golpe, pero hasta ahora no había forma de quitar uno después.
+    if (removeServiceId) {
+      const currentIds = String(booking.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const idx = currentIds.indexOf(removeServiceId);
+      if (idx === -1) {
+        return res.status(400).json({ error: 'Ese tratamiento no está en esta cita.' });
+      }
+      if (currentIds.length <= 1) {
+        return res.status(400).json({ error: 'Es el único tratamiento de esta cita — usa "Eliminar" para cancelarla entera.' });
+      }
+      if (booking.bonoId && idx === 0) {
+        return res.status(400).json({ error: 'No se puede quitar el tratamiento del bono, solo los tratamientos extra añadidos a esta cita.' });
+      }
+      // Los nombres se guardaron en el mismo orden que los ids (se
+      // construyeron a la vez) — quitamos por posición en vez de
+      // reconstruir los nombres desde el catálogo, así se conserva tal
+      // cual la etiqueta "(n/total)" del bono si la hay.
+      const nameSegments = String(booking.serviceName || '').split(' + ');
+      const remainingIds = currentIds.filter((_, i) => i !== idx);
+      const remainingNames = nameSegments.length === currentIds.length
+        ? nameSegments.filter((_, i) => i !== idx)
+        : remainingIds.map((id) => (services.find((s) => s.id === id) || {}).name).filter(Boolean);
+      updates.serviceId = remainingIds.join(',');
+      updates.serviceName = remainingNames.join(' + ');
+
+      const removedService = services.find((s) => s.id === removeServiceId);
+      newDurationForCalendar = Math.max(0, (Number(booking.durationMinutes) || 0) - (removedService ? Number(removedService.durationMinutes) || 0 : 0));
+      updates.durationMinutes = newDurationForCalendar;
+    }
+
+    // Si cambia la duración total (por cambiar el tratamiento o por quitar
+    // uno de varios combinados), intentamos ajustar también el bloqueo real
+    // en Google Calendar — solo cuando esta cita no comparte el evento con
+    // otro tratamiento activo (eso son filas aparte, no este caso de varios
+    // tratamientos combinados en una sola fila) y el evento sigue usable.
+    if (newDurationForCalendar !== null && booking.calendarId && booking.eventId && booking.date && booking.time) {
       const oldDuration = Number(booking.durationMinutes) || 0;
-      const durationDelta = newService.durationMinutes - oldDuration;
-      if (durationDelta !== 0 && booking.calendarId && booking.eventId && booking.date && booking.time) {
+      if (newDurationForCalendar !== oldDuration) {
         const allBookingsForCheck = await getAllBookings();
         const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
         if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
           const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
           const startISO = localToISO(booking.date, time, hours.timezone);
-          const newEndISO = addMinutes(startISO, newService.durationMinutes);
+          const newEndISO = addMinutes(startISO, newDurationForCalendar);
           await updateEvent(booking.calendarId, booking.eventId, { end: { dateTime: newEndISO } }).catch((e) => {
             console.error('No se pudo ajustar la duración del evento al editar la cita:', e.message);
           });
         }
       }
     }
+
     if (employeeId) {
       // Solo corrige el dato en el registro (para informes y la ficha de la
       // clienta) — NO mueve el evento ya creado en Google Calendar de una
@@ -274,7 +317,9 @@ router.post('/panel/edit-booking', async (req, res) => {
 
     // Si es una sesión de un bono, el nombre lleva "(n/total)" — lo
     // reconstruimos con el total real del bono para no tener que pedirlo.
-    if (booking.bonoId) {
+    // (Si se quitó un tratamiento extra con removeServiceId, el nombre ya
+    // se recalculó arriba y no lo tocamos aquí.)
+    if (booking.bonoId && !removeServiceId) {
       const bono = await findSessionBonoById(booking.bonoId);
       const num = sessionNumber !== undefined && sessionNumber !== '' ? Number(sessionNumber) : Number(booking.sessionNumber);
       if (sessionNumber !== undefined && sessionNumber !== '') updates.sessionNumber = num;
