@@ -37,6 +37,7 @@
     cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
     addTreatment: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
     removeAddon: { es: 'Quitar', en: 'Remove' },
+    cancel: { es: 'Cancelar', en: 'Cancel' },
     bonoTitle: { es: 'Ahorra con nuestros bonos de sesiones', en: 'Save with our session packages' },
     bonoPerSession: { es: (n) => `= ${n} € / sesión`, en: (n) => `= €${n} / session` },
     bonoSingleLabel: { es: 'Solo esta sesión', en: 'Just this session' },
@@ -496,10 +497,17 @@
   function hideAddonsModeChooser() {
     els.addonsModeChooser.style.display = 'none';
     els.addonsModeChooser.innerHTML = '';
+    // Se reactiva el desplegable al cerrar el selector de modo — mientras
+    // estaba abierto se bloqueaba para que elegir un segundo tratamiento no
+    // sustituyera en silencio la elección pendiente del primero (pasaba
+    // porque showAddonsModeChooser() reemplaza el contenido entero del
+    // selector de modo cada vez que se llama).
+    els.addonsSelect.disabled = false;
   }
 
   function showAddonsModeChooser(svc, tiers) {
     els.addonsModeChooser.style.display = 'block';
+    els.addonsSelect.disabled = true;
     const tierButtons = tiers.map((bono, i) => {
       const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
       return `
@@ -519,14 +527,16 @@
         </button>
         ${tierButtons}
       </div>
+      <button type="button" class="booking-addons-mode-cancel" data-mode="cancel">${t('cancel')}</button>
     `;
     els.addonsModeChooser.querySelectorAll('[data-mode]').forEach((btn) => {
       btn.addEventListener('click', () => {
         if (btn.dataset.mode === 'bono') {
           state.extraBonos.push(tiers[Number(btn.dataset.tier)]);
-        } else {
+        } else if (btn.dataset.mode === 'single') {
           state.extraServices.push(svc);
         }
+        // "cancel" no añade nada, solo cierra el selector sin perder nada más.
         hideAddonsModeChooser();
         onAddonsChanged();
       });
