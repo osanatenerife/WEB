@@ -1310,7 +1310,7 @@
           ? slots.map((t) => `<option value="${t}">${t}</option>`).join('')
           : '<option value="">Sin huecos ese día</option>';
       } catch (e) {
-        timeSelect.innerHTML = '<option value="">Error al cargar</option>';
+        timeSelect.innerHTML = `<option value="">Error: ${escapeHtml(e.message)}</option>`;
       }
     }
     dateInput.addEventListener('change', loadTimes);
@@ -1811,7 +1811,7 @@
         const slots = data.slots || [];
         timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
       } catch (e) {
-        timeSelect.innerHTML = '<option value="">Error al cargar</option>';
+        timeSelect.innerHTML = `<option value="">Error: ${escapeHtml(e.message)}</option>`;
       }
     });
 
