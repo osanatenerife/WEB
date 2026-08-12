@@ -28,8 +28,6 @@
     searchError: document.getElementById('panel-search-error'),
     searchStatus: document.getElementById('panel-search-status'),
     results: document.getElementById('panel-results'),
-    saleToggle: document.getElementById('panel-sale-toggle'),
-    saleSlot: document.getElementById('panel-sale-slot'),
     reportToggle: document.getElementById('panel-report-toggle'),
     reportSlot: document.getElementById('panel-report-slot'),
     quoteToggle: document.getElementById('panel-quote-toggle'),
@@ -121,73 +119,6 @@
   }
   els.searchBtn.addEventListener('click', doSearch);
   els.searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
-
-  // ── Venta de producto suelta (no ligada a ninguna cita) ──
-  els.saleToggle.addEventListener('click', () => {
-    if (els.saleSlot.innerHTML) { els.saleSlot.innerHTML = ''; return; }
-    const today = new Date().toISOString().slice(0, 10);
-    els.saleSlot.innerHTML = `
-      <div class="panel-new-appt">
-        <div class="panel-label">Registrar venta de producto</div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Fecha</label><input type="date" class="ps-date" value="${today}"></div>
-          <div class="panel-field"><label>Producto</label><input type="text" class="ps-product" placeholder="Ej. Crema hidratante"></div>
-        </div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="ps-amount"></div>
-          <div class="panel-field"><label>Pagado con</label>
-            <select class="ps-paidhow">
-              <option value="efectivo">Efectivo</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="bizum">Bizum</option>
-              <option value="bonos archipiélago">Bonos Archipiélago</option>
-              <option value="bono adeje">Bono Adeje</option>
-            </select>
-          </div>
-        </div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Teléfono de la clienta (opcional, para acumular puntos)</label><input type="text" class="ps-phone"></div>
-          <div class="panel-field"><label>Nombre (opcional)</label><input type="text" class="ps-name"></div>
-        </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-sale">Guardar venta</button>
-        <p class="panel-error" style="display:none;"></p>
-      </div>
-    `;
-    const slot = els.saleSlot;
-    const dateInput = slot.querySelector('.ps-date');
-    const productInput = slot.querySelector('.ps-product');
-    const amountInput = slot.querySelector('.ps-amount');
-    const paidHowSelect = slot.querySelector('.ps-paidhow');
-    const phoneInput = slot.querySelector('.ps-phone');
-    const nameInput = slot.querySelector('.ps-name');
-    const errorEl = slot.querySelector('.panel-error');
-    slot.querySelector('.panel-confirm-sale').addEventListener('click', async (ev) => {
-      errorEl.style.display = 'none';
-      if (!productInput.value.trim() || !amountInput.value) {
-        errorEl.textContent = 'Indica el producto y el importe.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      ev.target.disabled = true;
-      try {
-        await panelFetch('/panel/product-sale', {
-          method: 'POST',
-          body: JSON.stringify({
-            date: dateInput.value, product: productInput.value.trim(),
-            amount: amountInput.value, paidHow: paidHowSelect.value,
-            clientPhone: phoneInput.value.trim(), clientName: nameInput.value.trim(),
-          }),
-        });
-        slot.innerHTML = phoneInput.value.trim()
-          ? '<p class="panel-status">Venta registrada ✓ — puntos acumulados a esa clienta.</p>'
-          : '<p class="panel-status">Venta registrada ✓ (sin teléfono, no se acumulan puntos a nadie).</p>';
-      } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.style.display = 'block';
-        ev.target.disabled = false;
-      }
-    });
-  });
 
   // ── Informe trimestral en Excel (para el asesor cada 3 meses) ──
   els.reportToggle.addEventListener('click', () => {
@@ -1401,13 +1332,11 @@
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-warn panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
-        ${b.status === 'confirmed' && b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-close-toggle">💶 Cerrar cita</button>' : ''}
         ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">🗑 Eliminar</button>' : ''}
       </div>
       <div class="panel-editbooking-slot"></div>
       <div class="panel-reschedule-slot"></div>
       <div class="panel-extend-slot"></div>
-      <div class="panel-close-slot"></div>
     `;
 
     const editBookingBtn = el.querySelector('.panel-editbooking-toggle');
@@ -1466,11 +1395,6 @@
       });
     }
 
-    const closeBtn = el.querySelector('.panel-close-toggle');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => toggleClose(el, b, client));
-    }
-
     const extendBtn = el.querySelector('.panel-extend-toggle');
     if (extendBtn) {
       extendBtn.addEventListener('click', () => toggleExtend(el, b));
@@ -1482,16 +1406,25 @@
   // Corrige el tratamiento, profesional, precio, importe pagado o nº de
   // sesión de una cita ya registrada — por si al darla de alta a mano te
   // equivocaste en algo (p.ej. puso Raquel y en realidad fue Vanessa).
+  const EXTRA_CATS = [
+    { id: 'facial', label: 'Facial' }, { id: 'corporal', label: 'Corporal' }, { id: 'laser', label: 'Láser' },
+    { id: 'cejas', label: 'Cejas' }, { id: 'venta', label: 'Producto' },
+  ];
+
+  // ── Panel único de "Editar cita": líneas (tratamientos + extras), añadir
+  // línea (tratamiento o extra sin tiempo), notas, profesional y cobro
+  // (incluye lo que antes era "Cerrar cita" aparte) — todo en un mismo sitio,
+  // en vez de repartido en varios botones/secciones distintas. ──
   async function toggleEditBooking(apptEl, b, client) {
     const slot = apptEl.querySelector('.panel-editbooking-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
-    slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
+    slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>`;
     const allServices = await loadImportServicesOnce();
     const byCategory = {};
     allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
-    const serviceOptions = Object.keys(byCategory).map((cat) => `
+    const serviceOptionsHtml = (selectedId) => Object.keys(byCategory).map((cat) => `
       <optgroup label="${cat}">
-        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
+        ${byCategory[cat].map((s) => `<option value="${s.id}" ${s.id === selectedId ? 'selected' : ''}>${s.name} — ${s.price} €</option>`).join('')}
       </optgroup>
     `).join('');
     const allEmployees = await loadAllEmployeesOnce();
@@ -1499,114 +1432,255 @@
       .map((e) => `<option value="${e.id}" ${e.id === b.employeeId ? 'selected' : ''}>${e.name}</option>`)
       .join('');
     const isBonoSession = !!b.bonoId;
-
-    // Si esta cita tiene varios tratamientos combinados en la misma fila
-    // (p.ej. "Axilas + Medios brazos + Limpieza facial", dados de alta con
-    // "+ Añadir otro tratamiento a la misma cita"), permite quitar uno sin
-    // cancelar la cita entera. Si se quita el del bono (el primero, cuando
-    // es una sesión de bono), la sesión se devuelve automáticamente.
     const idParts = String(b.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
     const nameParts = String(b.serviceName || '').split(' + ');
-    const canRemoveTreatments = idParts.length > 1 && nameParts.length === idParts.length;
-    const removeRowsHtml = canRemoveTreatments
-      ? idParts.map((id, i) => `
-            <div class="panel-agenda-row" style="padding:6px 0;">
-              <div style="font-size:13px;">${escapeHtml(nameParts[i])}${isBonoSession && i === 0 ? ' <span style="color:var(--ink-faint);">(del bono)</span>' : ''}</div>
-              <div class="actions"><button type="button" class="panel-btn panel-btn-accent panel-btn-sm eb-remove-treatment" data-service-id="${id}" data-is-bono-core="${isBonoSession && i === 0 ? '1' : ''}">🗑 Quitar</button></div>
-            </div>`).join('')
-      : '';
+    const namesAligned = nameParts.length === idParts.length;
+    const nameForIdx = (id, i) => (namesAligned ? nameParts[i] : (allServices.find((s) => s.id === id) || {}).name || id);
+    const extras = Array.isArray(b.extras) ? b.extras : [];
+    const balance = client && Number(client.loyaltyBalance) || 0;
+    const isClosable = b.status === 'confirmed' && b.isPast;
 
-    // Tratamientos de esta cita que TODAVÍA no pertenecen a ningún bono — el
-    // del índice 0 solo cuenta si la cita no es ya una sesión de bono. Cada
-    // uno se puede convertir en el suyo propio sin tocar los demás (p.ej.
-    // "Íntimo completo" ya es sesión de un bono, pero "Axilas" se añadió
-    // suelta y la clienta decide después que también quiere bono para eso).
-    const bonoConvertCandidates = idParts
-      .map((id, i) => ({ id, name: (nameParts.length === idParts.length ? nameParts[i] : (allServices.find((s) => s.id === id) || {}).name || id) }))
-      .filter((_, i) => !(isBonoSession && i === 0));
-    const bonoTargetOptions = bonoConvertCandidates.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    function bonoFormHtml(targetId, targetName) {
+      return `
+        <div class="line-item-edit line-item-bono-form" style="display:none;">
+          <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">"${escapeHtml(targetName)}" pasa a ser la sesión indicada de un bono nuevo — los demás tratamientos de esta cita, si los hay, no se tocan.</p>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Esta cita es la sesión nº</label><input type="number" min="1" step="1" class="li-bono-session" value="1"></div>
+            <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="li-bono-total"></div>
+          </div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="li-bono-price"></div>
+          </div>
+          <div class="panel-label" style="margin-top:4px;">¿Cómo pagó lo que ya lleva pagado?</div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Efectivo (€)</label><input type="number" step="0.01" min="0" class="li-bono-paid-cash" value="0"></div>
+            <div class="panel-field"><label>Bizum (€)</label><input type="number" step="0.01" min="0" class="li-bono-paid-bizum" value="0"></div>
+            <div class="panel-field"><label>Tarjeta (€)</label><input type="number" step="0.01" min="0" class="li-bono-paid-card" value="0"></div>
+          </div>
+          <button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-bono-save-btn">🎟 Convertir en bono</button>
+          <div class="li-bono-next-slot" style="margin-top:14px;"></div>
+        </div>`;
+    }
+
+    const treatmentLinesHtml = idParts.map((id, i) => {
+      const isBonoCore = isBonoSession && i === 0;
+      const name = nameForIdx(id, i);
+      return `
+        <div class="line-item" data-treatment-idx="${i}">
+          <div class="line-item-row">
+            <div class="line-item-main"><div class="line-item-name">${escapeHtml(name)}${isBonoCore ? ' <span class="line-item-meta">(del bono)</span>' : ''}</div></div>
+            <div class="line-item-actions">
+              <button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-edit-toggle">✎ Editar</button>
+              ${!isBonoCore ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-bono-toggle">🎟 Bono</button>` : ''}
+              ${idParts.length > 1 ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-remove-btn">🗑 Quitar</button>` : ''}
+            </div>
+          </div>
+          <div class="line-item-edit" style="display:none;">
+            <div class="panel-field-row">
+              <div class="panel-field" style="flex:2;"><label>Tratamiento</label><select class="li-swap-service">${serviceOptionsHtml(id)}</select></div>
+              ${isBonoCore ? `<div class="panel-field"><label>Nº de esta sesión</label><input type="number" min="1" step="1" class="li-session-number" value="${b.sessionNumber || ''}"></div>` : ''}
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="panel-btn panel-btn-primary panel-btn-sm li-save-btn">Guardar línea</button>
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm li-cancel-btn">Cancelar</button>
+            </div>
+          </div>
+          ${!isBonoCore ? bonoFormHtml(id, name) : ''}
+        </div>`;
+    }).join('');
+
+    const extraLinesHtml = extras.map((ex) => {
+      const catLabel = (EXTRA_CATS.find((c) => c.id === ex.category) || {}).label || 'Producto';
+      return `
+        <div class="line-item" data-sale-id="${ex.saleId}">
+          <div class="line-item-row">
+            <div class="line-item-main"><div class="line-item-name">${escapeHtml(ex.product)} <span class="line-item-meta">(extra · ${catLabel})</span></div></div>
+            <div class="line-item-price">${ex.amount.toFixed(2)} €</div>
+            <div class="line-item-actions">
+              <button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-extra-edit-toggle">✎ Editar</button>
+              <button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-extra-remove-btn">🗑 Quitar</button>
+            </div>
+          </div>
+          <div class="line-item-edit" style="display:none;">
+            <div class="cat-pills">${EXTRA_CATS.map((c) => `<div class="cat-pill li-extra-cat${c.id === (ex.category || 'venta') ? ' active' : ''}" data-cat="${c.id}">${c.label}</div>`).join('')}</div>
+            <input type="hidden" class="li-extra-cat-value" value="${ex.category || 'venta'}">
+            <div class="panel-field-row">
+              <div class="panel-field" style="flex:2;"><label>Detalle</label><input type="text" class="li-extra-detail" value="${escapeHtml(ex.product)}"></div>
+              <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="li-extra-amount" value="${ex.amount}"></div>
+            </div>
+            <div class="panel-field-row">
+              <div class="panel-field"><label>Pagado con</label>
+                <select class="li-extra-paidhow">
+                  <option value="efectivo" ${ex.paidHow === 'efectivo' ? 'selected' : ''}>Efectivo</option>
+                  <option value="tarjeta" ${ex.paidHow === 'tarjeta' ? 'selected' : ''}>Tarjeta</option>
+                  <option value="bizum" ${ex.paidHow === 'bizum' ? 'selected' : ''}>Bizum</option>
+                </select>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="panel-btn panel-btn-primary panel-btn-sm li-extra-save-btn">Guardar línea</button>
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm li-extra-cancel-btn">Cancelar</button>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    const alreadyPaid = Number(b.amountPaid) || 0;
+    const expectedTotal = Number(b.price) || alreadyPaid;
+    const pendingAtCenter = Math.max(0, expectedTotal - alreadyPaid);
+    const closedNote = b.finalAmount !== null && b.finalAmount !== undefined
+      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow}${b.remainderAmount2 ? ` + ${b.remainderPaidHow2} ${b.remainderAmount2.toFixed(2)} €` : ''})` : ''}${b.redeemedAmount ? ` · saldo canjeado: ${b.redeemedAmount.toFixed(2)} €` : ''}</p>`
+      : '';
 
     slot.innerHTML = `
       <div class="panel-new-appt">
-        <div class="panel-label">Editar cita — ${escapeHtml(b.serviceName)}</div>
-        <div class="panel-field-row">
-          <div class="panel-field" style="flex:2;"><label>Tratamiento (deja igual si no se equivocó)</label>
-            <select class="eb-service"><option value="">No cambiar</option>${serviceOptions}</select>
-          </div>
-          <div class="panel-field"><label>Profesional</label>
-            <select class="eb-employee"><option value="">No cambiar</option>${employeeOptions}</select>
-          </div>
-          ${isBonoSession ? '<div class="panel-field"><label>Nº de esta sesión</label><input type="number" min="1" step="1" class="eb-session-number" value="' + (b.sessionNumber || '') + '"></div>' : ''}
+        <div class="panel-label">Editar cita</div>
+        ${balance > 0 ? `<span class="panel-pill panel-loyalty-pill">💰 Saldo de fidelización: ${balance.toFixed(2)} €</span>` : ''}
+
+        <div class="panel-section-label" style="margin-top:14px;">Líneas de esta cita</div>
+        ${treatmentLinesHtml}${extraLinesHtml}
+
+        <div class="panel-section-label">Añadir una línea</div>
+        <div class="type-tabs">
+          <div class="type-tab active" data-type="treatment">Tratamiento (con hora reservada)</div>
+          <div class="type-tab" data-type="extra">Extra (sin tiempo, solo contabilidad)</div>
         </div>
+        <div class="add-line-treatment">
+          <div class="panel-field-row">
+            <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptionsHtml()}</select></div>
+            <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-add">+ Añadir</button></div>
+          </div>
+          <label class="panel-split-toggle"><input type="checkbox" class="eb-add-no-time"> Ya se hizo, no hace falta comprobar hueco ni alargar la cita en el calendario</label>
+        </div>
+        <div class="add-line-extra" style="display:none;">
+          <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">Para cualquier cosa que se cobre en esta visita sin necesitar hueco de agenda — un tratamiento hecho de más, un producto, etc.</p>
+          <div class="cat-pills">${EXTRA_CATS.map((c, i) => `<div class="cat-pill eb-extra-cat${i === 0 ? ' active' : ''}" data-cat="${c.id}">${c.label}</div>`).join('')}</div>
+          <input type="hidden" class="eb-extra-cat-value" value="${EXTRA_CATS[0].id}">
+          <div class="panel-field-row">
+            <div class="panel-field" style="flex:2;"><label>Detalle (qué fue)</label><input type="text" class="eb-extra-detail" placeholder="Ej. Limpieza facial, Crema hidratante…"></div>
+            <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="eb-extra-amount"></div>
+          </div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Pagado con</label>
+              <select class="eb-extra-paidhow"><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option><option value="bizum">Bizum</option></select>
+            </div>
+            <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-extra">+ Añadir extra</button></div>
+          </div>
+        </div>
+
+        <div class="panel-section-label">Notas de la cita</div>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Precio (€)</label><input type="number" step="0.01" class="eb-price" value="${b.price || ''}"></div>
+          <div class="panel-field" style="flex:1;"><textarea class="eb-notes" rows="2" placeholder="Ej. potencia 18, zona íntimo completo">${escapeHtml(b.notes)}</textarea></div>
+        </div>
+
+        <div class="panel-section-label">Profesional</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><select class="eb-employee"><option value="">No cambiar</option>${employeeOptions}</select></div>
+        </div>
+
+        <div class="panel-section-label">Cobro</div>
+        ${closedNote}
+        ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b> · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Precio total (€)</label><input type="number" step="0.01" class="eb-price" value="${b.price || ''}"></div>
           <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="eb-paid" value="${b.amountPaid || ''}"></div>
         </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>
         <p class="panel-error" style="display:none;"></p>
-        <p class="panel-status" style="display:none;"></p>
-        ${removeRowsHtml ? `<div class="panel-section-label" style="margin-top:18px;">Quitar un tratamiento de esta cita</div>${removeRowsHtml}` : ''}
-        <div class="panel-section-label" style="margin-top:18px;">Añadir un tratamiento a esta cita</div>
-        <div class="panel-field-row">
-          <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select></div>
-          <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-add">+ Añadir</button></div>
-        </div>
-        <label class="panel-split-toggle"><input type="checkbox" class="eb-add-no-time"> Ya se hizo en esta misma visita, sin ampliar el hueco (no comprueba disponibilidad ni toca el calendario)</label>
-        ${bonoConvertCandidates.length ? `
-        <div class="panel-section-label" style="margin-top:18px;">Convertir un tratamiento de esta cita en un bono</div>
-        <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">Si la clienta ha decidido comprar un bono de sesiones en vez de pagar solo suelto, regístralo aquí — el tratamiento elegido pasa a ser la sesión indicada de ese bono (los demás de esta cita, si los hay, no se tocan).</p>
-        ${bonoConvertCandidates.length > 1 ? `
-        <div class="panel-field-row">
-          <div class="panel-field" style="flex:2;"><label>Tratamiento a convertir</label><select class="eb-bono-target">${bonoTargetOptions}</select></div>
-        </div>` : `<input type="hidden" class="eb-bono-target" value="${bonoConvertCandidates[0].id}">`}
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Esta cita es la sesión nº</label><input type="number" min="1" step="1" class="eb-bono-session" value="1"></div>
-          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="eb-bono-total"></div>
-        </div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="eb-bono-price"></div>
-        </div>
-        <div class="panel-label" style="margin-top:4px;">¿Cómo pagó lo que ya lleva pagado?</div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Efectivo (€)</label><input type="number" step="0.01" min="0" class="eb-bono-paid-cash" value="0"></div>
-          <div class="panel-field"><label>Bizum (€)</label><input type="number" step="0.01" min="0" class="eb-bono-paid-bizum" value="0"></div>
-          <div class="panel-field"><label>Tarjeta (€)</label><input type="number" step="0.01" min="0" class="eb-bono-paid-card" value="0"></div>
-        </div>
-        <button type="button" class="panel-btn panel-btn-accent eb-confirm-bono">🎟 Convertir en bono</button>
-        <div class="eb-bono-next-slot" style="margin-top:14px;"></div>
-        ` : ''}
+        <p class="panel-status eb-status" style="display:none;"></p>
+
+        ${isClosable ? `
+        <div class="line-item-edit" style="margin-top:16px;">
+          <div class="panel-label" style="margin-bottom:8px;">Cerrar cita — importe total real</div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.finalAmount || b.price || b.amountPaid || ''}"></div>
+            <div class="panel-field"><label>Resto pagado en centro con</label>
+              <select class="pf-paidhow">
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="bizum">Bizum</option>
+                <option value="bonos archipiélago">Bonos Archipiélago</option>
+                <option value="bono adeje">Bono Adeje</option>
+              </select>
+            </div>
+          </div>
+          ${balance > 0 ? `
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Descontar saldo de fidelización (€) — disponible ${balance.toFixed(2)} € (mínimo 10 €)</label><input type="number" step="0.01" class="pf-redeem" min="10" max="${balance}"></div>
+          </div>` : ''}
+          <label class="panel-split-toggle"><input type="checkbox" class="pf-split"> El resto se pagó dividido en dos formas de pago</label>
+          <div class="panel-field-row pf-split-row" style="display:none;">
+            <div class="panel-field"><label>Importe con la 2ª forma de pago (€)</label><input type="number" step="0.01" class="pf-amount2"></div>
+            <div class="panel-field"><label>2ª forma de pago</label>
+              <select class="pf-paidhow2">
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="bizum">Bizum</option>
+                <option value="bonos archipiélago">Bonos Archipiélago</option>
+                <option value="bono adeje">Bono Adeje</option>
+              </select>
+            </div>
+          </div>
+          <button type="button" class="panel-btn panel-btn-ghost panel-confirm-close">💶 Cerrar cita</button>
+          <p class="panel-error pf-error" style="display:none;"></p>
+        </div>` : ''}
       </div>
     `;
-    const serviceSelect = slot.querySelector('.eb-service');
-    const employeeSelect = slot.querySelector('.eb-employee');
-    const sessionNumberInput = slot.querySelector('.eb-session-number');
-    const priceInput = slot.querySelector('.eb-price');
-    const paidInput = slot.querySelector('.eb-paid');
+
     const errorEl = slot.querySelector('.panel-error');
-    const statusEl = slot.querySelector('.panel-status');
+    const statusEl = slot.querySelector('.eb-status');
+
+    // ── Pestañas "Añadir una línea": Tratamiento / Extra ──
+    const addLineTreatmentBox = slot.querySelector('.add-line-treatment');
+    const addLineExtraBox = slot.querySelector('.add-line-extra');
+    slot.querySelectorAll('.type-tabs .type-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        slot.querySelectorAll('.type-tabs .type-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        const isTreatment = tab.getAttribute('data-type') === 'treatment';
+        addLineTreatmentBox.style.display = isTreatment ? 'block' : 'none';
+        addLineExtraBox.style.display = isTreatment ? 'none' : 'block';
+      });
+    });
+    slot.querySelectorAll('.add-line-extra .eb-extra-cat').forEach((pill) => {
+      pill.addEventListener('click', () => {
+        slot.querySelectorAll('.add-line-extra .eb-extra-cat').forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        slot.querySelector('.eb-extra-cat-value').value = pill.getAttribute('data-cat');
+      });
+    });
+
+    // ── Guardar cambios (precio/pagado/profesional/notas) ──
     slot.querySelector('.panel-confirm-editbooking').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       statusEl.style.display = 'none';
       ev.target.disabled = true;
       try {
+        const employeeSelect = slot.querySelector('.eb-employee');
+        const priceInput = slot.querySelector('.eb-price');
+        const paidInput = slot.querySelector('.eb-paid');
+        const notesInput = slot.querySelector('.eb-notes');
         await panelFetch('/panel/edit-booking', {
           method: 'POST',
           body: JSON.stringify({
             bookingId: b.bookingId,
-            serviceId: serviceSelect.value || undefined,
             employeeId: employeeSelect.value || undefined,
             price: priceInput.value,
             amountPaid: paidInput.value,
-            sessionNumber: sessionNumberInput ? sessionNumberInput.value : undefined,
           }),
         });
-        doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
+        if (notesInput.value !== (b.notes || '')) {
+          await panelFetch('/panel/note', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, note: notesInput.value }) });
+        }
+        doSearch();
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
         ev.target.disabled = false;
       }
     });
+
+    // ── Añadir tratamiento ──
     slot.querySelector('.eb-confirm-add').addEventListener('click', async (ev) => {
       const addServiceSelect = slot.querySelector('.eb-add-service');
       if (!addServiceSelect.value) {
@@ -1615,7 +1689,6 @@
         return;
       }
       errorEl.style.display = 'none';
-      statusEl.style.display = 'none';
       ev.target.disabled = true;
       try {
         const noTimeInput = slot.querySelector('.eb-add-no-time');
@@ -1627,96 +1700,204 @@
             addWithoutTimeExtend: noTimeInput && noTimeInput.checked ? true : undefined,
           }),
         });
-        doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
+        doSearch();
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
         ev.target.disabled = false;
       }
     });
-    const confirmBonoBtn = slot.querySelector('.eb-confirm-bono');
-    if (confirmBonoBtn) {
-      confirmBonoBtn.addEventListener('click', async (ev) => {
-        const targetSelect = slot.querySelector('.eb-bono-target');
-        const totalInput = slot.querySelector('.eb-bono-total');
-        const sessionInput = slot.querySelector('.eb-bono-session');
-        const bonoPriceInput = slot.querySelector('.eb-bono-price');
-        const cashInput = slot.querySelector('.eb-bono-paid-cash');
-        const bizumInput = slot.querySelector('.eb-bono-paid-bizum');
-        const cardInput = slot.querySelector('.eb-bono-paid-card');
-        if (!totalInput.value || !sessionInput.value) {
-          errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
-          errorEl.style.display = 'block';
-          return;
-        }
-        const cash = Number(cashInput.value) || 0;
-        const bizum = Number(bizumInput.value) || 0;
-        const card = Number(cardInput.value) || 0;
-        const paidTotal = cash + bizum + card;
-        const targetCandidate = bonoConvertCandidates.find((c) => c.id === targetSelect.value) || bonoConvertCandidates[0];
-        if (!confirm(`¿Convertir "${targetCandidate.name}" en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${paidTotal.toFixed(2)} € (efectivo ${cash.toFixed(2)} € + bizum ${bizum.toFixed(2)} € + tarjeta ${card.toFixed(2)} €).`)) return;
+
+    // ── Añadir extra ──
+    slot.querySelector('.eb-confirm-extra').addEventListener('click', async (ev) => {
+      const detailInput = slot.querySelector('.eb-extra-detail');
+      const amountInput = slot.querySelector('.eb-extra-amount');
+      const paidHowSelect = slot.querySelector('.eb-extra-paidhow');
+      const catValue = slot.querySelector('.eb-extra-cat-value').value;
+      if (!detailInput.value.trim() || !amountInput.value) {
+        errorEl.textContent = 'Indica el detalle y el importe del extra.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      errorEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/product-sale', {
+          method: 'POST',
+          body: JSON.stringify({
+            date: b.date, product: detailInput.value.trim(), amount: amountInput.value, paidHow: paidHowSelect.value,
+            category: catValue, bookingId: b.bookingId,
+            clientPhone: client ? client.phone : '', clientName: client ? client.name : '', clientEmail: client ? client.email : '',
+          }),
+        });
+        doSearch();
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+
+    // ── Cada línea de tratamiento: Editar / Bono / Quitar ──
+    slot.querySelectorAll('.line-item[data-treatment-idx]').forEach((lineEl) => {
+      const idx = Number(lineEl.getAttribute('data-treatment-idx'));
+      const id = idParts[idx];
+      const name = nameForIdx(id, idx);
+      const isBonoCore = isBonoSession && idx === 0;
+      const editBox = lineEl.querySelector('.line-item-edit:not(.line-item-bono-form)');
+      const editToggle = lineEl.querySelector('.li-edit-toggle');
+      editToggle.addEventListener('click', () => {
+        editBox.style.display = editBox.style.display === 'none' ? 'block' : 'none';
+      });
+      lineEl.querySelector('.li-cancel-btn').addEventListener('click', () => { editBox.style.display = 'none'; });
+      lineEl.querySelector('.li-save-btn').addEventListener('click', async (ev) => {
+        const newId = lineEl.querySelector('.li-swap-service').value;
+        const sessionInput = lineEl.querySelector('.li-session-number');
         errorEl.style.display = 'none';
-        statusEl.style.display = 'none';
         ev.target.disabled = true;
         try {
-          const data = await panelFetch('/panel/edit-booking', {
-            method: 'POST',
-            body: JSON.stringify({
-              bookingId: b.bookingId,
-              convertToBono: true,
-              bonoTargetServiceId: targetCandidate.id,
-              bonoSessionNumber: sessionInput.value,
-              bonoTotalSessions: totalInput.value,
-              bonoTotalPrice: bonoPriceInput.value,
-              bonoPaidCash: cash,
-              bonoPaidBizum: bizum,
-              bonoPaidCard: card,
-            }),
-          });
-          confirmBonoBtn.style.display = 'none';
-          statusEl.textContent = 'Bono registrado ✓ — elige cuándo es la próxima sesión aquí abajo.';
-          statusEl.style.display = 'block';
-          // En vez de recargar y obligar a buscar el bono nuevo aparte, se
-          // agenda la siguiente sesión aquí mismo, sin cambiar de pantalla.
-          const total = Number(totalInput.value);
-          const used = Number(sessionInput.value);
-          const syntheticBono = {
-            bonoId: data.convertedBonoId,
-            serviceId: targetCandidate.id,
-            serviceName: targetCandidate.name,
-            sessionsUsed: used,
-            totalSessions: total,
-            sessionsRemaining: Math.max(0, total - used),
-          };
-          const nextSlot = slot.querySelector('.eb-bono-next-slot');
-          nextSlot.innerHTML = '<div class="panel-new-appt-slot"></div>';
-          if (syntheticBono.sessionsRemaining > 0) {
-            await toggleBookSessionForm(nextSlot, syntheticBono, null, client);
+          if (newId && newId !== id) {
+            await panelFetch('/panel/edit-booking', {
+              method: 'POST',
+              body: JSON.stringify({ bookingId: b.bookingId, swapServiceId: { from: id, to: newId } }),
+            });
           }
+          if (isBonoCore && sessionInput && sessionInput.value && String(sessionInput.value) !== String(b.sessionNumber || '')) {
+            await panelFetch('/panel/edit-booking', {
+              method: 'POST',
+              body: JSON.stringify({ bookingId: b.bookingId, sessionNumber: sessionInput.value }),
+            });
+          }
+          doSearch();
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';
           ev.target.disabled = false;
         }
       });
-    }
-    slot.querySelectorAll('.eb-remove-treatment').forEach((btn) => {
-      btn.addEventListener('click', async (ev) => {
-        const serviceIdToRemove = ev.target.getAttribute('data-service-id');
-        const isBonoCore = ev.target.getAttribute('data-is-bono-core') === '1';
-        const confirmMsg = isBonoCore
-          ? '¿Quitar el tratamiento del bono de esta cita? Se le devolverá la sesión a la clienta (no se cuenta como usada) y esta cita se queda solo con los tratamientos extra, si los hay.'
-          : '¿Quitar este tratamiento de la cita? Los demás se quedan igual.';
-        if (!confirm(confirmMsg)) return;
+
+      const bonoToggle = lineEl.querySelector('.li-bono-toggle');
+      if (bonoToggle) {
+        const bonoBox = lineEl.querySelector('.line-item-bono-form');
+        bonoToggle.addEventListener('click', () => {
+          bonoBox.style.display = bonoBox.style.display === 'none' ? 'block' : 'none';
+        });
+        bonoBox.querySelector('.li-bono-save-btn').addEventListener('click', async (ev) => {
+          const totalInput = bonoBox.querySelector('.li-bono-total');
+          const sessionInput = bonoBox.querySelector('.li-bono-session');
+          const bonoPriceInput = bonoBox.querySelector('.li-bono-price');
+          const cashInput = bonoBox.querySelector('.li-bono-paid-cash');
+          const bizumInput = bonoBox.querySelector('.li-bono-paid-bizum');
+          const cardInput = bonoBox.querySelector('.li-bono-paid-card');
+          if (!totalInput.value || !sessionInput.value) {
+            errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
+            errorEl.style.display = 'block';
+            return;
+          }
+          const cash = Number(cashInput.value) || 0;
+          const bizum = Number(bizumInput.value) || 0;
+          const card = Number(cardInput.value) || 0;
+          if (!confirm(`¿Convertir "${name}" en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${(cash + bizum + card).toFixed(2)} €.`)) return;
+          errorEl.style.display = 'none';
+          ev.target.disabled = true;
+          try {
+            const data = await panelFetch('/panel/edit-booking', {
+              method: 'POST',
+              body: JSON.stringify({
+                bookingId: b.bookingId, convertToBono: true, bonoTargetServiceId: id,
+                bonoSessionNumber: sessionInput.value, bonoTotalSessions: totalInput.value, bonoTotalPrice: bonoPriceInput.value,
+                bonoPaidCash: cash, bonoPaidBizum: bizum, bonoPaidCard: card,
+              }),
+            });
+            ev.target.style.display = 'none';
+            statusEl.textContent = 'Bono registrado ✓ — elige cuándo es la próxima sesión aquí abajo.';
+            statusEl.style.display = 'block';
+            const total = Number(totalInput.value);
+            const used = Number(sessionInput.value);
+            const syntheticBono = {
+              bonoId: data.convertedBonoId, serviceId: id, serviceName: name,
+              sessionsUsed: used, totalSessions: total, sessionsRemaining: Math.max(0, total - used),
+            };
+            const nextSlot = bonoBox.querySelector('.li-bono-next-slot');
+            nextSlot.innerHTML = '<div class="panel-new-appt-slot"></div>';
+            if (syntheticBono.sessionsRemaining > 0) {
+              await toggleBookSessionForm(nextSlot, syntheticBono, null, client);
+            }
+          } catch (e) {
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+            ev.target.disabled = false;
+          }
+        });
+      }
+
+      const removeBtn = lineEl.querySelector('.li-remove-btn');
+      if (removeBtn) {
+        removeBtn.addEventListener('click', async (ev) => {
+          const confirmMsg = isBonoCore
+            ? '¿Quitar el tratamiento del bono de esta cita? Se le devolverá la sesión a la clienta (no se cuenta como usada) y esta cita se queda solo con los tratamientos extra, si los hay.'
+            : '¿Quitar este tratamiento de la cita? Los demás se quedan igual.';
+          if (!confirm(confirmMsg)) return;
+          errorEl.style.display = 'none';
+          ev.target.disabled = true;
+          try {
+            await panelFetch('/panel/edit-booking', {
+              method: 'POST',
+              body: JSON.stringify({ bookingId: b.bookingId, removeServiceId: id }),
+            });
+            doSearch();
+          } catch (e) {
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+            ev.target.disabled = false;
+          }
+        });
+      }
+    });
+
+    // ── Cada línea "extra": Editar / Quitar ──
+    slot.querySelectorAll('.line-item[data-sale-id]').forEach((lineEl) => {
+      const saleId = lineEl.getAttribute('data-sale-id');
+      const editBox = lineEl.querySelector('.line-item-edit');
+      lineEl.querySelector('.li-extra-edit-toggle').addEventListener('click', () => {
+        editBox.style.display = editBox.style.display === 'none' ? 'block' : 'none';
+      });
+      lineEl.querySelector('.li-extra-cancel-btn').addEventListener('click', () => { editBox.style.display = 'none'; });
+      lineEl.querySelectorAll('.li-extra-cat').forEach((pill) => {
+        pill.addEventListener('click', () => {
+          lineEl.querySelectorAll('.li-extra-cat').forEach((p) => p.classList.remove('active'));
+          pill.classList.add('active');
+          lineEl.querySelector('.li-extra-cat-value').value = pill.getAttribute('data-cat');
+        });
+      });
+      lineEl.querySelector('.li-extra-save-btn').addEventListener('click', async (ev) => {
         errorEl.style.display = 'none';
-        statusEl.style.display = 'none';
         ev.target.disabled = true;
         try {
-          await panelFetch('/panel/edit-booking', {
+          await panelFetch('/panel/product-sale-edit', {
             method: 'POST',
-            body: JSON.stringify({ bookingId: b.bookingId, removeServiceId: serviceIdToRemove }),
+            body: JSON.stringify({
+              saleId,
+              product: lineEl.querySelector('.li-extra-detail').value.trim(),
+              amount: lineEl.querySelector('.li-extra-amount').value,
+              paidHow: lineEl.querySelector('.li-extra-paidhow').value,
+              category: lineEl.querySelector('.li-extra-cat-value').value,
+            }),
           });
-          doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+      lineEl.querySelector('.li-extra-remove-btn').addEventListener('click', async (ev) => {
+        if (!confirm('¿Quitar esta línea extra de la cuenta de esta cita?')) return;
+        errorEl.style.display = 'none';
+        ev.target.disabled = true;
+        try {
+          await panelFetch('/panel/product-sale-edit', { method: 'POST', body: JSON.stringify({ saleId, deleted: true }) });
+          doSearch();
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';
@@ -1724,6 +1905,44 @@
         }
       });
     });
+
+    // ── Cerrar cita (si procede) ──
+    const closeBox = slot.querySelector('.panel-confirm-close');
+    if (closeBox) {
+      const amountInput = slot.querySelector('.pf-amount');
+      const paidHowSelect = slot.querySelector('.pf-paidhow');
+      const redeemInput = slot.querySelector('.pf-redeem');
+      const splitToggle = slot.querySelector('.pf-split');
+      const splitRow = slot.querySelector('.pf-split-row');
+      const amount2Input = slot.querySelector('.pf-amount2');
+      const paidHow2Select = slot.querySelector('.pf-paidhow2');
+      const pfErrorEl = slot.querySelector('.pf-error');
+      splitToggle.addEventListener('change', () => {
+        splitRow.style.display = splitToggle.checked ? 'grid' : 'none';
+      });
+      closeBox.addEventListener('click', async (ev) => {
+        pfErrorEl.style.display = 'none';
+        const totalToConfirm = Number(amountInput.value) || 0;
+        if (!confirm(`¿Confirmas el cierre con un total de ${totalToConfirm.toFixed(2)} €?`)) return;
+        ev.target.disabled = true;
+        try {
+          await panelFetch('/panel/close', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: b.bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value,
+              remainderAmount2: splitToggle.checked ? amount2Input.value : 0,
+              paidHow2: splitToggle.checked ? paidHow2Select.value : '',
+              redeemAmount: redeemInput ? redeemInput.value : 0,
+            }),
+          });
+          doSearch();
+        } catch (e) {
+          pfErrorEl.textContent = e.message;
+          pfErrorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    }
   }
 
   function toggleExtend(apptEl, b) {
@@ -1755,94 +1974,6 @@
           body: JSON.stringify({ bookingId: b.bookingId, extraMinutes: minutesInput.value }),
         });
         slot.innerHTML = '<p class="panel-status">Tiempo ampliado ✓</p>';
-      } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.style.display = 'block';
-        ev.target.disabled = false;
-      }
-    });
-  }
-
-  function toggleClose(apptEl, b, client) {
-    const slot = apptEl.querySelector('.panel-close-slot');
-    if (slot.innerHTML) { slot.innerHTML = ''; return; }
-    const balance = client && Number(client.loyaltyBalance) || 0;
-    const closedNote = b.finalAmount !== null && b.finalAmount !== undefined
-      ? `<p class="panel-status">Ya cerrada — total ${b.finalAmount.toFixed(2)} €${b.remainderPaidHow ? ` (resto: ${b.remainderPaidHow}${b.remainderAmount2 ? ` + ${b.remainderPaidHow2} ${b.remainderAmount2.toFixed(2)} €` : ''})` : ''}${b.redeemedAmount ? ` · saldo canjeado: ${b.redeemedAmount.toFixed(2)} €` : ''}</p>`
-      : '';
-    // Cuánto pagó ya la clienta y cuánto queda pendiente, calculado aquí
-    // mismo — antes había que restar de memoria para no cobrar de más/menos.
-    const alreadyPaid = Number(b.amountPaid) || 0;
-    const expectedTotal = Number(b.price) || alreadyPaid;
-    const pendingAtCenter = Math.max(0, expectedTotal - alreadyPaid);
-    const paidSummary = (b.finalAmount === null || b.finalAmount === undefined)
-      ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b> · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>`
-      : '';
-    slot.innerHTML = `
-      <div class="panel-new-appt">
-        ${closedNote}
-        ${paidSummary}
-        <div class="panel-label">Cerrar cita — importe total real</div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.finalAmount || b.price || b.amountPaid || ''}"></div>
-          <div class="panel-field"><label>Resto pagado en centro con</label>
-            <select class="pf-paidhow">
-              <option value="efectivo">Efectivo</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="bizum">Bizum</option>
-              <option value="bonos archipiélago">Bonos Archipiélago</option>
-              <option value="bono adeje">Bono Adeje</option>
-            </select>
-          </div>
-        </div>
-        ${balance > 0 ? `
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Aplicar saldo de fidelización (€) — disponible: ${balance.toFixed(2)} € (mínimo 10 €)</label><input type="number" step="0.01" class="pf-redeem" min="10" max="${balance}"></div>
-        </div>` : ''}
-        <label class="panel-split-toggle"><input type="checkbox" class="pf-split"> El resto se pagó dividido en dos formas de pago</label>
-        <div class="panel-field-row pf-split-row" style="display:none;">
-          <div class="panel-field"><label>Importe con la 2ª forma de pago (€)</label><input type="number" step="0.01" class="pf-amount2"></div>
-          <div class="panel-field"><label>2ª forma de pago</label>
-            <select class="pf-paidhow2">
-              <option value="efectivo">Efectivo</option>
-              <option value="tarjeta">Tarjeta</option>
-              <option value="bizum">Bizum</option>
-              <option value="bonos archipiélago">Bonos Archipiélago</option>
-              <option value="bono adeje">Bono Adeje</option>
-            </select>
-          </div>
-        </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-close">Guardar</button>
-        <p class="panel-error" style="display:none;"></p>
-      </div>
-    `;
-    const amountInput = slot.querySelector('.pf-amount');
-    const paidHowSelect = slot.querySelector('.pf-paidhow');
-    const redeemInput = slot.querySelector('.pf-redeem');
-    const splitToggle = slot.querySelector('.pf-split');
-    const splitRow = slot.querySelector('.pf-split-row');
-    const amount2Input = slot.querySelector('.pf-amount2');
-    const paidHow2Select = slot.querySelector('.pf-paidhow2');
-    const errorEl = slot.querySelector('.panel-error');
-    splitToggle.addEventListener('change', () => {
-      splitRow.style.display = splitToggle.checked ? 'grid' : 'none';
-    });
-    slot.querySelector('.panel-confirm-close').addEventListener('click', async (ev) => {
-      errorEl.style.display = 'none';
-      const totalToConfirm = Number(amountInput.value) || 0;
-      if (!confirm(`¿Confirmas el cierre con un total de ${totalToConfirm.toFixed(2)} €?`)) return;
-      ev.target.disabled = true;
-      try {
-        await panelFetch('/panel/close', {
-          method: 'POST',
-          body: JSON.stringify({
-            bookingId: b.bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value,
-            remainderAmount2: splitToggle.checked ? amount2Input.value : 0,
-            paidHow2: splitToggle.checked ? paidHow2Select.value : '',
-            redeemAmount: redeemInput ? redeemInput.value : 0,
-          }),
-        });
-        doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

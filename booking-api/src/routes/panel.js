@@ -3,7 +3,7 @@ const {
   getAllBookings, findBookingById, updateBookingRow, appendBooking,
   getAllSessionBonos, findSessionBonoById, updateSessionBonoRow, appendSessionBono,
   getAllStrikeRecords, upsertStrikeRecord,
-  appendLoyaltyMovement, appendProductSale, getAllProductSales,
+  appendLoyaltyMovement, appendProductSale, getAllProductSales, updateProductSaleRow,
   getAllLoyaltyMovements, getLoyaltyMovementsForPhone, updateLoyaltyMovementRow,
   appendCustomQuote, getAllCustomQuotes,
   appendFollowup, getAllFollowups, updateFollowupRow,
@@ -98,8 +98,8 @@ router.get('/panel/search', async (req, res) => {
   if (!q) return res.status(400).json({ error: 'Escribe un teléfono, email o nombre para buscar.' });
 
   try {
-    const [allBookings, allBonos, allStrikes, allLoyalty] = await Promise.all([
-      getAllBookings(), getAllSessionBonos(), getAllStrikeRecords(), getAllLoyaltyMovements(),
+    const [allBookings, allBonos, allStrikes, allLoyalty, allExtras] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllStrikeRecords(), getAllLoyaltyMovements(), getAllProductSales(),
     ]);
 
     const digits = q.replace(/\D/g, '');
@@ -175,6 +175,10 @@ router.get('/panel/search', async (req, res) => {
             sessionNumber: b.sessionNumber || '',
             notes: b.notes || '',
             isPast: appointmentDateTime(b).getTime() <= Date.now(),
+            extras: allExtras.filter((s) => s.bookingId === b.bookingId).map((s) => ({
+              saleId: s.saleId, product: s.product, amount: Number(s.amount) || 0,
+              paidHow: s.paidHow || '', category: s.category || 'venta',
+            })),
           })),
       };
     });
@@ -222,7 +226,7 @@ router.post('/panel/note', async (req, res) => {
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
   const {
-    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, employeeId, price, amountPaid, sessionNumber,
+    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, sessionNumber,
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
@@ -230,8 +234,8 @@ router.post('/panel/edit-booking', async (req, res) => {
     bonoPaidCash, bonoPaidBizum, bonoPaidCard,
   } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
-  if ([serviceId, removeServiceId, addServiceId, convertToBono].filter(Boolean).length > 1) {
-    return res.status(400).json({ error: 'Solo se puede cambiar, quitar, añadir un tratamiento o convertir en bono a la vez.' });
+  if ([serviceId, removeServiceId, addServiceId, swapServiceId, convertToBono].filter(Boolean).length > 1) {
+    return res.status(400).json({ error: 'Solo se puede cambiar, quitar, añadir, cambiar un tratamiento por otro o convertir en bono a la vez.' });
   }
   try {
     const booking = await findBookingById(bookingId);
@@ -335,6 +339,64 @@ router.post('/panel/edit-booking', async (req, res) => {
       updates.serviceName = [...(nameSegments.length ? nameSegments : [booking.serviceName]), addedService.name].join(' + ');
       if (!addWithoutTimeExtend) {
         updates.durationMinutes = newDurationForCalendar;
+      }
+    }
+
+    // Cambiar CUÁL tratamiento es uno de los de esta cita (p.ej. se dio de
+    // alta "Axilas" por error y era "Ingles") sin tener que quitarlo y
+    // volver a añadir el correcto por separado — mantiene su sitio en la
+    // lista (así, si es el primero de una sesión de bono, sigue enganchado)
+    // y ajusta la duración/calendario como una mezcla de quitar+añadir.
+    if (swapServiceId) {
+      const { from, to } = swapServiceId;
+      if (!from || !to) return res.status(400).json({ error: 'Indica qué tratamiento cambiar y por cuál.' });
+      const currentIds = String(booking.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const idx = currentIds.indexOf(from);
+      if (idx === -1) return res.status(400).json({ error: 'Ese tratamiento no está en esta cita.' });
+      if (currentIds.includes(to)) return res.status(400).json({ error: 'Ese tratamiento ya está en esta cita.' });
+      const oldSwapService = services.find((s) => s.id === from);
+      const newSwapService = services.find((s) => s.id === to);
+      if (!newSwapService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
+
+      const oldDuration = Number(booking.durationMinutes) || 0;
+      const durationDelta = (Number(newSwapService.durationMinutes) || 0) - (oldSwapService ? Number(oldSwapService.durationMinutes) || 0 : 0);
+      newDurationForCalendar = Math.max(0, oldDuration + durationDelta);
+
+      // Si el cambio alarga la cita, hay que comprobar que sigue habiendo
+      // hueco libre justo después — igual que al añadir un tratamiento.
+      if (durationDelta > 0 && booking.calendarId && booking.date && booking.time) {
+        const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
+        const startISO = localToISO(booking.date, time, hours.timezone);
+        const currentEndISO = addMinutes(startISO, oldDuration);
+        const newEndISO = addMinutes(startISO, newDurationForCalendar);
+        const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId), { ignoreClosingTime: true });
+        if (!free) {
+          return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para alargarla con ese tratamiento.' });
+        }
+      }
+
+      const nameSegments = String(booking.serviceName || '').split(' + ');
+      const remainingIds = currentIds.slice();
+      remainingIds[idx] = to;
+      const remainingNames = nameSegments.length === currentIds.length
+        ? nameSegments.slice()
+        : currentIds.map((id) => (services.find((s) => s.id === id) || {}).name || '');
+      // Si es el tratamiento del bono (el primero, en una sesión de bono),
+      // conserva la etiqueta "(n/total)" que ya llevara.
+      const bonoLabelMatch = idx === 0 && booking.bonoId ? String(remainingNames[idx] || '').match(/\(\d+\/\d+\)\s*$/) : null;
+      remainingNames[idx] = bonoLabelMatch ? `${newSwapService.name} ${bonoLabelMatch[0]}` : newSwapService.name;
+      updates.serviceId = remainingIds.join(',');
+      updates.serviceName = remainingNames.join(' + ');
+      updates.durationMinutes = newDurationForCalendar;
+
+      // Si lo que cambia es el propio tratamiento del bono, el bono en sí
+      // también hay que corregirlo — si no, se quedaría registrado con el
+      // tratamiento viejo aunque la cita ya diga el nuevo.
+      if (idx === 0 && booking.bonoId) {
+        const bono = await findSessionBonoById(booking.bonoId);
+        if (bono) {
+          await updateSessionBonoRow(bono._sheetRow, bono, { serviceId: to, serviceName: newSwapService.name });
+        }
       }
     }
 
@@ -512,7 +574,7 @@ router.post('/panel/edit-booking', async (req, res) => {
     // reconstruimos con el total real del bono para no tener que pedirlo.
     // (Si se quitó/añadió un tratamiento extra con removeServiceId/
     // addServiceId, el nombre ya se recalculó arriba y no lo tocamos aquí.)
-    if (booking.bonoId && !removeServiceId && !addServiceId) {
+    if (booking.bonoId && !removeServiceId && !addServiceId && !swapServiceId) {
       const bono = await findSessionBonoById(booking.bonoId);
       const num = sessionNumber !== undefined && sessionNumber !== '' ? Number(sessionNumber) : Number(booking.sessionNumber);
       if (sessionNumber !== undefined && sessionNumber !== '') updates.sessionNumber = num;
@@ -1077,12 +1139,15 @@ router.post('/panel/close', async (req, res) => {
 // identifica a la clienta (teléfono), también acumula saldo de fidelidad
 // sobre el importe, igual que un tratamiento o un bono (pero ese saldo
 // nunca se podrá gastar para pagar otro producto, solo tratamientos/bonos).
+const EXTRA_CATEGORIES = ['facial', 'corporal', 'laser', 'cejas', 'venta'];
+
 router.post('/panel/product-sale', async (req, res) => {
-  const { date, product, amount, paidHow, notes, clientPhone, clientName, clientEmail } = req.body || {};
+  const { date, product, amount, paidHow, notes, clientPhone, clientName, clientEmail, category, bookingId } = req.body || {};
   if (!date || !product || !amount) return res.status(400).json({ error: 'Faltan datos de la venta.' });
   if (!Number.isFinite(Number(amount)) || Number(amount) <= 0) {
     return res.status(400).json({ error: 'El importe no es un número válido.' });
   }
+  const cat = category && EXTRA_CATEGORIES.includes(category) ? category : 'venta';
   try {
     const saleId = crypto.randomUUID();
     await appendProductSale({
@@ -1093,6 +1158,9 @@ router.post('/panel/product-sale', async (req, res) => {
       amount: Number(amount),
       paidHow: paidHow || '',
       notes: notes || '',
+      category: cat,
+      bookingId: bookingId || '',
+      status: 'active',
     });
 
     if (clientPhone && clientPhone.trim()) {
@@ -1103,14 +1171,44 @@ router.post('/panel/product-sale', async (req, res) => {
         },
         portionAmount: Number(amount),
         paidHow: paidHow || 'tarjeta',
-        category: 'venta',
+        category: cat,
       });
     }
 
-    res.json({ ok: true });
+    res.json({ ok: true, saleId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo registrar la venta.' });
+  }
+});
+
+// ── Quitar (o corregir) una línea "extra"/venta de producto ya registrada —
+// no se borra físicamente, se marca como inactiva para conservar el rastro
+// contable, igual que se hace con las citas ──
+router.post('/panel/product-sale-edit', async (req, res) => {
+  const { saleId, product, amount, paidHow, category, deleted } = req.body || {};
+  if (!saleId) return res.status(400).json({ error: 'Falta el identificador de la línea.' });
+  if (amount !== undefined && amount !== '' && (!Number.isFinite(Number(amount)) || Number(amount) <= 0)) {
+    return res.status(400).json({ error: 'El importe no es un número válido.' });
+  }
+  try {
+    const all = await getAllProductSales();
+    const sale = all.find((s) => s.saleId === saleId);
+    if (!sale) return res.status(404).json({ error: 'No se ha encontrado esa línea.' });
+    const updates = {};
+    if (deleted) {
+      updates.status = 'deleted';
+    } else {
+      if (product !== undefined && product !== '') updates.product = product;
+      if (amount !== undefined && amount !== '') updates.amount = Number(amount);
+      if (paidHow !== undefined && paidHow !== '') updates.paidHow = paidHow;
+      if (category && EXTRA_CATEGORIES.includes(category)) updates.category = category;
+    }
+    await updateProductSaleRow(sale._sheetRow, sale, updates);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo actualizar la línea.' });
   }
 });
 

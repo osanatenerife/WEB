@@ -642,7 +642,17 @@ async function updateLoyaltyMovementRow(sheetRow, currentMovement, updates) {
 // ============================================================
 
 const PRODUCT_SALE_TAB_TITLE = 'VentasProducto';
-const PRODUCT_SALE_COLUMNS = ['saleId', 'createdAt', 'date', 'product', 'amount', 'paidHow', 'notes'];
+const PRODUCT_SALE_COLUMNS = [
+  'saleId', 'createdAt', 'date', 'product', 'amount', 'paidHow', 'notes',
+  // category = una de las 5 categorías del informe trimestral (facial,
+  // corporal, laser, cejas, venta) — antes todas las ventas de producto
+  // contaban como "venta" a secas; ahora esto también sirve para las
+  // "líneas extra" que se añaden a una cita sin pasar por el catálogo de
+  // tratamientos (p.ej. algo hecho de más en cabina). bookingId, si lo
+  // hay, engancha la línea a la cita desde la que se creó, para poder
+  // mostrarla ahí. status permite "quitar" una línea sin borrar el rastro.
+  'category', 'bookingId', 'status',
+];
 const PRODUCT_SALE_LAST_COL = colLetter(PRODUCT_SALE_COLUMNS.length);
 
 let productSaleTabReady = false;
@@ -669,9 +679,10 @@ async function ensureProductSaleTab() {
 function productSaleObjectToRow(obj) {
   return PRODUCT_SALE_COLUMNS.map((col) => (obj[col] !== undefined && obj[col] !== null ? String(obj[col]) : ''));
 }
-function productSaleRowToObject(row) {
+function productSaleRowToObject(row, index) {
   const obj = {};
   PRODUCT_SALE_COLUMNS.forEach((col, i) => { obj[col] = row[i] !== undefined ? row[i] : ''; });
+  obj._sheetRow = index + 2;
   return obj;
 }
 
@@ -683,20 +694,41 @@ async function appendProductSale(sale) {
     range: `'${PRODUCT_SALE_TAB_TITLE}'!A:${PRODUCT_SALE_LAST_COL}`,
     valueInputOption: 'RAW',
     insertDataOption: 'INSERT_ROWS',
-    requestBody: { values: [productSaleObjectToRow(sale)] },
+    requestBody: { values: [productSaleObjectToRow({ status: 'active', ...sale })] },
   });
+  invalidateCache('productSales');
 }
 
 async function getAllProductSales() {
+  return cachedRead('productSales', async () => {
+    await ensureProductSaleTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${PRODUCT_SALE_TAB_TITLE}'!A:${PRODUCT_SALE_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    // Las filas antiguas no tienen "status" — se tratan como activas.
+    return rows.slice(1).map(productSaleRowToObject).filter((s) => s.status !== 'deleted');
+  });
+}
+
+async function updateProductSaleRow(sheetRow, currentSale, updates) {
   await ensureProductSaleTab();
   const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
+  const range = `'${PRODUCT_SALE_TAB_TITLE}'!A${sheetRow}:${PRODUCT_SALE_LAST_COL}${sheetRow}`;
+  const fresh = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range });
+  const freshRow = fresh.data.values && fresh.data.values[0];
+  const base = freshRow ? productSaleRowToObject(freshRow, sheetRow - 2) : currentSale;
+  const merged = { ...base, ...updates };
+  await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId(),
-    range: `'${PRODUCT_SALE_TAB_TITLE}'!A:${PRODUCT_SALE_LAST_COL}`,
+    range,
+    valueInputOption: 'RAW',
+    requestBody: { values: [productSaleObjectToRow(merged)] },
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map(productSaleRowToObject);
+  invalidateCache('productSales');
 }
 
 // ============================================================
@@ -962,7 +994,7 @@ module.exports = {
   appendSessionBono, getAllSessionBonos, findSessionBonoById, updateSessionBonoRow,
   getAllStrikeRecords, upsertStrikeRecord,
   appendLoyaltyMovement, getLoyaltyMovementsForPhone, getAllLoyaltyMovements, updateLoyaltyMovementRow,
-  appendProductSale, getAllProductSales,
+  appendProductSale, getAllProductSales, updateProductSaleRow,
   appendFollowup, getAllFollowups, updateFollowupRow,
   appendCustomQuote, getAllCustomQuotes, updateQuoteRow,
   appendDiscount, getAllDiscounts, updateDiscountRow,

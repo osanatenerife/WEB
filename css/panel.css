@@ -105,6 +105,23 @@ body {
 .panel-appt-note-edit textarea { width: 100%; font-family: inherit; font-size: 12.5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 4px; resize: vertical; min-height: 44px; background: #fff; }
 .panel-appt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 
+/* ── Editar cita: líneas (tratamientos/extras), pestañas y cobro ── */
+.panel-loyalty-pill { background: var(--panel-2); color: var(--clay); margin-top: 6px; }
+.line-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.line-item:last-child { border-bottom: none; }
+.line-item-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.line-item-main { flex: 1; min-width: 160px; }
+.line-item-name { font-size: 13.5px; font-weight: 600; }
+.line-item-meta { color: var(--ink-faint); font-weight: 400; }
+.line-item-price { font-size: 13px; font-weight: 700; color: var(--clay); white-space: nowrap; }
+.line-item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.line-item-edit { background: var(--panel-2); border: 1px dashed var(--line); border-radius: 6px; padding: 14px 16px; margin-top: 10px; }
+.type-tabs, .cat-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.type-tab, .cat-pill { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink-soft); cursor: pointer; }
+.type-tab.active, .cat-pill.active { background: var(--clay); color: var(--panel); border-color: var(--clay); }
+.cobro-total-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--line); margin-top: 6px; font-size: 13.5px; }
+.cobro-total-row b { font-size: 17px; }
+
 @media (max-width: 560px) {
   .panel-field-row { grid-template-columns: 1fr; }
   .panel-appt-top { grid-template-columns: 1fr; }

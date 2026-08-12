@@ -99,11 +99,14 @@ function buildMonthlyAggregates({ year, quarter, bookings, productSales, customQ
   // finalAmount/remainderPaidHow de la reserva. Ese paso 2 duplicaba esos
   // ingresos — se ha quitado.)
 
-  // 3) Ventas de producto sueltas
+  // 3) Ventas de producto sueltas y líneas "extra" añadidas a una cita
+  // (category ya viene validada contra las 5 categorías al guardarla — las
+  // filas antiguas, de antes de que existiera ese campo, no tenían más
+  // categoría que "venta", así que ese sigue siendo el valor por defecto).
   (productSales || []).forEach((s) => {
     const amount = Number(s.amount) || 0;
     if (amount <= 0 || !s.date) return;
-    addRevenue(s.date, 'venta', amount, s.paidHow);
+    addRevenue(s.date, s.category || 'venta', amount, s.paidHow);
   });
 
   // 4) Presupuestos personalizados pagados (siempre online, tarjeta o Klarna → tarjeta)
