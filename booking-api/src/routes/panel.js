@@ -357,7 +357,11 @@ router.post('/panel/edit-booking', async (req, res) => {
       }
       const paidOnline = round2(cash + bizum + card);
 
-      const sessionsUsed = Math.max(0, current - 1);
+      // Esta misma cita YA es la sesión "current" (está confirmada, con su
+      // hora y calendario) — cuenta como usada desde ya, así que sessionsUsed
+      // es "current", no "current - 1" (eso dejaba la próxima sesión que se
+      // agendase con el número repetido, p.ej. "1-2/3" en vez de "2/3").
+      const sessionsUsed = Math.min(total, current);
       const sessionsRemaining = Math.max(0, total - sessionsUsed);
       const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
 
