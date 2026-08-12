@@ -605,9 +605,12 @@ router.post('/panel/edit-booking', async (req, res) => {
 // potencia/observaciones de esta sesión, sin tener que entrar luego a
 // otra pantalla a añadirlas.
 router.post('/panel/book-session', async (req, res) => {
-  const { bonoId, employeeId, date, time, sessionsToUse, extraMinutes, notes, treatmentOverrideId } = req.body || {};
+  const { bonoId, employeeId, date, time, sessionsToUse, extraMinutes, notes, treatmentOverrideId, force } = req.body || {};
   if (!bonoId || !employeeId || !date || !time) {
     return res.status(400).json({ error: 'Faltan datos para agendar la sesión.' });
+  }
+  if (force && !/^\d{2}:\d{2}$/.test(time)) {
+    return res.status(400).json({ error: 'La hora no tiene un formato válido (HH:MM).' });
   }
   const useCount = Math.max(1, Math.round(Number(sessionsToUse) || 1));
   const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
@@ -663,8 +666,15 @@ router.post('/panel/book-session', async (req, res) => {
     // en memoria por profesional+día — evita que esto choque con una
     // clienta reservando online ese mismo hueco casi a la vez.
     const newEventId = await withLock(`slot:${employeeId}:${date}`, async () => {
-      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true });
-      if (!freeSlots.includes(time)) return null;
+      // "force" salta la comprobación de hueco entero — para registrar una
+      // sesión que YA se hizo (p.ej. hoy más tarde, o se olvidó anotar
+      // ayer), donde la hora ya ha pasado y por eso el buscador normal de
+      // huecos libres no la ofrece — no es una reserva de verdad, es dejar
+      // constancia de una que ya pasó.
+      if (!force) {
+        const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true });
+        if (!freeSlots.includes(time)) return null;
+      }
       const event = await createBookingEvent(employee.calendarId, {
         summary: `✅ Bono (${sessionLabel}) — ${displayName} — ${bono.clientName}`,
         description,

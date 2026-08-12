@@ -1213,6 +1213,10 @@
           <div class="panel-field"><label>Fecha</label><input type="date" class="pf-date"></div>
           <div class="panel-field"><label>Hora</label><select class="pf-time"><option>Elige fecha primero</option></select></div>
         </div>
+        <label class="panel-split-toggle"><input type="checkbox" class="pf-force"> Ya se hizo (hoy más tarde, o se te olvidó anotarla) — no comprobar hueco, se registra a la hora que digas</label>
+        <div class="panel-field-row pf-force-row" style="display:none;">
+          <div class="panel-field"><label>Hora real</label><input type="time" class="pf-time-manual"></div>
+        </div>
         <div class="panel-field-row">
           <div class="panel-field" style="flex:2;"><label>Tratamiento de hoy (si usan el bono para otra zona/tratamiento del mismo precio)</label>
             <select class="pf-treatment-override"><option value="">${escapeHtml(bono.serviceName)} (el del bono)</option>${treatmentOverrideOptions}</select>
@@ -1236,6 +1240,13 @@
     const extraMinutesInput = slot.querySelector('.pf-extra-minutes');
     const notesInput = slot.querySelector('.pf-notes');
     const errorEl = slot.querySelector('.panel-error');
+    const forceToggle = slot.querySelector('.pf-force');
+    const forceRow = slot.querySelector('.pf-force-row');
+    const timeManualInput = slot.querySelector('.pf-time-manual');
+    forceToggle.addEventListener('change', () => {
+      forceRow.style.display = forceToggle.checked ? 'grid' : 'none';
+      timeSelect.disabled = forceToggle.checked;
+    });
 
     async function loadTimes() {
       if (!dateInput.value || !employeeSelect.value) return;
@@ -1259,23 +1270,27 @@
 
     slot.querySelector('.panel-confirm-session').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
-      if (!employeeSelect.value || !dateInput.value || !timeSelect.value) {
-        errorEl.textContent = 'Elige profesional, fecha y hora.';
+      const useForce = forceToggle.checked;
+      const time = useForce ? timeManualInput.value : timeSelect.value;
+      if (!employeeSelect.value || !dateInput.value || !time) {
+        errorEl.textContent = useForce ? 'Elige profesional, fecha y la hora real.' : 'Elige profesional, fecha y hora.';
         errorEl.style.display = 'block';
         return;
       }
+      if (useForce && !confirm('¿Registrar esta sesión sin comprobar hueco? Es para dejar constancia de una que ya se hizo, no para reservar una nueva.')) return;
       ev.target.disabled = true;
       try {
         await panelFetch('/panel/book-session', {
           method: 'POST',
           body: JSON.stringify({
-            bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value, time: timeSelect.value,
+            bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value, time,
             sessionsToUse: sessionsUsedInput.value, extraMinutes: extraMinutesInput.value, notes: notesInput.value.trim(),
             // Si bono.serviceId estaba vacío/roto y tuvimos que resolverlo por
             // nombre, lo mandamos como "tratamiento de hoy" aunque el equipo no
             // haya tocado el desplegable, para que el backend no se quede sin
             // saber qué tratamiento usar.
             treatmentOverrideId: treatmentOverrideSelect.value || (bonoServiceId !== bono.serviceId ? bonoServiceId : undefined) || undefined,
+            force: useForce || undefined,
           }),
         });
         doSearch(); // recarga con los datos actualizados
