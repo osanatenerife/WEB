@@ -169,6 +169,7 @@ router.get('/panel/search', async (req, res) => {
             remainderAmount2: b.remainderAmount2 !== undefined && b.remainderAmount2 !== '' ? Number(b.remainderAmount2) : 0,
             remainderPaidHow2: b.remainderPaidHow2 || '',
             redeemedAmount: b.redeemedAmount !== undefined && b.redeemedAmount !== '' ? Number(b.redeemedAmount) : 0,
+            depositPaidHow: b.depositPaidHow || '',
             paymentType: b.paymentType,
             status: b.status,
             bonoId: b.bonoId || '',
@@ -226,7 +227,7 @@ router.post('/panel/note', async (req, res) => {
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
   const {
-    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, sessionNumber,
+    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, depositPaidHow, sessionNumber,
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
@@ -569,6 +570,10 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (!Number.isFinite(Number(amountPaid)) || Number(amountPaid) < 0) return res.status(400).json({ error: 'El importe pagado no es un número válido.' });
       updates.amountPaid = Number(amountPaid);
     }
+    // Cómo se cobró ese "ya pagado" cuando se cobró en persona (no por
+    // Stripe) — para poder corregirlo a mano en citas dadas de alta antes
+    // de que este campo existiera, o si se equivocó al elegirlo.
+    if (depositPaidHow !== undefined) updates.depositPaidHow = depositPaidHow;
 
     // Si es una sesión de un bono, el nombre lleva "(n/total)" — lo
     // reconstruimos con el total real del bono para no tener que pedirlo.
@@ -881,6 +886,15 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       paymentType = 'bono';
     }
 
+    // Si lo cobrado ahora mismo (tratamiento suelto/extras, sin contar el
+    // bono en sí) ya cubre el precio entero, no queda nada por cobrar más
+    // adelante — se da por cerrada desde ya (igual que una cita pagada al
+    // 100% online), en vez de esperar a que pase la fecha de la cita para
+    // poder cerrarla a mano. Así aparece ya en "Comprobar cobros" y no se
+    // vuelve a contar el saldo de fidelización una segunda vez al cerrarla.
+    const extrasFullyPaidNow = bookingPrice !== '' && Number(bookingPrice) > 0
+      && bookingAmountPaid > 0 && round2(Number(bookingPrice) - bookingAmountPaid) <= 0;
+
     const bookingId = crypto.randomUUID();
     await appendBooking({
       bookingId,
@@ -903,17 +917,28 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       bonoId,
       sessionNumber: sessionNumberOut,
       notes: notes || 'Alta manual de cita ya existente.',
+      depositPaidHow: paidHow || '',
+      ...(extrasFullyPaidNow && paidHow ? { finalAmount: bookingAmountPaid, remainderPaidHow: paidHow } : {}),
     });
 
-    // Si se ha cobrado algo en el momento (tratamiento suelto, extras, o el
-    // propio bono) y se ha dicho cómo — acumula saldo de fidelización igual
-    // que un pago online, para que no se quede sin acumular solo por
-    // haberse cobrado en persona en vez de por la web.
-    const totalCollectedNow = round2((Number(bookingAmountPaid) || 0) + paidOnlineForLoyalty);
-    if (paidHow && totalCollectedNow > 0) {
+    // El importe del bono en sí (si lo hay) no vuelve a pasar por
+    // /panel/close — se gana siempre aquí, al momento.
+    if (paidOnlineForLoyalty > 0 && paidHow) {
+      await earnLoyalty({
+        booking: { serviceId, phone, email, name, bookingId },
+        portionAmount: paidOnlineForLoyalty,
+        paidHow,
+      });
+    }
+    // La parte de tratamiento suelto/extras solo se gana aquí si queda
+    // completamente pagada ya (nada por cobrar después). Si queda un
+    // resto pendiente, se gana más tarde al cerrar la cita, junto con ese
+    // resto y con una sola tasa para el conjunto — igual que una cita con
+    // seña pagada online — para no contarla dos veces.
+    if (extrasFullyPaidNow && paidHow) {
       await earnLoyalty({
         booking: { serviceId: serviceIdOut, phone, email, name, bookingId },
-        portionAmount: totalCollectedNow,
+        portionAmount: bookingAmountPaid,
         paidHow,
       });
     }
@@ -2059,6 +2084,10 @@ router.get('/panel/payments-log', async (req, res) => {
         return {
           bookingId: b.bookingId, date: b.date, time: b.time, name: b.name, phone: b.phone,
           serviceName: b.serviceName, finalAmount, onlinePaid, redeemed, remainder,
+          // Si "onlinePaid" en realidad se cobró en persona (reserva manual
+          // con pago por adelantado), depositPaidHow dice cómo — si viene
+          // vacío es un pago online real por Stripe, que nunca pasa por caja.
+          depositPaidHow: b.depositPaidHow || '',
           remainderPaidHow: b.remainderPaidHow || '',
           remainderAmount2: Number(b.remainderAmount2) || 0,
           remainderPaidHow2: b.remainderPaidHow2 || '',
@@ -2084,6 +2113,7 @@ router.get('/panel/payments-log', async (req, res) => {
       const part1 = round2(b.remainder - b.remainderAmount2);
       addTotal(b.remainderPaidHow, part1);
       addTotal(b.remainderPaidHow2, b.remainderAmount2);
+      if (b.depositPaidHow) addTotal(b.depositPaidHow, b.onlinePaid);
     });
     extraLines.forEach((e) => addTotal(e.paidHow, e.amount));
 

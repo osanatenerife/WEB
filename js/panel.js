@@ -225,7 +225,7 @@
                 <div class="line-item-price">${b.finalAmount.toFixed(2)} €</div>
               </div>
               <div class="line-item-meta" style="padding:0 0 8px;">
-                ${b.onlinePaid > 0 ? `Seña online: ${b.onlinePaid.toFixed(2)} € · ` : ''}${b.redeemed > 0 ? `Saldo canjeado: ${b.redeemed.toFixed(2)} € · ` : ''}En el centro: ${parts.length ? parts.join(' + ') : '0.00 €'}
+                ${b.onlinePaid > 0 ? `${b.depositPaidHow ? `Pagado por adelantado en el centro: ${b.onlinePaid.toFixed(2)} € (${b.depositPaidHow})` : `Seña online: ${b.onlinePaid.toFixed(2)} €`} · ` : ''}${b.redeemed > 0 ? `Saldo canjeado: ${b.redeemed.toFixed(2)} € · ` : ''}En el centro: ${parts.length ? parts.join(' + ') : '0.00 €'}
               </div>
             </div>`;
         }).join('') || '<p class="panel-status">Sin citas cerradas en este rango.</p>';
@@ -1577,7 +1577,11 @@
     const extras = Array.isArray(b.extras) ? b.extras : [];
     const unresolvedExtrasTotal = extras.filter((e) => !e.paidHow).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const balance = client && Number(client.loyaltyBalance) || 0;
-    const isClosable = b.status === 'confirmed' && b.isPast;
+    // Normalmente solo se cierra una cita después de que pase (isPast) — pero
+    // si ya se ha cobrado algo por adelantado en persona (p.ej. clienta que
+    // paga en el centro una cita para más adelante), tiene que poderse
+    // cerrar desde ya, sin esperar a esa fecha.
+    const isClosable = b.status === 'confirmed' && (b.isPast || Number(b.amountPaid) > 0);
 
     function bonoFormHtml(targetId, targetName) {
       return `
@@ -1721,12 +1725,20 @@
 
         <div class="panel-section-label">Cobro</div>
         ${closedNote}
-        ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b> · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
+        ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b>${b.depositPaidHow ? ` (${b.depositPaidHow})` : ''} · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
         ${unresolvedExtrasTotal > 0 ? `<p class="panel-status">Además, hay <b>${unresolvedExtrasTotal.toFixed(2)} €</b> en extras sin forma de pago asignada — se resuelven solos al cerrar la cita, con la misma forma de pago del resto.</p>` : ''}
         <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">El importe de aquí es solo el del tratamiento propio de esta cita — los extras van aparte y no hace falta sumarlos.</p>
         <div class="panel-field-row">
           <div class="panel-field"><label>Precio total (€)</label><input type="number" step="0.01" class="eb-price" value="${b.price || ''}"></div>
           <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="eb-paid" value="${b.amountPaid || ''}"></div>
+          <div class="panel-field"><label>Ese "ya pagado", ¿cobrado en persona con…?</label>
+            <select class="eb-deposit-paidhow">
+              <option value=""${!b.depositPaidHow ? ' selected' : ''}>No — es una seña pagada online</option>
+              <option value="efectivo"${b.depositPaidHow === 'efectivo' ? ' selected' : ''}>Efectivo</option>
+              <option value="tarjeta"${b.depositPaidHow === 'tarjeta' ? ' selected' : ''}>Tarjeta</option>
+              <option value="bizum"${b.depositPaidHow === 'bizum' ? ' selected' : ''}>Bizum</option>
+            </select>
+          </div>
         </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>
         <p class="panel-error" style="display:none;"></p>
@@ -1802,6 +1814,7 @@
         const employeeSelect = slot.querySelector('.eb-employee');
         const priceInput = slot.querySelector('.eb-price');
         const paidInput = slot.querySelector('.eb-paid');
+        const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
         const notesInput = slot.querySelector('.eb-notes');
         await panelFetch('/panel/edit-booking', {
           method: 'POST',
@@ -1810,6 +1823,7 @@
             employeeId: employeeSelect.value || undefined,
             price: priceInput.value,
             amountPaid: paidInput.value,
+            depositPaidHow: depositPaidHowSelect.value,
           }),
         });
         if (notesInput.value !== (b.notes || '')) {

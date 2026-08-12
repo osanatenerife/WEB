@@ -72,6 +72,13 @@ const COLUMNS = [
   // pagar (queda como prueba frente a reclamaciones sobre cancelaciones,
   // bonos o el programa de fidelidad).
   'termsAcceptedAt',
+  // Cómo se cobró "amountPaid" cuando se cobró en persona al dar de alta la
+  // cita a mano (p.ej. clienta que paga por adelantado en el centro para una
+  // cita futura) — vacío si amountPaid viene de un pago online por Stripe
+  // (que siempre es tarjeta/Klarna, no hace falta guardarlo aparte). Sirve
+  // para poder comprobar cobros en efectivo/bizum aunque la cita en sí
+  // todavía no se haya "cerrado" (porque el tratamiento aún no ha pasado).
+  'depositPaidHow',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 
