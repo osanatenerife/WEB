@@ -221,10 +221,16 @@ router.post('/panel/note', async (req, res) => {
 // ── Corregir el tratamiento/precio/pagado/nº de sesión de una cita ya
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
-  const { bookingId, serviceId, removeServiceId, addServiceId, employeeId, price, amountPaid, sessionNumber } = req.body || {};
+  const {
+    bookingId, serviceId, removeServiceId, addServiceId, employeeId, price, amountPaid, sessionNumber,
+    // Solo para convertToBono: registra de golpe el bono que compró la clienta
+    // y engancha esta misma cita como una de sus sesiones — sin tener que
+    // borrar la cita y volver a darla de alta a mano desde otro formulario.
+    convertToBono, bonoTotalSessions, bonoSessionNumber, bonoTotalPrice, bonoAmountPaid,
+  } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
-  if ([serviceId, removeServiceId, addServiceId].filter(Boolean).length > 1) {
-    return res.status(400).json({ error: 'Solo se puede cambiar, quitar o añadir un tratamiento a la vez.' });
+  if ([serviceId, removeServiceId, addServiceId, convertToBono].filter(Boolean).length > 1) {
+    return res.status(400).json({ error: 'Solo se puede cambiar, quitar, añadir un tratamiento o convertir en bono a la vez.' });
   }
   try {
     const booking = await findBookingById(bookingId);
@@ -321,6 +327,71 @@ router.post('/panel/edit-booking', async (req, res) => {
       updates.durationMinutes = newDurationForCalendar;
     }
 
+    // Convertir una cita suelta ya dada de alta en la sesión de un bono que
+    // la clienta acaba de decidir comprar — antes había que borrar la cita y
+    // volver a crearla desde "Añadir reserva manual" marcando "es un bono",
+    // buscando de nuevo el evento en Calendar; ahora se hace desde el mismo
+    // sitio donde ya se está editando la cita.
+    let convertedBonoId = '';
+    if (convertToBono) {
+      if (booking.bonoId) {
+        return res.status(400).json({ error: 'Esta cita ya es una sesión de un bono.' });
+      }
+      const total = Number(bonoTotalSessions);
+      const current = Number(bonoSessionNumber);
+      if (!Number.isInteger(total) || total < 1 || !Number.isInteger(current) || current < 1 || current > total) {
+        return res.status(400).json({ error: 'Indica un número de sesión y un total de sesiones del bono válidos.' });
+      }
+      const currentIds = String(booking.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const coreServiceId = currentIds[0];
+      const coreService = services.find((s) => s.id === coreServiceId);
+      if (!coreService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
+
+      const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(coreService.price * total);
+      const paidOnline = bonoAmountPaid !== undefined && bonoAmountPaid !== '' ? Number(bonoAmountPaid) : 0;
+      if (!Number.isFinite(bonoPrice) || bonoPrice < 0) return res.status(400).json({ error: 'El precio del bono no es un número válido.' });
+      if (!Number.isFinite(paidOnline) || paidOnline < 0) return res.status(400).json({ error: 'El importe pagado del bono no es un número válido.' });
+
+      const sessionsUsed = Math.max(0, current - 1);
+      const sessionsRemaining = Math.max(0, total - sessionsUsed);
+      const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
+
+      convertedBonoId = crypto.randomUUID();
+      await appendSessionBono({
+        bonoId: convertedBonoId,
+        createdAt: new Date().toISOString(),
+        clientName: booking.name, clientPhone: booking.phone, clientEmail: booking.email,
+        serviceId: coreServiceId, serviceName: coreService.name,
+        employeeId: booking.employeeId,
+        totalSessions: total,
+        sessionsUsed,
+        sessionsRemaining,
+        totalPrice: bonoPrice,
+        amountPaidOnline: paidOnline,
+        paymentType: '',
+        remainingAmount,
+        remainingPaidHow: '',
+        status: sessionsRemaining <= 0 ? 'completed' : 'active',
+        expiryDate: addMonthsISO(LEGACY_BONO_VALIDITY_MONTHS),
+        paymentIntentId: '',
+        lang: 'es',
+      });
+
+      // El precio del bono en sí ya queda registrado en su propia fila de
+      // SessionBono (arriba) — el precio/pagado de ESTA cita pasa a reflejar
+      // solo los tratamientos extra que tuviera combinados, si los hay, para
+      // no duplicar el importe del bono en dos sitios distintos.
+      const extraNames = String(booking.serviceName || '').split(' + ').filter(Boolean).slice(1);
+      const extraIds = currentIds.slice(1);
+      const extrasDefaultPrice = extraIds.reduce((sum, id) => sum + (Number((services.find((s) => s.id === id) || {}).price) || 0), 0);
+      updates.serviceName = [`${coreService.name} (${current}/${total})`, ...extraNames].join(' + ');
+      updates.bonoId = convertedBonoId;
+      updates.sessionNumber = current;
+      updates.price = extrasDefaultPrice || '';
+      updates.amountPaid = 0;
+      updates.paymentType = 'bono';
+    }
+
     // Si cambia la duración total (por cambiar el tratamiento, quitar uno de
     // varios combinados o añadir uno nuevo), ajustamos también el bloqueo
     // real en Google Calendar — SIEMPRE que sea posible, no solo "si es
@@ -398,7 +469,7 @@ router.post('/panel/edit-booking', async (req, res) => {
     }
 
     await updateBookingRow(booking._sheetRow, booking, updates);
-    res.json({ ok: true, restoredBonoSession });
+    res.json({ ok: true, restoredBonoSession, convertedBonoId: convertedBonoId || undefined });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo editar la cita.' });

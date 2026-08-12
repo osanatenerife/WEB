@@ -1517,6 +1517,19 @@
           <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select></div>
           <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-add">+ Añadir</button></div>
         </div>
+        ${!isBonoSession ? `
+        <div class="panel-section-label" style="margin-top:18px;">Convertir esta cita en un bono</div>
+        <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">Si la clienta ha decidido comprar un bono de sesiones en vez de pagar solo esta cita suelta, regístralo aquí — esta cita pasa a ser la sesión indicada de ese bono.</p>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Esta cita es la sesión nº</label><input type="number" min="1" step="1" class="eb-bono-session" value="1"></div>
+          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="eb-bono-total"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="eb-bono-price"></div>
+          <div class="panel-field"><label>Ya pagado del bono (€)</label><input type="number" step="0.01" class="eb-bono-paid" value="0"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-accent eb-confirm-bono">🎟 Convertir en bono</button>
+        ` : ''}
       </div>
     `;
     const serviceSelect = slot.querySelector('.eb-service');
@@ -1571,6 +1584,42 @@
         ev.target.disabled = false;
       }
     });
+    const confirmBonoBtn = slot.querySelector('.eb-confirm-bono');
+    if (confirmBonoBtn) {
+      confirmBonoBtn.addEventListener('click', async (ev) => {
+        const totalInput = slot.querySelector('.eb-bono-total');
+        const sessionInput = slot.querySelector('.eb-bono-session');
+        const bonoPriceInput = slot.querySelector('.eb-bono-price');
+        const bonoPaidInput = slot.querySelector('.eb-bono-paid');
+        if (!totalInput.value || !sessionInput.value) {
+          errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
+          errorEl.style.display = 'block';
+          return;
+        }
+        if (!confirm(`¿Convertir esta cita en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? El precio del bono quedará registrado aparte, y el precio de esta cita se ajustará a solo los extras (si los hubiera).`)) return;
+        errorEl.style.display = 'none';
+        statusEl.style.display = 'none';
+        ev.target.disabled = true;
+        try {
+          await panelFetch('/panel/edit-booking', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: b.bookingId,
+              convertToBono: true,
+              bonoSessionNumber: sessionInput.value,
+              bonoTotalSessions: totalInput.value,
+              bonoTotalPrice: bonoPriceInput.value,
+              bonoAmountPaid: bonoPaidInput.value,
+            }),
+          });
+          doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    }
     slot.querySelectorAll('.eb-remove-treatment').forEach((btn) => {
       btn.addEventListener('click', async (ev) => {
         const serviceIdToRemove = ev.target.getAttribute('data-service-id');
