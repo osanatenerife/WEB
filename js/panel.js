@@ -279,9 +279,13 @@
     return allEmployeesCache;
   }
 
-  els.importToggle.addEventListener('click', async () => {
-    if (els.importSlot.innerHTML) { els.importSlot.innerHTML = ''; return; }
-    els.importSlot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
+  // Extraída a función aparte (en vez de vivir solo dentro del click del
+  // botón de arriba) para poder reutilizarla también desde la ficha de una
+  // clienta ya encontrada, con su nombre/teléfono/email ya rellenos — antes
+  // había que volver a escribirlos cada vez, aunque la clienta ya estuviera
+  // delante en el buscador.
+  async function renderImportForm(slot, prefill) {
+    slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
     const allServices = await loadImportServicesOnce();
     const byCategory = {};
     allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
@@ -291,14 +295,14 @@
       </optgroup>
     `).join('');
 
-    els.importSlot.innerHTML = `
+    slot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Añadir reserva manual (cita ya existente en el calendario)</div>
         <p class="panel-status" style="margin-bottom:10px;">El evento tiene que existir YA en el calendario de Google de la profesional — aquí solo se busca y se enlaza con una fila nueva para que la clienta pueda verla en "Mis Reservas".</p>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Nombre de la clienta</label><input type="text" class="pi-name"></div>
-          <div class="panel-field"><label>Teléfono</label><input type="text" class="pi-phone"></div>
-          <div class="panel-field"><label>Email</label><input type="email" class="pi-email"></div>
+          <div class="panel-field"><label>Nombre de la clienta</label><input type="text" class="pi-name" value="${prefill && prefill.name ? escapeHtml(prefill.name) : ''}"></div>
+          <div class="panel-field"><label>Teléfono</label><input type="text" class="pi-phone" value="${prefill && prefill.phone ? escapeHtml(prefill.phone) : ''}"></div>
+          <div class="panel-field"><label>Email</label><input type="email" class="pi-email" value="${prefill && prefill.email ? escapeHtml(prefill.email) : ''}"></div>
         </div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Tratamiento</label>
@@ -332,7 +336,6 @@
         <p class="panel-status pi-result" style="display:none;"></p>
       </div>
     `;
-    const slot = els.importSlot;
     const nameInput = slot.querySelector('.pi-name');
     const phoneInput = slot.querySelector('.pi-phone');
     const emailInput = slot.querySelector('.pi-email');
@@ -453,8 +456,14 @@
           ? `Reserva y bono dados de alta ✓ (id: ${data.bookingId}). El bono ya aparece en la ficha de la clienta en el panel.`
           : `Reserva dada de alta ✓ (id: ${data.bookingId}). La clienta ya puede verla en "Mis Reservas" con su teléfono y email.`;
         resultEl.style.display = 'block';
-        [nameInput, phoneInput, emailInput, dateInput, timeInput, birthdateInput, priceInput, notesInput,
-          sessionNumberInput, totalSessionsInput, bonoPriceInput, bonoPaidInput].forEach((i) => { i.value = ''; });
+        // Si venía con nombre/teléfono/email ya rellenos (desde la ficha de
+        // una clienta), se dejan puestos — para poder dar de alta varias
+        // citas seguidas de la misma clienta sin volver a escribirlos.
+        const fieldsToClear = prefill ? [dateInput, timeInput, birthdateInput, priceInput, notesInput,
+          sessionNumberInput, totalSessionsInput, bonoPriceInput, bonoPaidInput]
+          : [nameInput, phoneInput, emailInput, dateInput, timeInput, birthdateInput, priceInput, notesInput,
+            sessionNumberInput, totalSessionsInput, bonoPriceInput, bonoPaidInput];
+        fieldsToClear.forEach((i) => { i.value = ''; });
         paidInput.value = '0';
         serviceSelect.value = '';
         employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
@@ -470,6 +479,11 @@
       }
       ev.target.disabled = false;
     });
+  }
+
+  els.importToggle.addEventListener('click', () => {
+    if (els.importSlot.innerHTML) { els.importSlot.innerHTML = ''; return; }
+    renderImportForm(els.importSlot);
   });
 
   function fmtDateParts(dateStr) {
@@ -924,11 +938,13 @@
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-addloyalty-toggle">➕ Añadir saldo</button>
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-followup-toggle">🔔 Marcar seguimiento</button>
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editclient-toggle">✎ Editar datos</button>
+          <button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-newbooking-toggle">📅 Nueva reserva</button>
         </div>
         <div class="panel-redeem-slot"></div>
         <div class="panel-addloyalty-slot"></div>
         <div class="panel-followup-slot"></div>
         <div class="panel-editclient-slot"></div>
+        <div class="panel-newbooking-slot"></div>
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
@@ -946,6 +962,12 @@
     wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
 
     wrap.querySelector('.panel-editclient-toggle').addEventListener('click', () => toggleEditClient(wrap, client));
+
+    wrap.querySelector('.panel-newbooking-toggle').addEventListener('click', () => {
+      const nbSlot = wrap.querySelector('.panel-newbooking-slot');
+      if (nbSlot.innerHTML) { nbSlot.innerHTML = ''; return; }
+      renderImportForm(nbSlot, { name: client.name, phone: client.phone, email: client.email });
+    });
 
     const bonosContainer = wrap.querySelector('.panel-bonos');
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
