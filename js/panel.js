@@ -1232,9 +1232,19 @@
     const slot = bonoEl.querySelector('.panel-new-appt-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
 
+    let allServices = [];
+    try { allServices = await loadImportServicesOnce(); } catch (e) { /* seguimos con la lista vacía si falla */ }
+    // bono.serviceId puede estar vacío o ya no corresponder a ningún
+    // tratamiento real en algún bono antiguo — si pasa, lo localizamos por
+    // su nombre (bono.serviceName, que sí solemos tener bien) en vez de
+    // dejar la reserva bloqueada por un dato que la clienta no puede
+    // arreglar. Se usa en vez de bono.serviceId en todo lo de abajo.
+    const bonoServiceId = (allServices.find((s) => s.id === bono.serviceId) && bono.serviceId)
+      || (allServices.find((s) => s.name === bono.serviceName) || {}).id || '';
+
     let employees = [];
     try {
-      const data = await panelFetch(`/employees?serviceIds=${encodeURIComponent(bono.serviceId || '')}`);
+      const data = await panelFetch(`/employees?serviceIds=${encodeURIComponent(bonoServiceId)}`);
       employees = data.employees || [];
     } catch (e) { /* seguimos con la lista vacía si falla */ }
 
@@ -1243,10 +1253,8 @@
     // láser que cada vez llevan más tiempo) — así no hay que recordarlo ni
     // recalcularlo cada vez, solo ajustarlo si hiciera falta.
     let defaultExtraMinutes = '';
-    let allServices = [];
     try {
-      allServices = await loadImportServicesOnce();
-      const baseService = allServices.find((s) => s.id === bono.serviceId);
+      const baseService = allServices.find((s) => s.id === bonoServiceId);
       const previousSessions = (client && client.bookings || [])
         .filter((b) => b.bonoId === bono.bonoId && Number(b.durationMinutes) > 0)
         .sort((a, b) => new Date(`${b.date}T${b.time}`) - new Date(`${a.date}T${a.time}`));
@@ -1303,7 +1311,7 @@
       timeSelect.innerHTML = '<option>Cargando…</option>';
       try {
         const extra = Number(extraMinutesInput.value) || 0;
-        const svcId = treatmentOverrideSelect.value || bono.serviceId || '';
+        const svcId = treatmentOverrideSelect.value || bonoServiceId || '';
         const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(svcId)}&extraMinutes=${extra}`);
         const slots = data.slots || [];
         timeSelect.innerHTML = slots.length
@@ -1332,7 +1340,11 @@
           body: JSON.stringify({
             bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value, time: timeSelect.value,
             sessionsToUse: sessionsUsedInput.value, extraMinutes: extraMinutesInput.value, notes: notesInput.value.trim(),
-            treatmentOverrideId: treatmentOverrideSelect.value || undefined,
+            // Si bono.serviceId estaba vacío/roto y tuvimos que resolverlo por
+            // nombre, lo mandamos como "tratamiento de hoy" aunque el equipo no
+            // haya tocado el desplegable, para que el backend no se quede sin
+            // saber qué tratamiento usar.
+            treatmentOverrideId: treatmentOverrideSelect.value || (bonoServiceId !== bono.serviceId ? bonoServiceId : undefined) || undefined,
           }),
         });
         doSearch(); // recarga con los datos actualizados

@@ -504,18 +504,25 @@ router.post('/panel/book-session', async (req, res) => {
       return res.status(400).json({ error: `Solo quedan ${remaining} sesión(es) en este bono — no se pueden consumir ${useCount}.` });
     }
 
-    const service = services.find((s) => s.id === bono.serviceId);
     const employee = employees.find((e) => e.id === employeeId);
-    if (!service) return res.status(404).json({ error: 'Tratamiento del bono no encontrado.' });
     if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
 
     // Si esta visita en concreto se usa para otra zona/tratamiento del
     // mismo bono (mismo precio, distinto nombre) — la sesión se sigue
     // descontando del MISMO bono, solo cambia lo que se muestra/registra.
     const displayService = treatmentOverrideId ? services.find((s) => s.id === treatmentOverrideId) : null;
+    // El tratamiento base normalmente sale de bono.serviceId, pero algún
+    // bono antiguo puede tener ese campo vacío o con un id que ya no existe
+    // en la Sheet — si el equipo ha elegido explícitamente un tratamiento en
+    // "Tratamiento de hoy", lo usamos también como base en vez de bloquear
+    // la reserva por un dato que la clienta no tiene forma de arreglar.
+    const baseService = services.find((s) => s.id === bono.serviceId) || displayService;
+    if (!baseService) {
+      return res.status(404).json({ error: 'Tratamiento del bono no encontrado — elige uno en "Tratamiento de hoy" para poder agendar.' });
+    }
     const displayName = displayService ? displayService.name : bono.serviceName;
 
-    const durationMinutes = (displayService || service).durationMinutes + extra;
+    const durationMinutes = (displayService || baseService).durationMinutes + extra;
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
     const endISO = addMinutes(startISO, durationMinutes);
     const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
@@ -559,7 +566,7 @@ router.post('/panel/book-session', async (req, res) => {
       name: bono.clientName,
       phone: bono.clientPhone,
       email: bono.clientEmail,
-      serviceId: bono.serviceId,
+      serviceId: bono.serviceId || baseService.id,
       serviceName: `${displayName} (${sessionLabel})`,
       employeeId,
       employeeName: employee.name,
