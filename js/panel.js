@@ -1258,14 +1258,54 @@
       ${remaining > 0 ? `<p class="panel-status" style="margin-top:6px;">Pendiente de pago del bono: <b>${remaining.toFixed(2)} €</b></p>` : ''}
       <div class="panel-bono-actions">
         ${bono.sessionsRemaining > 0 ? '<button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-book-session">+ Agendar siguiente sesión</button>' : '<span class="panel-status">Bono completado</span>'}
+        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editbono-toggle">✎ Corregir nº de sesiones</button>
       </div>
       <div class="panel-new-appt-slot"></div>
+      <div class="panel-editbono-slot"></div>
     `;
     const bookBtn = el.querySelector('.panel-book-session');
     if (bookBtn) {
       bookBtn.addEventListener('click', () => toggleBookSessionForm(el, bono, bookBtn, client));
     }
+    el.querySelector('.panel-editbono-toggle').addEventListener('click', () => toggleEditBono(el, bono));
     return el;
+  }
+
+  // Corrige a mano el total/usadas de un bono (p.ej. se dio de alta con un
+  // número equivocado, o se contó una sesión de más/de menos por error) sin
+  // tener que entrar a la Google Sheet.
+  function toggleEditBono(bonoEl, bono) {
+    const slot = bonoEl.querySelector('.panel-editbono-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Corregir "${escapeHtml(bono.serviceName)}"</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="eb-total-sessions" value="${bono.totalSessions}"></div>
+          <div class="panel-field"><label>Sesiones ya usadas de verdad</label><input type="number" min="0" step="1" class="eb-used-sessions" value="${bono.sessionsUsed}"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-confirm-editbono">Guardar corrección</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const totalInput = slot.querySelector('.eb-total-sessions');
+    const usedInput = slot.querySelector('.eb-used-sessions');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-editbono').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/edit-bono', {
+          method: 'POST',
+          body: JSON.stringify({ bonoId: bono.bonoId, totalSessions: totalInput.value, sessionsUsed: usedInput.value }),
+        });
+        doSearch();
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   }
 
   async function toggleBookSessionForm(bonoEl, bono, btn, client) {

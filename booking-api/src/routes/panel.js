@@ -2124,4 +2124,36 @@ router.get('/panel/payments-log', async (req, res) => {
   }
 });
 
+// ── Corregir a mano el nº de sesiones de un bono (p.ej. se dio de alta con
+// un número equivocado, o se marcó una sesión de más por error) — sin tener
+// que entrar a la Google Sheet. sessionsRemaining y status se recalculan
+// solos a partir de total/usadas, igual que en el resto del código.
+router.post('/panel/edit-bono', async (req, res) => {
+  const { bonoId, totalSessions, sessionsUsed } = req.body || {};
+  if (!bonoId) return res.status(400).json({ error: 'Falta el identificador del bono.' });
+  try {
+    const bono = await findSessionBonoById(bonoId);
+    if (!bono) return res.status(404).json({ error: 'No se ha encontrado ese bono.' });
+
+    const total = totalSessions !== undefined && totalSessions !== '' ? Number(totalSessions) : Number(bono.totalSessions);
+    let used = sessionsUsed !== undefined && sessionsUsed !== '' ? Number(sessionsUsed) : Number(bono.sessionsUsed);
+    if (!Number.isFinite(total) || total < 1) return res.status(400).json({ error: 'El total de sesiones no es válido.' });
+    if (!Number.isFinite(used) || used < 0) return res.status(400).json({ error: 'Las sesiones usadas no son válidas.' });
+    used = Math.min(used, total);
+    const sessionsRemaining = Math.max(0, total - used);
+
+    await updateSessionBonoRow(bono._sheetRow, bono, {
+      totalSessions: total,
+      sessionsUsed: used,
+      sessionsRemaining,
+      status: sessionsRemaining <= 0 ? 'completed' : 'active',
+    });
+
+    res.json({ ok: true, sessionsRemaining });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo corregir el bono.' });
+  }
+});
+
 module.exports = router;
