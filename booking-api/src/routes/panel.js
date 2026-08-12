@@ -226,7 +226,7 @@ router.post('/panel/edit-booking', async (req, res) => {
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
-    convertToBono, bonoTotalSessions, bonoSessionNumber, bonoTotalPrice,
+    convertToBono, bonoTargetServiceId, bonoTotalSessions, bonoSessionNumber, bonoTotalPrice,
     bonoPaidCash, bonoPaidBizum, bonoPaidCard,
   } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
@@ -335,7 +335,18 @@ router.post('/panel/edit-booking', async (req, res) => {
     // sitio donde ya se está editando la cita.
     let convertedBonoId = '';
     if (convertToBono) {
-      if (booking.bonoId) {
+      const currentIds = String(booking.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
+      const nameSegments = String(booking.serviceName || '').split(' + ').filter(Boolean);
+      // Por defecto se convierte el primer tratamiento (el único, en una cita
+      // suelta) — pero si la cita combina varios y alguno YA es el del bono
+      // (siempre el primero, por convención de esta app), se puede elegir
+      // cuál de los DEMÁS convertir sin tocar el bono que ya tenía.
+      const targetServiceId = bonoTargetServiceId || currentIds[0];
+      const targetIdx = currentIds.indexOf(targetServiceId);
+      if (targetIdx === -1) {
+        return res.status(400).json({ error: 'Ese tratamiento no está en esta cita.' });
+      }
+      if (targetIdx === 0 && booking.bonoId) {
         return res.status(400).json({ error: 'Esta cita ya es una sesión de un bono.' });
       }
       const total = Number(bonoTotalSessions);
@@ -343,9 +354,7 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (!Number.isInteger(total) || total < 1 || !Number.isInteger(current) || current < 1 || current > total) {
         return res.status(400).json({ error: 'Indica un número de sesión y un total de sesiones del bono válidos.' });
       }
-      const currentIds = String(booking.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
-      const coreServiceId = currentIds[0];
-      const coreService = services.find((s) => s.id === coreServiceId);
+      const coreService = services.find((s) => s.id === targetServiceId);
       if (!coreService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
 
       const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(coreService.price * total);
@@ -370,7 +379,7 @@ router.post('/panel/edit-booking', async (req, res) => {
         bonoId: convertedBonoId,
         createdAt: new Date().toISOString(),
         clientName: booking.name, clientPhone: booking.phone, clientEmail: booking.email,
-        serviceId: coreServiceId, serviceName: coreService.name,
+        serviceId: targetServiceId, serviceName: coreService.name,
         employeeId: booking.employeeId,
         totalSessions: total,
         sessionsUsed,
@@ -387,19 +396,49 @@ router.post('/panel/edit-booking', async (req, res) => {
         paidCash: cash || '', paidBizum: bizum || '', paidCard: card || '',
       });
 
-      // El precio del bono en sí ya queda registrado en su propia fila de
-      // SessionBono (arriba) — el precio/pagado de ESTA cita pasa a reflejar
-      // solo los tratamientos extra que tuviera combinados, si los hay, para
-      // no duplicar el importe del bono en dos sitios distintos.
-      const extraNames = String(booking.serviceName || '').split(' + ').filter(Boolean).slice(1);
-      const extraIds = currentIds.slice(1);
-      const extrasDefaultPrice = extraIds.reduce((sum, id) => sum + (Number((services.find((s) => s.id === id) || {}).price) || 0), 0);
-      updates.serviceName = [`${coreService.name} (${current}/${total})`, ...extraNames].join(' + ');
-      updates.bonoId = convertedBonoId;
-      updates.sessionNumber = current;
-      updates.price = extrasDefaultPrice || '';
-      updates.amountPaid = 0;
-      updates.paymentType = 'bono';
+      if (currentIds.length > 1) {
+        // La cita combina varios tratamientos y el que se convierte NO es el
+        // único — se separa a su propia fila (compartiendo el mismo evento
+        // de Calendar, igual que cuando se combina bono+suelto al pagar
+        // online), y la fila original se queda solo con los demás.
+        const removedDuration = coreService.durationMinutes;
+        const remainingIds = currentIds.filter((_, i) => i !== targetIdx);
+        const remainingNames = nameSegments.length === currentIds.length
+          ? nameSegments.filter((_, i) => i !== targetIdx)
+          : remainingIds.map((id) => (services.find((s) => s.id === id) || {}).name).filter(Boolean);
+        updates.serviceId = remainingIds.join(',');
+        updates.serviceName = remainingNames.join(' + ');
+        updates.durationMinutes = Math.max(0, (Number(booking.durationMinutes) || 0) - removedDuration);
+
+        await appendBooking({
+          bookingId: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          status: 'confirmed',
+          name: booking.name, phone: booking.phone, email: booking.email,
+          serviceId: targetServiceId,
+          serviceName: `${coreService.name} (${current}/${total})`,
+          employeeId: booking.employeeId, employeeName: booking.employeeName,
+          calendarId: booking.calendarId, eventId: booking.eventId,
+          date: booking.date, time: booking.time,
+          durationMinutes: removedDuration,
+          price: '', amountPaid: 0,
+          paymentType: 'bono', paymentIntentId: '',
+          lang: booking.lang || 'es', reminderSent: '', birthdate: booking.birthdate || '',
+          bonoId: convertedBonoId, sessionNumber: current,
+          notes: 'Separada de una cita combinada al convertir un tratamiento en bono.',
+        });
+      } else {
+        // Único tratamiento en la cita — se convierte esta misma fila.
+        // El precio del bono en sí ya queda registrado en su propia fila de
+        // SessionBono (arriba); aquí el precio/pagado se limpia para no
+        // duplicar el importe del bono en dos sitios distintos.
+        updates.serviceName = `${coreService.name} (${current}/${total})`;
+        updates.bonoId = convertedBonoId;
+        updates.sessionNumber = current;
+        updates.price = '';
+        updates.amountPaid = 0;
+        updates.paymentType = 'bono';
+      }
     }
 
     // Si cambia la duración total (por cambiar el tratamiento, quitar uno de

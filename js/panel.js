@@ -1516,6 +1516,16 @@
             </div>`).join('')
       : '';
 
+    // Tratamientos de esta cita que TODAVÍA no pertenecen a ningún bono — el
+    // del índice 0 solo cuenta si la cita no es ya una sesión de bono. Cada
+    // uno se puede convertir en el suyo propio sin tocar los demás (p.ej.
+    // "Íntimo completo" ya es sesión de un bono, pero "Axilas" se añadió
+    // suelta y la clienta decide después que también quiere bono para eso).
+    const bonoConvertCandidates = idParts
+      .map((id, i) => ({ id, name: (nameParts.length === idParts.length ? nameParts[i] : (allServices.find((s) => s.id === id) || {}).name || id) }))
+      .filter((_, i) => !(isBonoSession && i === 0));
+    const bonoTargetOptions = bonoConvertCandidates.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+
     slot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Editar cita — ${escapeHtml(b.serviceName)}</div>
@@ -1541,9 +1551,13 @@
           <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select></div>
           <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-add">+ Añadir</button></div>
         </div>
-        ${!isBonoSession ? `
-        <div class="panel-section-label" style="margin-top:18px;">Convertir esta cita en un bono</div>
-        <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">Si la clienta ha decidido comprar un bono de sesiones en vez de pagar solo esta cita suelta, regístralo aquí — esta cita pasa a ser la sesión indicada de ese bono.</p>
+        ${bonoConvertCandidates.length ? `
+        <div class="panel-section-label" style="margin-top:18px;">Convertir un tratamiento de esta cita en un bono</div>
+        <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">Si la clienta ha decidido comprar un bono de sesiones en vez de pagar solo suelto, regístralo aquí — el tratamiento elegido pasa a ser la sesión indicada de ese bono (los demás de esta cita, si los hay, no se tocan).</p>
+        ${bonoConvertCandidates.length > 1 ? `
+        <div class="panel-field-row">
+          <div class="panel-field" style="flex:2;"><label>Tratamiento a convertir</label><select class="eb-bono-target">${bonoTargetOptions}</select></div>
+        </div>` : `<input type="hidden" class="eb-bono-target" value="${bonoConvertCandidates[0].id}">`}
         <div class="panel-field-row">
           <div class="panel-field"><label>Esta cita es la sesión nº</label><input type="number" min="1" step="1" class="eb-bono-session" value="1"></div>
           <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="eb-bono-total"></div>
@@ -1617,6 +1631,7 @@
     const confirmBonoBtn = slot.querySelector('.eb-confirm-bono');
     if (confirmBonoBtn) {
       confirmBonoBtn.addEventListener('click', async (ev) => {
+        const targetSelect = slot.querySelector('.eb-bono-target');
         const totalInput = slot.querySelector('.eb-bono-total');
         const sessionInput = slot.querySelector('.eb-bono-session');
         const bonoPriceInput = slot.querySelector('.eb-bono-price');
@@ -1632,7 +1647,8 @@
         const bizum = Number(bizumInput.value) || 0;
         const card = Number(cardInput.value) || 0;
         const paidTotal = cash + bizum + card;
-        if (!confirm(`¿Convertir esta cita en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${paidTotal.toFixed(2)} € (efectivo ${cash.toFixed(2)} € + bizum ${bizum.toFixed(2)} € + tarjeta ${card.toFixed(2)} €). El precio de esta cita se ajustará a solo los extras (si los hubiera).`)) return;
+        const targetCandidate = bonoConvertCandidates.find((c) => c.id === targetSelect.value) || bonoConvertCandidates[0];
+        if (!confirm(`¿Convertir "${targetCandidate.name}" en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${paidTotal.toFixed(2)} € (efectivo ${cash.toFixed(2)} € + bizum ${bizum.toFixed(2)} € + tarjeta ${card.toFixed(2)} €).`)) return;
         errorEl.style.display = 'none';
         statusEl.style.display = 'none';
         ev.target.disabled = true;
@@ -1642,6 +1658,7 @@
             body: JSON.stringify({
               bookingId: b.bookingId,
               convertToBono: true,
+              bonoTargetServiceId: targetCandidate.id,
               bonoSessionNumber: sessionInput.value,
               bonoTotalSessions: totalInput.value,
               bonoTotalPrice: bonoPriceInput.value,
@@ -1655,15 +1672,12 @@
           statusEl.style.display = 'block';
           // En vez de recargar y obligar a buscar el bono nuevo aparte, se
           // agenda la siguiente sesión aquí mismo, sin cambiar de pantalla.
-          const idParts = String(b.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
-          const coreServiceId = idParts[0] || '';
-          const coreServiceName = String(b.serviceName || '').split(' + ')[0].replace(/\s*\(\d+\/\d+\)\s*$/, '');
           const total = Number(totalInput.value);
           const used = Number(sessionInput.value);
           const syntheticBono = {
             bonoId: data.convertedBonoId,
-            serviceId: coreServiceId,
-            serviceName: coreServiceName,
+            serviceId: targetCandidate.id,
+            serviceName: targetCandidate.name,
             sessionsUsed: used,
             totalSessions: total,
             sessionsRemaining: Math.max(0, total - used),
