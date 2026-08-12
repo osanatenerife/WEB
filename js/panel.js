@@ -298,7 +298,7 @@
     slot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Añadir reserva manual (cita ya existente en el calendario)</div>
-        <p class="panel-status" style="margin-bottom:10px;">El evento tiene que existir YA en el calendario de Google de la profesional — aquí solo se busca y se enlaza con una fila nueva para que la clienta pueda verla en "Mis Reservas".</p>
+        <p class="panel-status" style="margin-bottom:10px;">Si ya existe un evento en el calendario de Google cerca de esa hora, se enlaza con él. Si no existe (p.ej. la clienta lo pide en el momento, en el centro), se crea uno nuevo — solo comprueba que la profesional tenga hueco libre.</p>
         <div class="panel-field-row">
           <div class="panel-field"><label>Nombre de la clienta</label><input type="text" class="pi-name" value="${prefill && prefill.name ? escapeHtml(prefill.name) : ''}"></div>
           <div class="panel-field"><label>Teléfono</label><input type="text" class="pi-phone" value="${prefill && prefill.phone ? escapeHtml(prefill.phone) : ''}"></div>
@@ -329,9 +329,14 @@
         <div class="panel-field-row pi-normal-fields">
           <div class="panel-field"><label class="pi-price-label">Precio (€)</label><input type="number" step="0.01" class="pi-price"></div>
           <div class="panel-field"><label class="pi-paid-label">Ya pagado (€)</label><input type="number" step="0.01" class="pi-paid" value="0"></div>
-          <div class="panel-field"><label>Notas (opcional)</label><input type="text" class="pi-notes"></div>
+          <div class="panel-field"><label>Pagado con</label>
+            <select class="pi-paidhow"><option value="tarjeta">Tarjeta</option><option value="efectivo">Efectivo</option><option value="bizum">Bizum</option></select>
+          </div>
         </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-import">Buscar evento y dar de alta</button>
+        <div class="panel-field-row">
+          <div class="panel-field" style="flex:1;"><label>Notas (opcional)</label><input type="text" class="pi-notes"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-import">Dar de alta</button>
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status pi-result" style="display:none;"></p>
       </div>
@@ -354,6 +359,7 @@
     const priceInput = slot.querySelector('.pi-price');
     const paidInput = slot.querySelector('.pi-paid');
     const notesInput = slot.querySelector('.pi-notes');
+    const paidHowSelect = slot.querySelector('.pi-paidhow');
     const errorEl = slot.querySelector('.panel-error');
     const resultEl = slot.querySelector('.pi-result');
     const extraServicesContainer = slot.querySelector('.pi-extra-services');
@@ -446,6 +452,7 @@
             birthdate: birthdateInput.value || '', serviceId: serviceSelect.value, employeeId: employeeSelect.value,
             date: dateInput.value, time: timeInput.value,
             price: priceInput.value, amountPaid: paidInput.value, notes: notesInput.value.trim(),
+            paidHow: paidHowSelect.value,
             isBono: isBonoCheck.checked,
             sessionNumber: sessionNumberInput.value, totalSessions: totalSessionsInput.value,
             bonoTotalPrice: bonoPriceInput.value, bonoAmountPaid: bonoPaidInput.value,

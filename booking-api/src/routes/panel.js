@@ -750,7 +750,7 @@ const LEGACY_BONO_VALIDITY_MONTHS = 12;
 router.post('/panel/import-legacy-booking', async (req, res) => {
   const {
     name, phone, email, birthdate, serviceId, employeeId, date, time,
-    price, amountPaid, notes, extraServiceIds,
+    price, amountPaid, notes, extraServiceIds, paidHow,
     // Campos solo para sesiones de un bono ya vendido (isBono=true):
     isBono, totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid, bonoPurchaseDate,
   } = req.body || {};
@@ -799,16 +799,34 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       const diff = Math.abs(new Date(ev.start.dateTime).getTime() - targetMs);
       if (diff < bestDiff) { bestDiff = diff; best = ev; }
     });
-    if (!best || bestDiff > IMPORT_MATCH_TOLERANCE_MIN * 60 * 1000) {
-      return res.status(404).json({
-        error: `No se ha encontrado ningún evento en el calendario de ${employee.name} el ${date} cerca de las ${timeNorm}. Comprueba la fecha/hora o créalo primero en el calendario de Google.`,
+    let eventId;
+    if (best && bestDiff <= IMPORT_MATCH_TOLERANCE_MIN * 60 * 1000) {
+      // Ya existía un evento en el calendario cerca de esa hora (reserva
+      // hecha por teléfono o en persona y anotada primero a mano en Google
+      // Calendar) — se enlaza con él en vez de crear uno nuevo.
+      eventId = best.id;
+    } else {
+      // No hay ningún evento ahí — es una cita completamente nueva (p.ej.
+      // la clienta la pide en el momento, estando en el centro) — se
+      // comprueba que el hueco está libre y se crea el evento nosotros.
+      const rangeEndISO = addMinutes(startISO, durationMinutes);
+      const free = await isRangeFree(date, employee.calendarId, startISO, rangeEndISO, weeklyScheduleFor(employeeId), { ignoreClosingTime: true });
+      if (!free) {
+        return res.status(409).json({ error: `${employee.name} no tiene hueco libre el ${date} a las ${timeNorm} para ese tratamiento. Elige otra hora.` });
+      }
+      const newEvent = await createBookingEvent(employee.calendarId, {
+        summary: combinedServiceName,
+        description: `Clienta: ${name} · ${phone}`,
+        startISO, endISO: rangeEndISO,
+        clientEmail: email, clientName: name,
       });
+      eventId = newEvent.id;
     }
-
     let bonoId = '';
     let sessionNumberOut = '';
     let serviceIdOut = combinedServiceId;
     let serviceName = combinedServiceName;
+    let paidOnlineForLoyalty = 0; // el importe del bono en sí, si lo hay — ver más abajo
     const defaultPrice = service.price + additionalServices.reduce((sum, s) => sum + s.price, 0);
     let bookingPrice = price !== undefined && price !== '' ? Number(price) : defaultPrice;
     let bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
@@ -827,6 +845,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(service.price * total);
       const paidOnline = bonoAmountPaid !== undefined && bonoAmountPaid !== '' ? Number(bonoAmountPaid) : bonoPrice;
       const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
+      paidOnlineForLoyalty = paidOnline;
 
       bonoId = crypto.randomUUID();
       await appendSessionBono({
@@ -871,7 +890,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       serviceId: serviceIdOut, serviceName,
       employeeId, employeeName: employee.name,
       calendarId: employee.calendarId,
-      eventId: best.id,
+      eventId,
       date, time: timeNorm,
       durationMinutes,
       price: bookingPrice,
@@ -885,6 +904,19 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       sessionNumber: sessionNumberOut,
       notes: notes || 'Alta manual de cita ya existente.',
     });
+
+    // Si se ha cobrado algo en el momento (tratamiento suelto, extras, o el
+    // propio bono) y se ha dicho cómo — acumula saldo de fidelización igual
+    // que un pago online, para que no se quede sin acumular solo por
+    // haberse cobrado en persona en vez de por la web.
+    const totalCollectedNow = round2((Number(bookingAmountPaid) || 0) + paidOnlineForLoyalty);
+    if (paidHow && totalCollectedNow > 0) {
+      await earnLoyalty({
+        booking: { serviceId: serviceIdOut, phone, email, name, bookingId },
+        portionAmount: totalCollectedNow,
+        paidHow,
+      });
+    }
 
     res.json({ ok: true, bookingId, bonoId: bonoId || undefined });
   } catch (err) {
