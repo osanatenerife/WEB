@@ -30,6 +30,8 @@
     results: document.getElementById('panel-results'),
     reportToggle: document.getElementById('panel-report-toggle'),
     reportSlot: document.getElementById('panel-report-slot'),
+    paymentsToggle: document.getElementById('panel-payments-toggle'),
+    paymentsSlot: document.getElementById('panel-payments-slot'),
     quoteToggle: document.getElementById('panel-quote-toggle'),
     quoteSlot: document.getElementById('panel-quote-slot'),
     importToggle: document.getElementById('panel-import-toggle'),
@@ -174,6 +176,84 @@
       }
       ev.target.disabled = false;
     });
+  });
+
+  // ── Comprobar cobros: para un rango de fechas, todo lo cerrado (citas +
+  // extras) con su forma de pago y un total por forma de pago — para cuadrar
+  // caja/Bizum/tarjeta sin tener que abrir clienta por clienta. ──
+  els.paymentsToggle.addEventListener('click', () => {
+    if (els.paymentsSlot.innerHTML) { els.paymentsSlot.innerHTML = ''; return; }
+    const today = new Date().toISOString().slice(0, 10);
+    els.paymentsSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Comprobar cobros (cuadre de caja)</div>
+        <p class="panel-status" style="margin-bottom:10px;">Todo lo cobrado en el rango de fechas, con su forma de pago — para comparar con lo que tienes en caja, Bizum o datáfono. La seña pagada online (Stripe) no cuenta en los totales porque no pasa por el centro; se muestra solo como referencia junto a cada cita.</p>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Desde</label><input type="date" class="pp-from" value="${today}"></div>
+          <div class="panel-field"><label>Hasta</label><input type="date" class="pp-to" value="${today}"></div>
+          <div class="panel-field"><button type="button" class="panel-btn panel-btn-primary pp-search">Buscar</button></div>
+        </div>
+        <p class="panel-error" style="display:none;"></p>
+        <div class="pp-result"></div>
+      </div>
+    `;
+    const slot = els.paymentsSlot;
+    const fromInput = slot.querySelector('.pp-from');
+    const toInput = slot.querySelector('.pp-to');
+    const errorEl = slot.querySelector('.panel-error');
+    const resultEl = slot.querySelector('.pp-result');
+
+    async function runSearch() {
+      errorEl.style.display = 'none';
+      resultEl.innerHTML = '<p class="panel-status">Buscando…</p>';
+      try {
+        const data = await panelFetch(`/panel/payments-log?from=${fromInput.value}&to=${toInput.value}`, { method: 'GET' });
+        const totalsEntries = Object.entries(data.totals || {});
+        const totalsHtml = totalsEntries.length
+          ? `<p class="panel-status" style="margin:10px 0;"><b>Totales del rango:</b> ${totalsEntries.map(([k, v]) => `${k}: <b>${v.toFixed(2)} €</b>`).join(' · ')}</p>`
+          : '<p class="panel-status">No hay cobros registrados en ese rango.</p>';
+
+        const bookingsHtml = (data.closedBookings || []).map((b) => {
+          const part1 = b.remainder - b.remainderAmount2;
+          const parts = [];
+          if (part1 > 0) parts.push(`${part1.toFixed(2)} € (${b.remainderPaidHow || '⚠️ sin asignar'})`);
+          if (b.remainderAmount2 > 0) parts.push(`${b.remainderAmount2.toFixed(2)} € (${b.remainderPaidHow2 || '⚠️ sin asignar'})`);
+          return `
+            <div class="line-item">
+              <div class="line-item-row">
+                <div class="line-item-main"><div class="line-item-name">${escapeHtml(b.name)} <span class="line-item-meta">${b.date} ${b.time} · ${escapeHtml(b.serviceName)}</span></div></div>
+                <div class="line-item-price">${b.finalAmount.toFixed(2)} €</div>
+              </div>
+              <div class="line-item-meta" style="padding:0 0 8px;">
+                ${b.onlinePaid > 0 ? `Seña online: ${b.onlinePaid.toFixed(2)} € · ` : ''}${b.redeemed > 0 ? `Saldo canjeado: ${b.redeemed.toFixed(2)} € · ` : ''}En el centro: ${parts.length ? parts.join(' + ') : '0.00 €'}
+              </div>
+            </div>`;
+        }).join('') || '<p class="panel-status">Sin citas cerradas en este rango.</p>';
+
+        const extrasHtml = (data.extraLines || []).map((e) => `
+          <div class="line-item">
+            <div class="line-item-row">
+              <div class="line-item-main"><div class="line-item-name">${escapeHtml(e.product)} <span class="line-item-meta">${e.date} · extra${e.bookingId ? '' : ' suelto'}</span></div></div>
+              <div class="line-item-price">${e.amount.toFixed(2)} €</div>
+            </div>
+            <div class="line-item-meta" style="padding:0 0 8px;">Pagado con: ${e.paidHow || '⚠️ sin asignar'}</div>
+          </div>`).join('') || '<p class="panel-status">Sin extras en este rango.</p>';
+
+        resultEl.innerHTML = `
+          ${totalsHtml}
+          <div class="panel-section-label">Citas cerradas</div>
+          ${bookingsHtml}
+          <div class="panel-section-label">Extras</div>
+          ${extrasHtml}
+        `;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        resultEl.innerHTML = '';
+      }
+    }
+    slot.querySelector('.pp-search').addEventListener('click', runSearch);
+    runSearch();
   });
 
   // ── Presupuesto personalizado: genera un link de pago (con Klarna) para

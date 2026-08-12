@@ -2036,4 +2036,62 @@ router.get('/panel/agenda', async (req, res) => {
   }
 });
 
+// ── Registro de cobros: para un rango de fechas, todo lo cerrado (citas +
+// extras) con su forma de pago, más un total por forma de pago — para poder
+// cuadrar caja/Bizum/tarjeta a mano antes de la facturación, sin tener que
+// abrir clienta por clienta. La seña pagada online (Stripe) NO se cuenta en
+// los totales por forma de pago porque nunca pasó por caja física — solo se
+// muestra como referencia junto a cada cita.
+router.get('/panel/payments-log', async (req, res) => {
+  const from = req.query.from || new Date().toISOString().slice(0, 10);
+  const to = req.query.to || from;
+  try {
+    const [bookings, sales] = await Promise.all([getAllBookings(), getAllProductSales()]);
+    const inRange = (d) => d >= from && d <= to;
+
+    const closedBookings = bookings
+      .filter((b) => inRange(b.date) && b.finalAmount !== undefined && b.finalAmount !== '')
+      .map((b) => {
+        const onlinePaid = Number(b.amountPaid) || 0;
+        const finalAmount = Number(b.finalAmount) || 0;
+        const redeemed = Number(b.redeemedAmount) || 0;
+        const remainder = Math.max(0, round2(finalAmount - onlinePaid - redeemed));
+        return {
+          bookingId: b.bookingId, date: b.date, time: b.time, name: b.name, phone: b.phone,
+          serviceName: b.serviceName, finalAmount, onlinePaid, redeemed, remainder,
+          remainderPaidHow: b.remainderPaidHow || '',
+          remainderAmount2: Number(b.remainderAmount2) || 0,
+          remainderPaidHow2: b.remainderPaidHow2 || '',
+        };
+      })
+      .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+    const extraLines = sales
+      .filter((s) => inRange(s.date))
+      .map((s) => ({
+        saleId: s.saleId, date: s.date, product: s.product, amount: Number(s.amount) || 0,
+        paidHow: s.paidHow || '', category: s.category || 'venta', bookingId: s.bookingId || '',
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const totals = {};
+    const addTotal = (paidHow, amount) => {
+      if (!(amount > 0)) return;
+      const key = paidHow || 'sin asignar';
+      totals[key] = round2((totals[key] || 0) + amount);
+    };
+    closedBookings.forEach((b) => {
+      const part1 = round2(b.remainder - b.remainderAmount2);
+      addTotal(b.remainderPaidHow, part1);
+      addTotal(b.remainderPaidHow2, b.remainderAmount2);
+    });
+    extraLines.forEach((e) => addTotal(e.paidHow, e.amount));
+
+    res.json({ from, to, closedBookings, extraLines, totals });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo cargar el registro de cobros.' });
+  }
+});
+
 module.exports = router;
