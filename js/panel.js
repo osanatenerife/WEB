@@ -1412,7 +1412,7 @@
 
     const editBookingBtn = el.querySelector('.panel-editbooking-toggle');
     if (editBookingBtn) {
-      editBookingBtn.addEventListener('click', () => toggleEditBooking(el, b));
+      editBookingBtn.addEventListener('click', () => toggleEditBooking(el, b, client));
     }
 
     const noteEdit = el.querySelector('.panel-appt-note-edit');
@@ -1482,7 +1482,7 @@
   // Corrige el tratamiento, profesional, precio, importe pagado o nº de
   // sesión de una cita ya registrada — por si al darla de alta a mano te
   // equivocaste en algo (p.ej. puso Raquel y en realidad fue Vanessa).
-  async function toggleEditBooking(apptEl, b) {
+  async function toggleEditBooking(apptEl, b, client) {
     const slot = apptEl.querySelector('.panel-editbooking-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
     slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
@@ -1550,9 +1550,15 @@
         </div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="eb-bono-price"></div>
-          <div class="panel-field"><label>Ya pagado del bono (€)</label><input type="number" step="0.01" class="eb-bono-paid" value="0"></div>
+        </div>
+        <div class="panel-label" style="margin-top:4px;">¿Cómo pagó lo que ya lleva pagado?</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Efectivo (€)</label><input type="number" step="0.01" min="0" class="eb-bono-paid-cash" value="0"></div>
+          <div class="panel-field"><label>Bizum (€)</label><input type="number" step="0.01" min="0" class="eb-bono-paid-bizum" value="0"></div>
+          <div class="panel-field"><label>Tarjeta (€)</label><input type="number" step="0.01" min="0" class="eb-bono-paid-card" value="0"></div>
         </div>
         <button type="button" class="panel-btn panel-btn-accent eb-confirm-bono">🎟 Convertir en bono</button>
+        <div class="eb-bono-next-slot" style="margin-top:14px;"></div>
         ` : ''}
       </div>
     `;
@@ -1614,18 +1620,24 @@
         const totalInput = slot.querySelector('.eb-bono-total');
         const sessionInput = slot.querySelector('.eb-bono-session');
         const bonoPriceInput = slot.querySelector('.eb-bono-price');
-        const bonoPaidInput = slot.querySelector('.eb-bono-paid');
+        const cashInput = slot.querySelector('.eb-bono-paid-cash');
+        const bizumInput = slot.querySelector('.eb-bono-paid-bizum');
+        const cardInput = slot.querySelector('.eb-bono-paid-card');
         if (!totalInput.value || !sessionInput.value) {
           errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
           errorEl.style.display = 'block';
           return;
         }
-        if (!confirm(`¿Convertir esta cita en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? El precio del bono quedará registrado aparte, y el precio de esta cita se ajustará a solo los extras (si los hubiera).`)) return;
+        const cash = Number(cashInput.value) || 0;
+        const bizum = Number(bizumInput.value) || 0;
+        const card = Number(cardInput.value) || 0;
+        const paidTotal = cash + bizum + card;
+        if (!confirm(`¿Convertir esta cita en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${paidTotal.toFixed(2)} € (efectivo ${cash.toFixed(2)} € + bizum ${bizum.toFixed(2)} € + tarjeta ${card.toFixed(2)} €). El precio de esta cita se ajustará a solo los extras (si los hubiera).`)) return;
         errorEl.style.display = 'none';
         statusEl.style.display = 'none';
         ev.target.disabled = true;
         try {
-          await panelFetch('/panel/edit-booking', {
+          const data = await panelFetch('/panel/edit-booking', {
             method: 'POST',
             body: JSON.stringify({
               bookingId: b.bookingId,
@@ -1633,10 +1645,34 @@
               bonoSessionNumber: sessionInput.value,
               bonoTotalSessions: totalInput.value,
               bonoTotalPrice: bonoPriceInput.value,
-              bonoAmountPaid: bonoPaidInput.value,
+              bonoPaidCash: cash,
+              bonoPaidBizum: bizum,
+              bonoPaidCard: card,
             }),
           });
-          doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
+          confirmBonoBtn.style.display = 'none';
+          statusEl.textContent = 'Bono registrado ✓ — elige cuándo es la próxima sesión aquí abajo.';
+          statusEl.style.display = 'block';
+          // En vez de recargar y obligar a buscar el bono nuevo aparte, se
+          // agenda la siguiente sesión aquí mismo, sin cambiar de pantalla.
+          const idParts = String(b.serviceId || '').split(',').map((s) => s.trim()).filter(Boolean);
+          const coreServiceId = idParts[0] || '';
+          const coreServiceName = String(b.serviceName || '').split(' + ')[0].replace(/\s*\(\d+\/\d+\)\s*$/, '');
+          const total = Number(totalInput.value);
+          const used = Number(sessionInput.value);
+          const syntheticBono = {
+            bonoId: data.convertedBonoId,
+            serviceId: coreServiceId,
+            serviceName: coreServiceName,
+            sessionsUsed: used,
+            totalSessions: total,
+            sessionsRemaining: Math.max(0, total - used),
+          };
+          const nextSlot = slot.querySelector('.eb-bono-next-slot');
+          nextSlot.innerHTML = '<div class="panel-new-appt-slot"></div>';
+          if (syntheticBono.sessionsRemaining > 0) {
+            await toggleBookSessionForm(nextSlot, syntheticBono, null, client);
+          }
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';

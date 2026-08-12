@@ -372,6 +372,12 @@ const SESSION_BONO_COLUMNS = [
   'sessionsRemaining', 'totalPrice', 'amountPaidOnline', 'paymentType',
   'remainingAmount', 'remainingPaidHow', 'status', 'expiryDate',
   'paymentIntentId', 'lang',
+  // Desglose de cómo se pagó lo ya cobrado al registrar el bono a mano desde
+  // "Convertir esta cita en un bono" — amountPaidOnline sigue siendo el
+  // total (para no romper nada que ya lo usa), esto es solo el detalle por
+  // forma de pago, para la contabilidad. Vacío en bonos comprados online o
+  // dados de alta antes de que existiera este desglose.
+  'paidCash', 'paidBizum', 'paidCard',
 ];
 const SESSION_BONO_LAST_COL = colLetter(SESSION_BONO_COLUMNS.length);
 

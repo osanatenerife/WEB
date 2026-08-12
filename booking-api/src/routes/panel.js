@@ -226,7 +226,8 @@ router.post('/panel/edit-booking', async (req, res) => {
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
-    convertToBono, bonoTotalSessions, bonoSessionNumber, bonoTotalPrice, bonoAmountPaid,
+    convertToBono, bonoTotalSessions, bonoSessionNumber, bonoTotalPrice,
+    bonoPaidCash, bonoPaidBizum, bonoPaidCard,
   } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   if ([serviceId, removeServiceId, addServiceId, convertToBono].filter(Boolean).length > 1) {
@@ -348,9 +349,13 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (!coreService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
 
       const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(coreService.price * total);
-      const paidOnline = bonoAmountPaid !== undefined && bonoAmountPaid !== '' ? Number(bonoAmountPaid) : 0;
-      if (!Number.isFinite(bonoPrice) || bonoPrice < 0) return res.status(400).json({ error: 'El precio del bono no es un número válido.' });
-      if (!Number.isFinite(paidOnline) || paidOnline < 0) return res.status(400).json({ error: 'El importe pagado del bono no es un número válido.' });
+      const cash = Math.max(0, Number(bonoPaidCash) || 0);
+      const bizum = Math.max(0, Number(bonoPaidBizum) || 0);
+      const card = Math.max(0, Number(bonoPaidCard) || 0);
+      for (const [label, val] of [['El precio del bono', bonoPrice], ['Lo pagado en efectivo', cash], ['Lo pagado por Bizum', bizum], ['Lo pagado con tarjeta', card]]) {
+        if (!Number.isFinite(val) || val < 0) return res.status(400).json({ error: `${label} no es un número válido.` });
+      }
+      const paidOnline = round2(cash + bizum + card);
 
       const sessionsUsed = Math.max(0, current - 1);
       const sessionsRemaining = Math.max(0, total - sessionsUsed);
@@ -375,6 +380,7 @@ router.post('/panel/edit-booking', async (req, res) => {
         expiryDate: addMonthsISO(LEGACY_BONO_VALIDITY_MONTHS),
         paymentIntentId: '',
         lang: 'es',
+        paidCash: cash || '', paidBizum: bizum || '', paidCard: card || '',
       });
 
       // El precio del bono en sí ya queda registrado en su propia fila de
