@@ -915,9 +915,17 @@ router.post('/panel/close', async (req, res) => {
       // resto se pagó en efectivo, se aplica la tasa de efectivo al total
       // (no solo a esa parte) — así la clienta no nota que "solo una parte"
       // llevaba la bonificación, que da pie a quejas y confusión.
-      const cashInvolved = paidHow === 'efectivo' || (part2 > 0 && paidHow2 === 'efectivo');
+      // OJO: "paidHow" viene de un desplegable que siempre tiene algo
+      // seleccionado (por defecto "Efectivo"), aunque no quede nada por
+      // cobrar en el centro (cita pagada 100% online) — remainderCollected
+      // evita que ese valor por defecto, sin que nadie haya cobrado nada en
+      // efectivo, dispare el plus del 2% sobre un pago que en realidad fue
+      // con tarjeta/Klarna online.
+      const remainderCollected = part1 > 0 || part2 > 0;
+      const cashInvolved = remainderCollected && ((part1 > 0 && paidHow === 'efectivo') || (part2 > 0 && paidHow2 === 'efectivo'));
       const totalPaidReal = round2(onlinePaid + part1 + part2);
-      await earnLoyalty({ booking, portionAmount: totalPaidReal, paidHow: cashInvolved ? 'efectivo' : (paidHow || 'tarjeta') });
+      const effectivePaidHow = remainderCollected ? (cashInvolved ? 'efectivo' : (paidHow || 'tarjeta')) : 'tarjeta';
+      await earnLoyalty({ booking, portionAmount: totalPaidReal, paidHow: effectivePaidHow });
     }
 
     res.json({ ok: true });
