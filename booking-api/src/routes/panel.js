@@ -222,7 +222,7 @@ router.post('/panel/note', async (req, res) => {
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
   const {
-    bookingId, serviceId, removeServiceId, addServiceId, employeeId, price, amountPaid, sessionNumber,
+    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, employeeId, price, amountPaid, sessionNumber,
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
@@ -307,25 +307,35 @@ router.post('/panel/edit-booking', async (req, res) => {
       if (!addedService) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
 
       const oldDuration = Number(booking.durationMinutes) || 0;
-      newDurationForCalendar = oldDuration + (Number(addedService.durationMinutes) || 0);
 
-      // Antes de dar por hecho que cabe, comprobamos que el tiempo extra
-      // está libre justo después de la cita — igual que "Ampliar tiempo".
-      if (booking.calendarId && booking.date && booking.time) {
-        const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
-        const startISO = localToISO(booking.date, time, hours.timezone);
-        const currentEndISO = addMinutes(startISO, oldDuration);
-        const newEndISO = addMinutes(startISO, newDurationForCalendar);
-        const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId), { ignoreClosingTime: true });
-        if (!free) {
-          return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para añadir ese tratamiento.' });
+      // "Ya se hizo, sin ampliar el hueco": para tratamientos que en la
+      // práctica se hicieron en el mismo rato (p.ej. algo rápido añadido de
+      // más en cabina) sin que hiciera falta más tiempo real de calendario
+      // — se añade solo para que quede reflejado en la cita, sin comprobar
+      // huecos ni tocar la duración ni el evento de Google Calendar.
+      if (!addWithoutTimeExtend) {
+        newDurationForCalendar = oldDuration + (Number(addedService.durationMinutes) || 0);
+
+        // Antes de dar por hecho que cabe, comprobamos que el tiempo extra
+        // está libre justo después de la cita — igual que "Ampliar tiempo".
+        if (booking.calendarId && booking.date && booking.time) {
+          const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
+          const startISO = localToISO(booking.date, time, hours.timezone);
+          const currentEndISO = addMinutes(startISO, oldDuration);
+          const newEndISO = addMinutes(startISO, newDurationForCalendar);
+          const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId), { ignoreClosingTime: true });
+          if (!free) {
+            return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para añadir ese tratamiento.' });
+          }
         }
       }
 
       const nameSegments = String(booking.serviceName || '').split(' + ').filter(Boolean);
       updates.serviceId = [...currentIds, addServiceId].join(',');
       updates.serviceName = [...(nameSegments.length ? nameSegments : [booking.serviceName]), addedService.name].join(' + ');
-      updates.durationMinutes = newDurationForCalendar;
+      if (!addWithoutTimeExtend) {
+        updates.durationMinutes = newDurationForCalendar;
+      }
     }
 
     // Convertir una cita suelta ya dada de alta en la sesión de un bono que

@@ -1551,6 +1551,7 @@
           <div class="panel-field" style="flex:2;"><select class="eb-add-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select></div>
           <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-add">+ Añadir</button></div>
         </div>
+        <label class="panel-split-toggle"><input type="checkbox" class="eb-add-no-time"> Ya se hizo en esta misma visita, sin ampliar el hueco (no comprueba disponibilidad ni toca el calendario)</label>
         ${bonoConvertCandidates.length ? `
         <div class="panel-section-label" style="margin-top:18px;">Convertir un tratamiento de esta cita en un bono</div>
         <p style="font-size:12px;color:var(--ink-faint);margin:0 0 10px;">Si la clienta ha decidido comprar un bono de sesiones en vez de pagar solo suelto, regístralo aquí — el tratamiento elegido pasa a ser la sesión indicada de ese bono (los demás de esta cita, si los hay, no se tocan).</p>
@@ -1617,9 +1618,14 @@
       statusEl.style.display = 'none';
       ev.target.disabled = true;
       try {
+        const noTimeInput = slot.querySelector('.eb-add-no-time');
         await panelFetch('/panel/edit-booking', {
           method: 'POST',
-          body: JSON.stringify({ bookingId: b.bookingId, addServiceId: addServiceSelect.value }),
+          body: JSON.stringify({
+            bookingId: b.bookingId,
+            addServiceId: addServiceSelect.value,
+            addWithoutTimeExtend: noTimeInput && noTimeInput.checked ? true : undefined,
+          }),
         });
         doSearch(); // recarga con los datos actualizados en vez de dejar la pantalla desfasada
       } catch (e) {
