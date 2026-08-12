@@ -1174,17 +1174,21 @@ router.post('/panel/close', async (req, res) => {
       await earnLoyalty({ booking, portionAmount: totalPaidReal, paidHow: effectivePaidHow });
 
       // Las líneas "extra" añadidas a esta misma cita (ver /panel/product-sale)
-      // no piden forma de pago propia al crearlas — se resuelven aquí, con la
+      // por defecto no llevan forma de pago propia — se resuelven aquí con la
       // misma forma de pago que el resto de la visita, para no preguntarlo dos
-      // veces. Así también se acumula su saldo de fidelización, que antes se
-      // quedaba sin acumular hasta que esto se cerraba.
-      const linkedExtras = (await getAllProductSales()).filter((s) => s.bookingId === booking.bookingId && !s.paidHow);
+      // veces en el caso normal. Pero si una línea SÍ trae su propia paidHow
+      // (p.ej. el tratamiento se pagó con tarjeta y el extra en efectivo, en
+      // el momento), se respeta esa y no se pisa con la del resto. Así también
+      // se acumula su saldo de fidelización, que antes se quedaba sin acumular
+      // hasta que esto se cerraba.
+      const linkedExtras = (await getAllProductSales()).filter((s) => s.bookingId === booking.bookingId);
       for (const extra of linkedExtras) {
-        await updateProductSaleRow(extra._sheetRow, extra, { paidHow: effectivePaidHow });
+        const extraPaidHow = extra.paidHow || effectivePaidHow;
+        if (!extra.paidHow) await updateProductSaleRow(extra._sheetRow, extra, { paidHow: extraPaidHow });
         await earnLoyalty({
           booking: { phone: booking.phone, email: booking.email, name: booking.name, bookingId: booking.bookingId, serviceName: extra.product },
           portionAmount: Number(extra.amount) || 0,
-          paidHow: effectivePaidHow,
+          paidHow: extraPaidHow,
           category: extra.category || 'venta',
         });
       }
@@ -1268,7 +1272,8 @@ router.post('/panel/product-sale-edit', async (req, res) => {
     } else {
       if (product !== undefined && product !== '') updates.product = product;
       if (amount !== undefined && amount !== '') updates.amount = Number(amount);
-      if (paidHow !== undefined && paidHow !== '') updates.paidHow = paidHow;
+      if (paidHow === 'auto') updates.paidHow = '';
+      else if (paidHow !== undefined && paidHow !== '') updates.paidHow = paidHow;
       if (category && EXTRA_CATEGORIES.includes(category)) updates.category = category;
     }
     await updateProductSaleRow(sale._sheetRow, sale, updates);

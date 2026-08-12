@@ -1455,6 +1455,20 @@
     { id: 'cejas', label: 'Cejas' }, { id: 'venta', label: 'Producto' },
   ];
 
+  // Desplegable "Pagado con" de una línea extra: por defecto "auto" (se
+  // resuelve al cerrar la cita, igual que el resto) — solo hace falta
+  // tocarlo si esa línea en concreto se paga de una forma distinta al resto
+  // de la visita (p.ej. tratamiento con tarjeta, extra en efectivo).
+  function extraPaidHowSelectHtml(cls, selected) {
+    const opts = [
+      ['auto', 'Igual que el resto de la cita (se decide al cerrar)'],
+      ['efectivo', 'Efectivo'], ['tarjeta', 'Tarjeta'], ['bizum', 'Bizum'],
+      ['bonos archipiélago', 'Bonos Archipiélago'], ['bono adeje', 'Bono Adeje'],
+    ];
+    const cur = selected || 'auto';
+    return `<select class="${cls}">${opts.map(([v, l]) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`).join('')}</select>`;
+  }
+
   // ── Panel único de "Editar cita": líneas (tratamientos + extras), añadir
   // línea (tratamiento o extra sin tiempo), notas, profesional y cobro
   // (incluye lo que antes era "Cerrar cita" aparte) — todo en un mismo sitio,
@@ -1562,7 +1576,9 @@
               <div class="panel-field" style="flex:2;"><label>Detalle</label><input type="text" class="li-extra-detail" value="${escapeHtml(ex.product)}"></div>
               <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="li-extra-amount" value="${ex.amount}"></div>
             </div>
-            <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">${ex.paidHow ? `Pagado con: ${ex.paidHow}.` : 'Cómo se pagó se resuelve al cerrar la cita, junto con el resto de la visita.'}</p>
+            <div class="panel-field-row">
+              <div class="panel-field"><label>Pagado con</label>${extraPaidHowSelectHtml('li-extra-paidhow', ex.paidHow)}</div>
+            </div>
             <div style="display:flex; gap:8px;">
               <button type="button" class="panel-btn panel-btn-primary panel-btn-sm li-extra-save-btn">Guardar línea</button>
               <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm li-extra-cancel-btn">Cancelar</button>
@@ -1606,7 +1622,10 @@
             <div class="panel-field" style="flex:2;"><label>Detalle (qué fue)</label><input type="text" class="eb-extra-detail" placeholder="Ej. Limpieza facial, Crema hidratante…"></div>
             <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="eb-extra-amount"></div>
           </div>
-          <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">Cómo se paga se decide una sola vez, junto con el resto de la visita, al cerrar la cita más abajo.</p>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Pagado con</label>${extraPaidHowSelectHtml('eb-extra-paidhow', '')}</div>
+          </div>
+          <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">Déjalo en "Igual que el resto" si se paga junto con el tratamiento — solo cámbialo si esta línea en concreto se paga de otra forma.</p>
           <button type="button" class="panel-btn panel-btn-accent eb-confirm-extra">+ Añadir extra</button>
         </div>
 
@@ -1757,6 +1776,7 @@
       const detailInput = slot.querySelector('.eb-extra-detail');
       const amountInput = slot.querySelector('.eb-extra-amount');
       const catValue = slot.querySelector('.eb-extra-cat-value').value;
+      const paidHowValue = slot.querySelector('.eb-extra-paidhow').value;
       if (!detailInput.value.trim() || !amountInput.value) {
         errorEl.textContent = 'Indica el detalle y el importe del extra.';
         errorEl.style.display = 'block';
@@ -1770,6 +1790,7 @@
           body: JSON.stringify({
             date: b.date, product: detailInput.value.trim(), amount: amountInput.value,
             category: catValue, bookingId: b.bookingId,
+            paidHow: paidHowValue === 'auto' ? undefined : paidHowValue,
             clientPhone: client ? client.phone : '', clientName: client ? client.name : '', clientEmail: client ? client.email : '',
           }),
         });
@@ -1936,6 +1957,7 @@
               product: lineEl.querySelector('.li-extra-detail').value.trim(),
               amount: lineEl.querySelector('.li-extra-amount').value,
               category: lineEl.querySelector('.li-extra-cat-value').value,
+              paidHow: lineEl.querySelector('.li-extra-paidhow').value,
             }),
           });
           doSearch();
