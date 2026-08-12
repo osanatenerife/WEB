@@ -1125,6 +1125,22 @@ router.post('/panel/close', async (req, res) => {
       const totalPaidReal = round2(onlinePaid + part1 + part2);
       const effectivePaidHow = remainderCollected ? (cashInvolved ? 'efectivo' : (paidHow || 'tarjeta')) : 'tarjeta';
       await earnLoyalty({ booking, portionAmount: totalPaidReal, paidHow: effectivePaidHow });
+
+      // Las líneas "extra" añadidas a esta misma cita (ver /panel/product-sale)
+      // no piden forma de pago propia al crearlas — se resuelven aquí, con la
+      // misma forma de pago que el resto de la visita, para no preguntarlo dos
+      // veces. Así también se acumula su saldo de fidelización, que antes se
+      // quedaba sin acumular hasta que esto se cerraba.
+      const linkedExtras = (await getAllProductSales()).filter((s) => s.bookingId === booking.bookingId && !s.paidHow);
+      for (const extra of linkedExtras) {
+        await updateProductSaleRow(extra._sheetRow, extra, { paidHow: effectivePaidHow });
+        await earnLoyalty({
+          booking: { phone: booking.phone, email: booking.email, name: booking.name, bookingId: booking.bookingId, serviceName: extra.product },
+          portionAmount: Number(extra.amount) || 0,
+          paidHow: effectivePaidHow,
+          category: extra.category || 'venta',
+        });
+      }
     }
 
     res.json({ ok: true });
@@ -1163,7 +1179,11 @@ router.post('/panel/product-sale', async (req, res) => {
       status: 'active',
     });
 
-    if (clientPhone && clientPhone.trim()) {
+    // Si esta línea va enganchada a una cita, cómo se pagó se decide UNA
+    // sola vez al cerrar toda la visita (junto con el tratamiento) — no
+    // aquí, para no pedir la forma de pago dos veces en el mismo sitio.
+    // El saldo de fidelización se acumula entonces, no ahora.
+    if (!bookingId && clientPhone && clientPhone.trim()) {
       await earnLoyalty({
         booking: {
           phone: clientPhone.trim(), email: clientEmail || '', name: clientName || '',

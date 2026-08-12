@@ -1437,6 +1437,7 @@
     const namesAligned = nameParts.length === idParts.length;
     const nameForIdx = (id, i) => (namesAligned ? nameParts[i] : (allServices.find((s) => s.id === id) || {}).name || id);
     const extras = Array.isArray(b.extras) ? b.extras : [];
+    const unresolvedExtrasTotal = extras.filter((e) => !e.paidHow).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
     const balance = client && Number(client.loyaltyBalance) || 0;
     const isClosable = b.status === 'confirmed' && b.isPast;
 
@@ -1508,15 +1509,7 @@
               <div class="panel-field" style="flex:2;"><label>Detalle</label><input type="text" class="li-extra-detail" value="${escapeHtml(ex.product)}"></div>
               <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="li-extra-amount" value="${ex.amount}"></div>
             </div>
-            <div class="panel-field-row">
-              <div class="panel-field"><label>Pagado con</label>
-                <select class="li-extra-paidhow">
-                  <option value="efectivo" ${ex.paidHow === 'efectivo' ? 'selected' : ''}>Efectivo</option>
-                  <option value="tarjeta" ${ex.paidHow === 'tarjeta' ? 'selected' : ''}>Tarjeta</option>
-                  <option value="bizum" ${ex.paidHow === 'bizum' ? 'selected' : ''}>Bizum</option>
-                </select>
-              </div>
-            </div>
+            <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">${ex.paidHow ? `Pagado con: ${ex.paidHow}.` : 'Cómo se pagó se resuelve al cerrar la cita, junto con el resto de la visita.'}</p>
             <div style="display:flex; gap:8px;">
               <button type="button" class="panel-btn panel-btn-primary panel-btn-sm li-extra-save-btn">Guardar línea</button>
               <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm li-extra-cancel-btn">Cancelar</button>
@@ -1560,12 +1553,8 @@
             <div class="panel-field" style="flex:2;"><label>Detalle (qué fue)</label><input type="text" class="eb-extra-detail" placeholder="Ej. Limpieza facial, Crema hidratante…"></div>
             <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="eb-extra-amount"></div>
           </div>
-          <div class="panel-field-row">
-            <div class="panel-field"><label>Pagado con</label>
-              <select class="eb-extra-paidhow"><option value="efectivo">Efectivo</option><option value="tarjeta">Tarjeta</option><option value="bizum">Bizum</option></select>
-            </div>
-            <div class="panel-field"><button type="button" class="panel-btn panel-btn-accent eb-confirm-extra">+ Añadir extra</button></div>
-          </div>
+          <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">Cómo se paga se decide una sola vez, junto con el resto de la visita, al cerrar la cita más abajo.</p>
+          <button type="button" class="panel-btn panel-btn-accent eb-confirm-extra">+ Añadir extra</button>
         </div>
 
         <div class="panel-section-label">Notas de la cita</div>
@@ -1581,6 +1570,8 @@
         <div class="panel-section-label">Cobro</div>
         ${closedNote}
         ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b> · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
+        ${unresolvedExtrasTotal > 0 ? `<p class="panel-status">Además, hay <b>${unresolvedExtrasTotal.toFixed(2)} €</b> en extras sin forma de pago asignada — se resuelven solos al cerrar la cita, con la misma forma de pago del resto.</p>` : ''}
+        <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">El importe de aquí es solo el del tratamiento propio de esta cita — los extras van aparte y no hace falta sumarlos.</p>
         <div class="panel-field-row">
           <div class="panel-field"><label>Precio total (€)</label><input type="number" step="0.01" class="eb-price" value="${b.price || ''}"></div>
           <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="eb-paid" value="${b.amountPaid || ''}"></div>
@@ -1712,7 +1703,6 @@
     slot.querySelector('.eb-confirm-extra').addEventListener('click', async (ev) => {
       const detailInput = slot.querySelector('.eb-extra-detail');
       const amountInput = slot.querySelector('.eb-extra-amount');
-      const paidHowSelect = slot.querySelector('.eb-extra-paidhow');
       const catValue = slot.querySelector('.eb-extra-cat-value').value;
       if (!detailInput.value.trim() || !amountInput.value) {
         errorEl.textContent = 'Indica el detalle y el importe del extra.';
@@ -1725,7 +1715,7 @@
         await panelFetch('/panel/product-sale', {
           method: 'POST',
           body: JSON.stringify({
-            date: b.date, product: detailInput.value.trim(), amount: amountInput.value, paidHow: paidHowSelect.value,
+            date: b.date, product: detailInput.value.trim(), amount: amountInput.value,
             category: catValue, bookingId: b.bookingId,
             clientPhone: client ? client.phone : '', clientName: client ? client.name : '', clientEmail: client ? client.email : '',
           }),
@@ -1880,7 +1870,6 @@
               saleId,
               product: lineEl.querySelector('.li-extra-detail').value.trim(),
               amount: lineEl.querySelector('.li-extra-amount').value,
-              paidHow: lineEl.querySelector('.li-extra-paidhow').value,
               category: lineEl.querySelector('.li-extra-cat-value').value,
             }),
           });
