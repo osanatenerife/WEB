@@ -1463,9 +1463,16 @@
         </div>`;
     }
 
+    // Si la línea del bono todavía tiene sesiones libres, se puede agendar
+    // la siguiente ahí mismo — antes solo se podía desde la tarjeta del
+    // bono en "Bonos activos", aparte de la propia cita.
+    const linkedBono = isBonoSession && client && Array.isArray(client.bonos)
+      ? client.bonos.find((bo) => bo.bonoId === b.bonoId) : null;
+
     const treatmentLinesHtml = idParts.map((id, i) => {
       const isBonoCore = isBonoSession && i === 0;
       const name = nameForIdx(id, i);
+      const canBookNext = isBonoCore && linkedBono && Number(linkedBono.sessionsRemaining) > 0;
       return `
         <div class="line-item" data-treatment-idx="${i}">
           <div class="line-item-row">
@@ -1473,6 +1480,7 @@
             <div class="line-item-actions">
               <button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-edit-toggle">✎ Editar</button>
               ${!isBonoCore ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-bono-toggle">🎟 Bono</button>` : ''}
+              ${canBookNext ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-next-session-toggle">+ Siguiente sesión</button>` : ''}
               ${idParts.length > 1 ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-remove-btn">🗑 Quitar</button>` : ''}
             </div>
           </div>
@@ -1487,6 +1495,7 @@
             </div>
           </div>
           ${!isBonoCore ? bonoFormHtml(id, name) : ''}
+          ${canBookNext ? '<div class="li-next-session-slot" style="display:none;"><div class="panel-new-appt-slot"></div></div>' : ''}
         </div>`;
     }).join('');
 
@@ -1740,6 +1749,18 @@
         editBox.style.display = editBox.style.display === 'none' ? 'block' : 'none';
       });
       lineEl.querySelector('.li-cancel-btn').addEventListener('click', () => { editBox.style.display = 'none'; });
+
+      const nextSessionToggle = lineEl.querySelector('.li-next-session-toggle');
+      if (nextSessionToggle) {
+        nextSessionToggle.addEventListener('click', async () => {
+          const nextSlot = lineEl.querySelector('.li-next-session-slot');
+          const inner = nextSlot.querySelector('.panel-new-appt-slot');
+          if (nextSlot.style.display !== 'none') { nextSlot.style.display = 'none'; return; }
+          nextSlot.style.display = 'block';
+          if (!inner.innerHTML) await toggleBookSessionForm(nextSlot, linkedBono, null, client);
+        });
+      }
+
       lineEl.querySelector('.li-save-btn').addEventListener('click', async (ev) => {
         const newId = lineEl.querySelector('.li-swap-service').value;
         const sessionInput = lineEl.querySelector('.li-session-number');

@@ -807,7 +807,12 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     if (isBono) {
       const total = Number(totalSessions);
       const current = Number(sessionNumber);
-      const sessionsUsed = Math.max(0, current - 1);
+      // Esta misma cita YA es la sesión "current" (se está dando de alta
+      // confirmada, con su hora y calendario) — cuenta como usada desde ya,
+      // así que sessionsUsed es "current", no "current - 1" (eso dejaba un
+      // bono de 1 sesión ya hecha mostrando "0 de 1 usadas" en vez de
+      // "completado", y ofreciendo agendar una sesión que ya no existe).
+      const sessionsUsed = Math.min(total, current);
       const sessionsRemaining = Math.max(0, total - sessionsUsed);
       const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(service.price * total);
       const paidOnline = bonoAmountPaid !== undefined && bonoAmountPaid !== '' ? Number(bonoAmountPaid) : bonoPrice;
