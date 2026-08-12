@@ -335,6 +335,19 @@
     return importServicesCache;
   }
 
+  // Igual que loadImportServicesOnce: la lista completa de empleadas apenas
+  // cambia durante una sesión de trabajo, así que no hace falta volver a
+  // pedirla cada vez que se abre "Editar cita" — antes era una petición de
+  // red extra en cada apertura.
+  let allEmployeesCache = null;
+  async function loadAllEmployeesOnce() {
+    if (allEmployeesCache) return allEmployeesCache;
+    const res = await fetch(`${BOOKING_API_BASE}/employees`);
+    const data = await res.json();
+    allEmployeesCache = data.employees || [];
+    return allEmployeesCache;
+  }
+
   els.importToggle.addEventListener('click', async () => {
     if (els.importSlot.innerHTML) { els.importSlot.innerHTML = ''; return; }
     els.importSlot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
@@ -1469,9 +1482,8 @@
         ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
       </optgroup>
     `).join('');
-    const employeesRes = await fetch(`${BOOKING_API_BASE}/employees`);
-    const employeesData = await employeesRes.json();
-    const employeeOptions = (employeesData.employees || [])
+    const allEmployees = await loadAllEmployeesOnce();
+    const employeeOptions = allEmployees
       .map((e) => `<option value="${e.id}" ${e.id === b.employeeId ? 'selected' : ''}>${e.name}</option>`)
       .join('');
     const isBonoSession = !!b.bonoId;

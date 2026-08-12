@@ -15,6 +15,32 @@ function colLetter(n) {
 }
 
 // ============================================================
+// Caché en memoria de muy corta duración para las lecturas completas de
+// las pestañas más consultadas (reservas, bonos, faltas, saldo,
+// presupuestos, seguimientos) — la agenda y la búsqueda del panel piden
+// varias de golpe cada vez que se abren, y sin caché cada una vuelve a
+// leer su pestaña entera de Sheets por su cuenta (la parte más lenta con
+// diferencia de estas peticiones). El TTL es corto a propósito — no hay
+// necesidad real de exactitud al segundo — y además se invalida a mano en
+// cuanto se escribe esa pestaña, para que un cambio recién hecho se vea
+// al momento sin esperar a que caduque solo.
+// ============================================================
+const READ_CACHE_TTL_MS = 8000;
+const readCache = new Map(); // key -> { data, expiresAt }
+
+async function cachedRead(key, fetchFn) {
+  const hit = readCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
+  const data = await fetchFn();
+  readCache.set(key, { data, expiresAt: Date.now() + READ_CACHE_TTL_MS });
+  return data;
+}
+
+function invalidateCache(key) {
+  readCache.delete(key);
+}
+
+// ============================================================
 // Registro de reservas en una Google Sheet — hace de "base de datos"
 // ligera para poder buscar/cancelar/reprogramar citas desde la web
 // sin montar un servidor de base de datos aparte.
@@ -119,6 +145,7 @@ async function appendBooking(booking) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [objectToRow(booking)] },
   });
+  invalidateCache('bookings');
 }
 
 /**
@@ -126,11 +153,13 @@ async function appendBooking(booking) {
  * (necesario para poder actualizar la fila correcta después).
  */
 async function getAllBookings() {
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: await rangeAll() });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map((row, i) => ({ ...rowToObject(row), _sheetRow: i + 2 }));
+  return cachedRead('bookings', async () => {
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId(), range: await rangeAll() });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map((row, i) => ({ ...rowToObject(row), _sheetRow: i + 2 }));
+  });
 }
 
 async function findBookingById(bookingId) {
@@ -160,6 +189,7 @@ async function updateBookingRow(sheetRow, currentBooking, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [objectToRow(merged)] },
   });
+  invalidateCache('bookings');
 }
 
 // ============================================================
@@ -385,18 +415,21 @@ async function appendSessionBono(bono) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [sessionBonoObjectToRow(bono)] },
   });
+  invalidateCache('sessionBonos');
 }
 
 async function getAllSessionBonos() {
-  await ensureSessionBonoTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${SESSION_BONO_TAB_TITLE}'!A:${SESSION_BONO_LAST_COL}`,
+  return cachedRead('sessionBonos', async () => {
+    await ensureSessionBonoTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${SESSION_BONO_TAB_TITLE}'!A:${SESSION_BONO_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map((row, i) => ({ ...sessionBonoRowToObject(row), _sheetRow: i + 2 }));
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map((row, i) => ({ ...sessionBonoRowToObject(row), _sheetRow: i + 2 }));
 }
 
 async function findSessionBonoById(bonoId) {
@@ -421,6 +454,7 @@ async function updateSessionBonoRow(sheetRow, currentBono, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [sessionBonoObjectToRow(merged)] },
   });
+  invalidateCache('sessionBonos');
 }
 
 // ============================================================
@@ -465,15 +499,17 @@ function strikesObjectToRow(obj) {
 }
 
 async function getAllStrikeRecords() {
-  await ensureStrikesTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${STRIKES_TAB_TITLE}'!A:${STRIKES_LAST_COL}`,
+  return cachedRead('strikes', async () => {
+    await ensureStrikesTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${STRIKES_TAB_TITLE}'!A:${STRIKES_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map((row, i) => ({ ...strikesRowToObject(row), _sheetRow: i + 2 }));
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map((row, i) => ({ ...strikesRowToObject(row), _sheetRow: i + 2 }));
 }
 
 async function upsertStrikeRecord(record, existingRow) {
@@ -495,6 +531,7 @@ async function upsertStrikeRecord(record, existingRow) {
       requestBody: { values: [strikesObjectToRow(record)] },
     });
   }
+  invalidateCache('strikes');
 }
 
 // ============================================================
@@ -553,30 +590,28 @@ async function appendLoyaltyMovement(movement) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [loyaltyObjectToRow(movement)] },
   });
+  invalidateCache('loyaltyMovements');
 }
 
+// Reutiliza la misma lectura cacheada de toda la pestaña en vez de pedirla
+// aparte — antes duplicaba la llamada a Sheets solo para filtrar por teléfono.
 async function getLoyaltyMovementsForPhone(phoneNormalized) {
-  await ensureLoyaltyTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${LOYALTY_TAB_TITLE}'!A:${LOYALTY_LAST_COL}`,
-  });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map(loyaltyRowToObject).filter((m) => m.phoneNormalized === phoneNormalized);
+  const all = await getAllLoyaltyMovements();
+  return all.filter((m) => m.phoneNormalized === phoneNormalized);
 }
 
 async function getAllLoyaltyMovements() {
-  await ensureLoyaltyTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${LOYALTY_TAB_TITLE}'!A:${LOYALTY_LAST_COL}`,
+  return cachedRead('loyaltyMovements', async () => {
+    await ensureLoyaltyTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${LOYALTY_TAB_TITLE}'!A:${LOYALTY_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map((row, i) => ({ ...loyaltyRowToObject(row), _sheetRow: i + 2 }));
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map((row, i) => ({ ...loyaltyRowToObject(row), _sheetRow: i + 2 }));
 }
 
 // Solo para corregir la identidad (teléfono/email/nombre) de movimientos ya
@@ -592,6 +627,7 @@ async function updateLoyaltyMovementRow(sheetRow, currentMovement, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [loyaltyObjectToRow(merged)] },
   });
+  invalidateCache('loyaltyMovements');
 }
 
 // ============================================================
@@ -711,18 +747,21 @@ async function appendCustomQuote(quote) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [quoteObjectToRow(quote)] },
   });
+  invalidateCache('customQuotes');
 }
 
 async function getAllCustomQuotes() {
-  await ensureQuoteTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${QUOTE_TAB_TITLE}'!A:${QUOTE_LAST_COL}`,
+  return cachedRead('customQuotes', async () => {
+    await ensureQuoteTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${QUOTE_TAB_TITLE}'!A:${QUOTE_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map(quoteRowToObject);
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map(quoteRowToObject);
 }
 
 async function updateQuoteRow(sheetRow, updates) {
@@ -737,6 +776,7 @@ async function updateQuoteRow(sheetRow, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [quoteObjectToRow(merged)] },
   });
+  invalidateCache('customQuotes');
 }
 
 // ============================================================
@@ -877,18 +917,21 @@ async function appendFollowup(followup) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [followupObjectToRow(followup)] },
   });
+  invalidateCache('followups');
 }
 
 async function getAllFollowups() {
-  await ensureFollowupTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${FOLLOWUP_TAB_TITLE}'!A:${FOLLOWUP_LAST_COL}`,
+  return cachedRead('followups', async () => {
+    await ensureFollowupTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${FOLLOWUP_TAB_TITLE}'!A:${FOLLOWUP_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map(followupRowToObject);
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map(followupRowToObject);
 }
 
 async function updateFollowupRow(sheetRow, updates) {
@@ -903,6 +946,7 @@ async function updateFollowupRow(sheetRow, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [followupObjectToRow(merged)] },
   });
+  invalidateCache('followups');
 }
 
 module.exports = {
