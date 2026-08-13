@@ -1997,13 +1997,14 @@
             </select>
           </div>
         </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>
+        ${!isClosable ? '<button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>' : ''}
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status eb-status" style="display:none;"></p>
 
         ${isClosable ? `
         <div class="line-item-edit" style="margin-top:16px;">
           <div class="panel-label" style="margin-bottom:8px;">Cerrar cita — importe total real</div>
+          <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">Este botón guarda también el precio/pagado/profesional/notas de arriba a la vez — no hace falta pulsar "Guardar cambios" aparte.</p>
           <div class="panel-field-row">
             <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pf-amount" value="${b.finalAmount || b.price || b.amountPaid || ''}"></div>
             <div class="panel-field"><label>Resto pagado en centro con</label>
@@ -2033,7 +2034,7 @@
               </select>
             </div>
           </div>
-          <button type="button" class="panel-btn panel-btn-ghost panel-confirm-close">💶 Cerrar cita</button>
+          <button type="button" class="panel-btn panel-btn-primary panel-confirm-close">💶 Guardar y cerrar cita</button>
           <p class="panel-error pf-error" style="display:none;"></p>
         </div>` : ''}
       </div>
@@ -2062,37 +2063,43 @@
       });
     });
 
-    // ── Guardar cambios (precio/pagado/profesional/notas) ──
-    slot.querySelector('.panel-confirm-editbooking').addEventListener('click', async (ev) => {
-      errorEl.style.display = 'none';
-      statusEl.style.display = 'none';
-      ev.target.disabled = true;
-      try {
-        const employeeSelect = slot.querySelector('.eb-employee');
-        const priceInput = slot.querySelector('.eb-price');
-        const paidInput = slot.querySelector('.eb-paid');
-        const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
-        const notesInput = slot.querySelector('.eb-notes');
-        await panelFetch('/panel/edit-booking', {
-          method: 'POST',
-          body: JSON.stringify({
-            bookingId: b.bookingId,
-            employeeId: employeeSelect.value || undefined,
-            price: priceInput.value,
-            amountPaid: paidInput.value,
-            depositPaidHow: depositPaidHowSelect.value,
-          }),
-        });
-        if (notesInput.value !== (b.notes || '')) {
-          await panelFetch('/panel/note', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, note: notesInput.value }) });
+    // ── Guardar cambios (precio/pagado/profesional/notas) — solo existe este
+    // botón aparte cuando la cita todavía no se puede cerrar; si ya se
+    // puede, "Guardar y cerrar cita" hace las dos cosas de una vez (ver más
+    // abajo, junto a "Cerrar cita").
+    const saveBtn = slot.querySelector('.panel-confirm-editbooking');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async (ev) => {
+        errorEl.style.display = 'none';
+        statusEl.style.display = 'none';
+        ev.target.disabled = true;
+        try {
+          const employeeSelect = slot.querySelector('.eb-employee');
+          const priceInput = slot.querySelector('.eb-price');
+          const paidInput = slot.querySelector('.eb-paid');
+          const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
+          const notesInput = slot.querySelector('.eb-notes');
+          await panelFetch('/panel/edit-booking', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: b.bookingId,
+              employeeId: employeeSelect.value || undefined,
+              price: priceInput.value,
+              amountPaid: paidInput.value,
+              depositPaidHow: depositPaidHowSelect.value,
+            }),
+          });
+          if (notesInput.value !== (b.notes || '')) {
+            await panelFetch('/panel/note', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, note: notesInput.value }) });
+          }
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
         }
-        doSearch();
-      } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.style.display = 'block';
-        ev.target.disabled = false;
-      }
-    });
+      });
+    }
 
     // ── Añadir tratamiento ──
     slot.querySelector('.eb-confirm-add').addEventListener('click', async (ev) => {
@@ -2378,6 +2385,28 @@
         if (!confirm(`¿Confirmas el cierre con un total de ${totalToConfirm.toFixed(2)} €?`)) return;
         ev.target.disabled = true;
         try {
+          // Un solo botón guarda precio/pagado/profesional/notas Y cierra la
+          // cita, en vez de obligar a pulsar "Guardar cambios" aparte antes
+          // (eso recargaba la búsqueda entera y volvía a cerrar este panel,
+          // así que había que reabrirlo para poder cerrar la cita después).
+          const employeeSelect = slot.querySelector('.eb-employee');
+          const priceInput = slot.querySelector('.eb-price');
+          const paidInput = slot.querySelector('.eb-paid');
+          const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
+          const notesInput = slot.querySelector('.eb-notes');
+          await panelFetch('/panel/edit-booking', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: b.bookingId,
+              employeeId: employeeSelect.value || undefined,
+              price: priceInput.value,
+              amountPaid: paidInput.value,
+              depositPaidHow: depositPaidHowSelect.value,
+            }),
+          });
+          if (notesInput.value !== (b.notes || '')) {
+            await panelFetch('/panel/note', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, note: notesInput.value }) });
+          }
           await panelFetch('/panel/close', {
             method: 'POST',
             body: JSON.stringify({
