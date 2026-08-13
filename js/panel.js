@@ -1112,7 +1112,19 @@
   // separado. Se marca con checks qué tratamientos van en esta visita — el
   // que se deje sin marcar (p.ej. un bono a punto de acabar que aún no se
   // sabe si se va a renovar) no se toca para nada.
-  function renderCombinedBookingForm(slot, client) {
+  async function renderCombinedBookingForm(slot, client) {
+    slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>`;
+    const allServices = await loadImportServicesOnce();
+    // bono.serviceId puede estar vacío o ya no corresponder a ningún
+    // tratamiento real en algún bono antiguo — si pasa, se localiza por su
+    // nombre (bono.serviceName) en vez de dejar la reserva bloqueada por un
+    // dato que la clienta no puede arreglar (mismo caso que en "Agendar
+    // siguiente sesión" de un solo bono).
+    function resolveServiceId(bo) {
+      if (allServices.find((s) => s.id === bo.serviceId)) return bo.serviceId;
+      return (allServices.find((s) => s.name === bo.serviceName) || {}).id || '';
+    }
+
     const activeBonos = client.bonos.filter((bo) => bo.sessionsRemaining > 0);
     const picksHtml = activeBonos.map((bo) => `
       <label class="cb-pick" data-bono-id="${bo.bonoId}" style="display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:4px;padding:12px 14px;margin-bottom:8px;background:#fff;cursor:pointer;">
@@ -1165,7 +1177,7 @@
         durationEl.style.display = 'none';
         return;
       }
-      const serviceIds = selected.map((bo) => bo.serviceId).filter(Boolean);
+      const serviceIds = selected.map(resolveServiceId).filter(Boolean);
       const primary = serviceIds[0];
       const rest = serviceIds.slice(1);
       const extra = extraMinutesInput.value || 0;
@@ -1176,7 +1188,6 @@
         timeSelect.innerHTML = slots.length
           ? slots.map((t) => `<option value="${t}">${t}</option>`).join('')
           : '<option value="">Sin huecos ese día</option>';
-        const allServices = await loadImportServicesOnce();
         const totalDur = serviceIds.reduce((sum, id) => sum + ((allServices.find((s) => s.id === id) || {}).durationMinutes || 0), 0) + Number(extra);
         durationEl.textContent = `Duración total del hueco: ${totalDur} min`;
         durationEl.style.display = 'block';
@@ -1202,7 +1213,7 @@
       }
       confirmBtn.disabled = false;
       confirmBtn.textContent = `Confirmar cita combinada (${selected.length} tratamiento${selected.length > 1 ? 's' : ''})`;
-      const serviceIds = selected.map((bo) => bo.serviceId).filter(Boolean);
+      const serviceIds = selected.map(resolveServiceId).filter(Boolean);
       employeeSelect.innerHTML = '<option value="">Cargando…</option>';
       const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceIds.join(','))}`);
       const data = await res.json();
@@ -1833,8 +1844,15 @@
           <div class="panel-field-row">
             <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="li-bono-price"></div>
           </div>
-          <div class="panel-label" style="margin-top:4px;">¿Cómo pagó lo que ya lleva pagado?</div>
-          <div class="panel-field-row">
+          <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;">
+            <input type="checkbox" class="li-bono-fully-paid" checked> Ya está pagado del todo
+          </label>
+          <div class="panel-field-row li-bono-fullpaid-row">
+            <div class="panel-field"><label>Pagado con</label>
+              <select class="li-bono-paidhow"><option value="efectivo">Efectivo</option><option value="bizum">Bizum</option><option value="tarjeta">Tarjeta</option></select>
+            </div>
+          </div>
+          <div class="panel-field-row li-bono-partial-row" style="display:none;">
             <div class="panel-field"><label>Efectivo (€)</label><input type="number" step="0.01" min="0" class="li-bono-paid-cash" value="0"></div>
             <div class="panel-field"><label>Bizum (€)</label><input type="number" step="0.01" min="0" class="li-bono-paid-bizum" value="0"></div>
             <div class="panel-field"><label>Tarjeta (€)</label><input type="number" step="0.01" min="0" class="li-bono-paid-card" value="0"></div>
@@ -2191,10 +2209,20 @@
         bonoToggle.addEventListener('click', () => {
           bonoBox.style.display = bonoBox.style.display === 'none' ? 'block' : 'none';
         });
+
+        const fullyPaidCheck = bonoBox.querySelector('.li-bono-fully-paid');
+        const fullPaidRow = bonoBox.querySelector('.li-bono-fullpaid-row');
+        const partialRow = bonoBox.querySelector('.li-bono-partial-row');
+        fullyPaidCheck.addEventListener('change', () => {
+          fullPaidRow.style.display = fullyPaidCheck.checked ? 'flex' : 'none';
+          partialRow.style.display = fullyPaidCheck.checked ? 'none' : 'flex';
+        });
+
         bonoBox.querySelector('.li-bono-save-btn').addEventListener('click', async (ev) => {
           const totalInput = bonoBox.querySelector('.li-bono-total');
           const sessionInput = bonoBox.querySelector('.li-bono-session');
           const bonoPriceInput = bonoBox.querySelector('.li-bono-price');
+          const paidHowSelect = bonoBox.querySelector('.li-bono-paidhow');
           const cashInput = bonoBox.querySelector('.li-bono-paid-cash');
           const bizumInput = bonoBox.querySelector('.li-bono-paid-bizum');
           const cardInput = bonoBox.querySelector('.li-bono-paid-card');
@@ -2203,10 +2231,25 @@
             errorEl.style.display = 'block';
             return;
           }
-          const cash = Number(cashInput.value) || 0;
-          const bizum = Number(bizumInput.value) || 0;
-          const card = Number(cardInput.value) || 0;
-          if (!confirm(`¿Convertir "${name}" en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${(cash + bizum + card).toFixed(2)} €.`)) return;
+          // "Ya está pagado del todo" pone el precio entero en la forma de
+          // pago elegida — para el caso normal, sin tener que repartir a
+          // mano entre efectivo/bizum/tarjeta. Solo hace falta desmarcarlo
+          // si de verdad queda algo pendiente de cobrar del bono.
+          let cash = 0; let bizum = 0; let card = 0;
+          if (fullyPaidCheck.checked) {
+            const fullAmount = Number(bonoPriceInput.value) || 0;
+            if (paidHowSelect.value === 'efectivo') cash = fullAmount;
+            else if (paidHowSelect.value === 'bizum') bizum = fullAmount;
+            else card = fullAmount;
+          } else {
+            cash = Number(cashInput.value) || 0;
+            bizum = Number(bizumInput.value) || 0;
+            card = Number(cardInput.value) || 0;
+          }
+          const confirmMsg = fullyPaidCheck.checked
+            ? `¿Convertir "${name}" en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo, pagado del todo (${(cash + bizum + card).toFixed(2)} €, ${paidHowSelect.value})?`
+            : `¿Convertir "${name}" en la sesión ${sessionInput.value}/${totalInput.value} de un bono nuevo? Pagado hasta ahora: ${(cash + bizum + card).toFixed(2)} €.`;
+          if (!confirm(confirmMsg)) return;
           errorEl.style.display = 'none';
           ev.target.disabled = true;
           try {

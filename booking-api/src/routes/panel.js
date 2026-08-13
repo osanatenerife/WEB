@@ -2306,7 +2306,12 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
       if (!bonos.every((b) => normalizePhone(b.clientPhone) === phoneN)) {
         return res.status(400).json({ error: 'Los bonos elegidos no son de la misma clienta.' });
       }
-      const bonoServices = bonos.map((b) => services.find((s) => s.id === b.serviceId));
+      // bono.serviceId puede estar vacío o ya no corresponder a ningún
+      // tratamiento real en algún bono antiguo — si pasa, se localiza por
+      // su nombre (bono.serviceName) en vez de bloquear la reserva por un
+      // dato que la clienta no puede arreglar (mismo caso que en
+      // /panel/book-session).
+      const bonoServices = bonos.map((b) => services.find((s) => s.id === b.serviceId) || services.find((s) => s.name === b.serviceName));
       const missingIdx = bonoServices.findIndex((s) => !s);
       if (missingIdx !== -1) {
         return res.status(404).json({ error: `El tratamiento del bono de ${bonos[missingIdx].serviceName} ya no existe en el catálogo.` });
