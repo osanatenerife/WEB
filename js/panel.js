@@ -372,248 +372,9 @@
     return allEmployeesCache;
   }
 
-  // Extraída a función aparte (en vez de vivir solo dentro del click del
-  // botón de arriba) para poder reutilizarla también desde la ficha de una
-  // clienta ya encontrada, con su nombre/teléfono/email ya rellenos — antes
-  // había que volver a escribirlos cada vez, aunque la clienta ya estuviera
-  // delante en el buscador.
-  async function renderImportForm(slot, prefill) {
-    slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando tratamientos…</p></div>`;
-    const allServices = await loadImportServicesOnce();
-    const byCategory = {};
-    allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
-    const serviceOptions = Object.keys(byCategory).map((cat) => `
-      <optgroup label="${cat}">
-        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
-      </optgroup>
-    `).join('');
-
-    slot.innerHTML = `
-      <div class="panel-new-appt">
-        <div class="panel-label">Añadir reserva manual</div>
-        <p class="panel-status pi-mode-hint" style="margin-bottom:10px;">Si ya existe un evento en el calendario de Google cerca de esa hora, se enlaza con él. Si no existe (p.ej. la clienta lo pide en el momento, en el centro), se crea uno nuevo — solo comprueba que la profesional tenga hueco libre.</p>
-        <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;">
-          <input type="checkbox" class="pi-accounting-only"> Cita ya pasada, solo para contabilidad (no comprueba hueco, no toca el calendario, no hace falta la hora ni identificar a la clienta)
-        </label>
-        <div class="panel-field-row">
-          <div class="panel-field"><label class="pi-name-label">Nombre de la clienta</label><input type="text" class="pi-name" value="${prefill && prefill.name ? escapeHtml(prefill.name) : ''}"></div>
-          <div class="panel-field"><label class="pi-phone-label">Teléfono</label><input type="text" class="pi-phone" value="${prefill && prefill.phone ? escapeHtml(prefill.phone) : ''}"></div>
-          <div class="panel-field"><label class="pi-email-label">Email</label><input type="email" class="pi-email" value="${prefill && prefill.email ? escapeHtml(prefill.email) : ''}"></div>
-        </div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Tratamiento</label>
-            <select class="pi-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select>
-          </div>
-          <div class="panel-field"><label class="pi-employee-label">Profesional</label><select class="pi-employee"><option value="">Elige un tratamiento primero…</option></select></div>
-        </div>
-        <div class="pi-extra-services"></div>
-        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pi-add-extra" style="margin-bottom:10px;">+ Añadir otro tratamiento a la misma cita</button>
-        <div class="panel-field-row">
-          <div class="panel-field"><label class="pi-date-label">Fecha</label><input type="date" class="pi-date"></div>
-          <div class="panel-field pi-time-field"><label>Hora</label><input type="time" class="pi-time"></div>
-          <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="pi-birthdate"></div>
-        </div>
-        <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;">
-          <input type="checkbox" class="pi-is-bono"> Es una sesión de un bono ya vendido (varias sesiones)
-        </label>
-        <div class="panel-field-row pi-bono-fields" style="display:none;">
-          <div class="panel-field"><label>Nº de esta sesión</label><input type="number" min="1" step="1" class="pi-session-number" placeholder="Ej. 2"></div>
-          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="pi-total-sessions" placeholder="Ej. 3"></div>
-          <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="pi-bono-price"></div>
-          <div class="panel-field"><label>Ya pagado del bono (€)</label><input type="number" step="0.01" class="pi-bono-paid"></div>
-        </div>
-        <div class="panel-field-row pi-normal-fields">
-          <div class="panel-field"><label class="pi-price-label">Precio (€)</label><input type="number" step="0.01" class="pi-price"></div>
-          <div class="panel-field"><label class="pi-paid-label">Ya pagado (€)</label><input type="number" step="0.01" class="pi-paid" value="0"></div>
-          <div class="panel-field"><label>Pagado con</label>
-            <select class="pi-paidhow"><option value="tarjeta">Tarjeta</option><option value="efectivo">Efectivo</option><option value="bizum">Bizum</option></select>
-          </div>
-        </div>
-        <div class="panel-field-row">
-          <div class="panel-field" style="flex:1;"><label>Notas (opcional)</label><input type="text" class="pi-notes"></div>
-        </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-import">Dar de alta</button>
-        <p class="panel-error" style="display:none;"></p>
-        <p class="panel-status pi-result" style="display:none;"></p>
-      </div>
-    `;
-    const nameInput = slot.querySelector('.pi-name');
-    const phoneInput = slot.querySelector('.pi-phone');
-    const emailInput = slot.querySelector('.pi-email');
-    const serviceSelect = slot.querySelector('.pi-service');
-    const employeeSelect = slot.querySelector('.pi-employee');
-    const dateInput = slot.querySelector('.pi-date');
-    const timeInput = slot.querySelector('.pi-time');
-    const timeField = slot.querySelector('.pi-time-field');
-    const birthdateInput = slot.querySelector('.pi-birthdate');
-    const accountingOnlyCheck = slot.querySelector('.pi-accounting-only');
-    const modeHint = slot.querySelector('.pi-mode-hint');
-    const nameLabel = slot.querySelector('.pi-name-label');
-    const phoneLabel = slot.querySelector('.pi-phone-label');
-    const emailLabel = slot.querySelector('.pi-email-label');
-    const employeeLabel = slot.querySelector('.pi-employee-label');
-    const isBonoCheck = slot.querySelector('.pi-is-bono');
-    const bonoFieldsRow = slot.querySelector('.pi-bono-fields');
-    const normalFieldsRow = slot.querySelector('.pi-normal-fields');
-    const sessionNumberInput = slot.querySelector('.pi-session-number');
-    const totalSessionsInput = slot.querySelector('.pi-total-sessions');
-    const bonoPriceInput = slot.querySelector('.pi-bono-price');
-    const bonoPaidInput = slot.querySelector('.pi-bono-paid');
-    const priceInput = slot.querySelector('.pi-price');
-    const paidInput = slot.querySelector('.pi-paid');
-    const notesInput = slot.querySelector('.pi-notes');
-    const paidHowSelect = slot.querySelector('.pi-paidhow');
-    const errorEl = slot.querySelector('.panel-error');
-    const resultEl = slot.querySelector('.pi-result');
-    const extraServicesContainer = slot.querySelector('.pi-extra-services');
-    const addExtraBtn = slot.querySelector('.pi-add-extra');
-    const priceLabel = slot.querySelector('.pi-price-label');
-    const paidLabel = slot.querySelector('.pi-paid-label');
-
-    // Varios tratamientos en la misma cita manual (p.ej. uno ya pagado y
-    // otro pendiente): cada fila extra es un tratamiento más que se suma
-    // al principal — el precio sugerido se recalcula con la suma de todos,
-    // pero sigue siendo editable a mano. Funciona también con una sesión de
-    // bono: en ese caso el precio del bono en sí va aparte (en sus propios
-    // campos), y "Precio"/"Ya pagado" pasan a referirse solo a los
-    // tratamientos añadidos junto a esa sesión.
-    function extraServiceSelects() {
-      return Array.from(extraServicesContainer.querySelectorAll('.pi-extra-service'));
-    }
-    function recomputeSuggestedPrice() {
-      let sum = 0;
-      if (!isBonoCheck.checked) {
-        const primary = allServices.find((s) => s.id === serviceSelect.value);
-        if (primary) sum += Number(primary.price);
-      }
-      extraServiceSelects().forEach((sel) => {
-        const svc = allServices.find((s) => s.id === sel.value);
-        if (svc) sum += Number(svc.price);
-      });
-      priceInput.value = sum || '';
-    }
-    function addExtraServiceRow() {
-      const row = document.createElement('div');
-      row.className = 'panel-field-row pi-extra-service-row';
-      row.innerHTML = `
-        <div class="panel-field" style="flex:1;"><label>Tratamiento añadido</label>
-          <select class="pi-extra-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select>
-        </div>
-        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pi-remove-extra" style="align-self:flex-end;margin-bottom:2px;">Quitar</button>
-      `;
-      row.querySelector('.pi-extra-service').addEventListener('change', recomputeSuggestedPrice);
-      row.querySelector('.pi-remove-extra').addEventListener('click', () => {
-        row.remove();
-        recomputeSuggestedPrice();
-      });
-      extraServicesContainer.appendChild(row);
-    }
-    addExtraBtn.addEventListener('click', addExtraServiceRow);
-
-    isBonoCheck.addEventListener('change', () => {
-      bonoFieldsRow.style.display = isBonoCheck.checked ? 'flex' : 'none';
-      priceLabel.textContent = isBonoCheck.checked ? 'Precio de lo añadido a la sesión (€)' : 'Precio (€)';
-      paidLabel.textContent = isBonoCheck.checked ? 'Ya pagado de lo añadido (€)' : 'Ya pagado (€)';
-      recomputeSuggestedPrice();
-    });
-
-    accountingOnlyCheck.addEventListener('change', () => {
-      const on = accountingOnlyCheck.checked;
-      timeField.style.display = on ? 'none' : 'block';
-      nameLabel.textContent = on ? 'Nombre de la clienta (opcional)' : 'Nombre de la clienta';
-      phoneLabel.textContent = on ? 'Teléfono (opcional)' : 'Teléfono';
-      emailLabel.textContent = on ? 'Email (opcional)' : 'Email';
-      employeeLabel.textContent = on ? 'Profesional (opcional)' : 'Profesional';
-      modeHint.textContent = on
-        ? 'Se registra solo para que cuente en la facturación — no crea ni busca ningún evento en el calendario de Google, y no hace falta identificar a la clienta si no interesa.'
-        : 'Si ya existe un evento en el calendario de Google cerca de esa hora, se enlaza con él. Si no existe (p.ej. la clienta lo pide en el momento, en el centro), se crea uno nuevo — solo comprueba que la profesional tenga hueco libre.';
-    });
-
-    serviceSelect.addEventListener('change', async () => {
-      const svc = allServices.find((s) => s.id === serviceSelect.value);
-      recomputeSuggestedPrice();
-      if (svc && !bonoPriceInput.value) bonoPriceInput.placeholder = totalSessionsInput.value ? (svc.price * Number(totalSessionsInput.value)).toFixed(2) : '';
-      employeeSelect.innerHTML = '<option value="">Cargando…</option>';
-      if (!serviceSelect.value) {
-        employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
-        return;
-      }
-      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceSelect.value)}`);
-      const data = await res.json();
-      employeeSelect.innerHTML = '<option value="">Elige una profesional…</option>'
-        + (data.employees || []).map((e) => `<option value="${e.id}">${e.name}</option>`).join('');
-    });
-
-    slot.querySelector('.panel-confirm-import').addEventListener('click', async (ev) => {
-      errorEl.style.display = 'none';
-      resultEl.style.display = 'none';
-      const accountingOnly = accountingOnlyCheck.checked;
-      if (accountingOnly) {
-        if (!serviceSelect.value || !dateInput.value) {
-          errorEl.textContent = 'Indica al menos el tratamiento y la fecha en la que se hizo.';
-          errorEl.style.display = 'block';
-          return;
-        }
-      } else if (!nameInput.value.trim() || !phoneInput.value.trim() || !emailInput.value.trim()
-        || !serviceSelect.value || !employeeSelect.value || !dateInput.value || !timeInput.value) {
-        errorEl.textContent = 'Completa nombre, teléfono, email, tratamiento, profesional, fecha y hora.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      if (isBonoCheck.checked && (!sessionNumberInput.value || !totalSessionsInput.value)) {
-        errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      ev.target.disabled = true;
-      try {
-        const data = await panelFetch('/panel/import-legacy-booking', {
-          method: 'POST',
-          body: JSON.stringify({
-            name: nameInput.value.trim(), phone: phoneInput.value.trim(), email: emailInput.value.trim(),
-            birthdate: birthdateInput.value || '', serviceId: serviceSelect.value, employeeId: employeeSelect.value,
-            date: dateInput.value, time: accountingOnly ? undefined : timeInput.value,
-            price: priceInput.value, amountPaid: paidInput.value, notes: notesInput.value.trim(),
-            paidHow: paidHowSelect.value,
-            accountingOnly,
-            isBono: isBonoCheck.checked,
-            sessionNumber: sessionNumberInput.value, totalSessions: totalSessionsInput.value,
-            bonoTotalPrice: bonoPriceInput.value, bonoAmountPaid: bonoPaidInput.value,
-            extraServiceIds: extraServiceSelects().map((s) => s.value).filter(Boolean),
-          }),
-        });
-        resultEl.textContent = isBonoCheck.checked
-          ? `Reserva y bono dados de alta ✓ (id: ${data.bookingId}). El bono ya aparece en la ficha de la clienta en el panel.`
-          : `Reserva dada de alta ✓ (id: ${data.bookingId}). La clienta ya puede verla en "Mis Reservas" con su teléfono y email.`;
-        resultEl.style.display = 'block';
-        // Si venía con nombre/teléfono/email ya rellenos (desde la ficha de
-        // una clienta), se dejan puestos — para poder dar de alta varias
-        // citas seguidas de la misma clienta sin volver a escribirlos.
-        const fieldsToClear = prefill ? [dateInput, timeInput, birthdateInput, priceInput, notesInput,
-          sessionNumberInput, totalSessionsInput, bonoPriceInput, bonoPaidInput]
-          : [nameInput, phoneInput, emailInput, dateInput, timeInput, birthdateInput, priceInput, notesInput,
-            sessionNumberInput, totalSessionsInput, bonoPriceInput, bonoPaidInput];
-        fieldsToClear.forEach((i) => { i.value = ''; });
-        paidInput.value = '0';
-        serviceSelect.value = '';
-        employeeSelect.innerHTML = '<option value="">Elige un tratamiento primero…</option>';
-        extraServicesContainer.innerHTML = '';
-        isBonoCheck.checked = false;
-        bonoFieldsRow.style.display = 'none';
-        normalFieldsRow.style.display = 'flex';
-        priceLabel.textContent = 'Precio (€)';
-        paidLabel.textContent = 'Ya pagado (€)';
-      } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.style.display = 'block';
-      }
-      ev.target.disabled = false;
-    });
-  }
-
   els.importToggle.addEventListener('click', () => {
     if (els.importSlot.innerHTML) { els.importSlot.innerHTML = ''; return; }
-    renderImportForm(els.importSlot);
+    renderVisitBuilder(els.importSlot, null);
   });
 
   function fmtDateParts(dateStr) {
@@ -1222,7 +983,12 @@
       return (allServices.find((s) => s.name === bo.serviceName) || {}).id || '';
     }
 
-    const activeBonos = client.bonos.filter((bo) => bo.sessionsRemaining > 0);
+    // client === null significa "clienta nueva, todavía sin ficha" — mismo
+    // formulario, pero sin bonos que marcar y con nombre/teléfono/email a
+    // rellenar a mano (antes esto vivía en un formulario aparte,
+    // "Añadir reserva manual", con su propio flujo independiente).
+    const isNewClient = !client;
+    const activeBonos = isNewClient ? [] : client.bonos.filter((bo) => bo.sessionsRemaining > 0);
     const vbState = {
       selectedBonoIds: [],
       added: [], // { localId, serviceId, isBono, bonoSessions, bonoPrice, bonoPriceTouched }
@@ -1302,8 +1068,17 @@
 
       slot.innerHTML = `
         <div class="panel-new-appt">
-          <div class="panel-label">+ Nueva visita — ${escapeHtml(client.name) || 'esta clienta'}</div>
-          <p class="panel-status" style="margin-bottom:10px;">Marca los bonos activos y/o añade tratamientos del catálogo — se agendan juntos, en un solo hueco.</p>
+          <div class="panel-label">${isNewClient ? '+ Nueva reserva — clienta nueva' : `+ Nueva visita — ${escapeHtml(client.name) || 'esta clienta'}`}</div>
+          <p class="panel-status" style="margin-bottom:10px;">${isNewClient ? 'Rellena sus datos y añade lo que se lleva hoy del catálogo.' : 'Marca los bonos activos y/o añade tratamientos del catálogo — se agendan juntos, en un solo hueco.'}</p>
+          ${isNewClient ? `
+          <div class="panel-field-row">
+            <div class="panel-field"><label class="vb-name-label">Nombre de la clienta</label><input type="text" class="vb-nc-name"></div>
+            <div class="panel-field"><label class="vb-phone-label">Teléfono</label><input type="text" class="vb-nc-phone"></div>
+            <div class="panel-field"><label class="vb-email-label">Email</label><input type="email" class="vb-nc-email"></div>
+          </div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="vb-nc-birthdate"></div>
+          </div>` : ''}
           ${activeBonos.length ? `<div class="vb-picks">${picksHtml()}</div>` : ''}
           ${vbState.added.length ? vbState.added.map((t, i) => addedRowHtml(t, i)).join('') : ''}
           <div class="panel-field-row" style="margin-top:4px;">
@@ -1455,6 +1230,21 @@
             errorEl.style.display = 'block';
             return;
           }
+          let ncName = '';
+          let ncPhone = '';
+          let ncEmail = '';
+          let ncBirthdate = '';
+          if (isNewClient) {
+            ncName = slot.querySelector('.vb-nc-name').value.trim();
+            ncPhone = slot.querySelector('.vb-nc-phone').value.trim();
+            ncEmail = slot.querySelector('.vb-nc-email').value.trim();
+            ncBirthdate = slot.querySelector('.vb-nc-birthdate').value;
+            if (!isPast && (!ncName || !ncPhone || !ncEmail)) {
+              errorEl.textContent = 'Indica nombre, teléfono y email de la clienta (o marca "Ya pasó" si no hace falta identificarla).';
+              errorEl.style.display = 'block';
+              return;
+            }
+          }
           ev.target.disabled = true;
           try {
             if (m === 'single-bono') {
@@ -1488,7 +1278,10 @@
               await panelFetch('/panel/import-legacy-booking', {
                 method: 'POST',
                 body: JSON.stringify({
-                  name: client.name, phone: client.phone, email: client.email,
+                  name: isNewClient ? ncName : client.name,
+                  phone: isNewClient ? ncPhone : client.phone,
+                  email: isNewClient ? ncEmail : client.email,
+                  birthdate: isNewClient ? ncBirthdate : undefined,
                   serviceId: primary.serviceId, employeeId: employeeSelect.value,
                   date: dateInput.value, time: isPast ? undefined : timeVal,
                   price: primary.isBono ? '' : priceInput.value,
@@ -1502,8 +1295,10 @@
                 }),
               });
             }
-            slot.innerHTML = '<p class="panel-status">Visita agendada ✓</p>';
-            doSearch();
+            slot.innerHTML = isNewClient
+              ? `<p class="panel-status">Reserva dada de alta ✓ — búscala por teléfono (${escapeHtml(ncPhone)}) para verla.</p>`
+              : '<p class="panel-status">Visita agendada ✓</p>';
+            if (!isNewClient) doSearch();
             refreshAgendaBadge();
           } catch (e) {
             errorEl.textContent = e.message;
