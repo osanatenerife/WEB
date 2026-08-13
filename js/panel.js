@@ -1311,16 +1311,28 @@
       <div class="panel-new-appt">
         <div class="panel-label">Corregir "${escapeHtml(bono.serviceName)}"</div>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="eb-total-sessions" value="${bono.totalSessions}"></div>
           <div class="panel-field"><label>Sesiones ya usadas de verdad</label><input type="number" min="0" step="1" class="eb-used-sessions" value="${bono.sessionsUsed}"></div>
+          <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="eb-total-sessions" value="${bono.totalSessions}"></div>
         </div>
+        <p class="panel-status eb-preview" style="margin:0 0 10px;"></p>
         <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-confirm-editbono">Guardar corrección</button>
         <p class="panel-error" style="display:none;"></p>
       </div>
     `;
     const totalInput = slot.querySelector('.eb-total-sessions');
     const usedInput = slot.querySelector('.eb-used-sessions');
+    const previewEl = slot.querySelector('.eb-preview');
     const errorEl = slot.querySelector('.panel-error');
+    // Vista previa en vivo — para pillar antes de guardar si los dos números
+    // se han puesto al revés (usadas/total, no total/usadas).
+    function updatePreview() {
+      const used = Number(usedInput.value) || 0;
+      const total = Number(totalInput.value) || 0;
+      previewEl.textContent = total > 0 ? `Quedará como: ${Math.min(used, total)} de ${total} usadas` : '';
+    }
+    usedInput.addEventListener('input', updatePreview);
+    totalInput.addEventListener('input', updatePreview);
+    updatePreview();
     slot.querySelector('.panel-confirm-editbono').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       ev.target.disabled = true;
