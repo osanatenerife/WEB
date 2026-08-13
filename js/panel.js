@@ -213,6 +213,17 @@
           ? `<p class="panel-status" style="margin:10px 0;"><b>Totales del rango:</b> ${totalsEntries.map(([k, v]) => `${k}: <b>${v.toFixed(2)} €</b>`).join(' · ')}</p>`
           : '<p class="panel-status">No hay cobros registrados en ese rango.</p>';
 
+        // Cuántas líneas tienen la forma de pago sin asignar — antes había
+        // que leer toda la lista de citas y extras una por una para
+        // encontrarlas; ahora se ve de un vistazo arriba del todo.
+        const unassignedCount = (data.closedBookings || []).reduce((n, b) => {
+          const part1 = b.remainder - b.remainderAmount2;
+          return n + (part1 > 0 && !b.remainderPaidHow ? 1 : 0) + (b.remainderAmount2 > 0 && !b.remainderPaidHow2 ? 1 : 0);
+        }, 0) + (data.extraLines || []).filter((e) => !e.paidHow).length;
+        const unassignedHtml = unassignedCount > 0
+          ? `<p class="panel-error" style="display:block;margin:0 0 10px;">⚠️ ${unassignedCount} cobro${unassignedCount === 1 ? '' : 's'} sin forma de pago asignada en este rango — búscalos abajo (⚠️ sin asignar) y complétalos antes de cuadrar caja.</p>`
+          : '';
+
         const bookingsHtml = (data.closedBookings || []).map((b) => {
           const part1 = b.remainder - b.remainderAmount2;
           const parts = [];
@@ -240,6 +251,7 @@
           </div>`).join('') || '<p class="panel-status">Sin extras en este rango.</p>';
 
         resultEl.innerHTML = `
+          ${unassignedHtml}
           ${totalsHtml}
           <div class="panel-section-label">Citas cerradas</div>
           ${bookingsHtml}
