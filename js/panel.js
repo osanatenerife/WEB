@@ -1134,8 +1134,7 @@
         </div>
         <div class="panel-client-loyalty">
           <span class="panel-pill">💶 Saldo: ${balance.toFixed(2)} €</span>
-          <button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-newbooking-toggle">📅 Nueva reserva</button>
-          ${client.bonos.some((bo) => bo.sessionsRemaining > 0) ? '<button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-combined-toggle">📅 Agendar próxima sesión</button>' : ''}
+          <button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-visitbuilder-toggle">+ Nueva visita</button>
         </div>
         <div class="panel-client-minilinks">
           ${balance > 0 ? '<button type="button" class="panel-link-btn panel-redeem-toggle">Canjear saldo</button>' : ''}
@@ -1147,8 +1146,7 @@
         <div class="panel-addloyalty-slot"></div>
         <div class="panel-followup-slot"></div>
         <div class="panel-editclient-slot"></div>
-        <div class="panel-newbooking-slot"></div>
-        <div class="panel-combined-slot"></div>
+        <div class="panel-visitbuilder-slot"></div>
         ${unclosedHtml}
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
@@ -1168,20 +1166,11 @@
 
     wrap.querySelector('.panel-editclient-toggle').addEventListener('click', () => toggleEditClient(wrap, client));
 
-    wrap.querySelector('.panel-newbooking-toggle').addEventListener('click', () => {
-      const nbSlot = wrap.querySelector('.panel-newbooking-slot');
-      if (nbSlot.innerHTML) { nbSlot.innerHTML = ''; return; }
-      renderImportForm(nbSlot, { name: client.name, phone: client.phone, email: client.email });
+    wrap.querySelector('.panel-visitbuilder-toggle').addEventListener('click', () => {
+      const vbSlot = wrap.querySelector('.panel-visitbuilder-slot');
+      if (vbSlot.innerHTML) { vbSlot.innerHTML = ''; return; }
+      renderVisitBuilder(vbSlot, client);
     });
-
-    const combinedBtn = wrap.querySelector('.panel-combined-toggle');
-    if (combinedBtn) {
-      combinedBtn.addEventListener('click', () => {
-        const cbSlot = wrap.querySelector('.panel-combined-slot');
-        if (cbSlot.innerHTML) { cbSlot.innerHTML = ''; return; }
-        renderCombinedBookingForm(cbSlot, client);
-      });
-    }
 
     const bonosContainer = wrap.querySelector('.panel-bonos');
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
@@ -1205,158 +1194,327 @@
     els.results.appendChild(wrap);
   }
 
-  // Agenda de golpe la siguiente sesión de varios bonos activos de la misma
-  // clienta en un solo hueco de calendario (p.ej. pierna + axila + íntimo a
-  // la vez), en vez de tener que abrir/agendar/guardar/cerrar cada bono por
-  // separado. Se marca con checks qué tratamientos van en esta visita — el
-  // que se deje sin marcar (p.ej. un bono a punto de acabar que aún no se
-  // sabe si se va a renovar) no se toca para nada.
-  async function renderCombinedBookingForm(slot, client) {
+  // ── "+ Nueva visita": pantalla única que reemplaza los antiguos botones
+  // separados "Nueva reserva" y "Agendar próxima sesión" — se marcan los
+  // bonos activos y/o se añaden tratamientos del catálogo, y se agenda
+  // todo junto. Reutiliza los mismos endpoints de siempre (book-session,
+  // book-combined-sessions, import-legacy-booking) — no se ha inventado
+  // ningún mecanismo de reserva nuevo, solo se junta la pantalla.
+  //
+  // Límite real conocido: agendar un bono YA EXISTENTE junto con un
+  // tratamiento NUEVO del catálogo, en el mismo hueco, no está soportado
+  // hoy por ningún endpoint (ninguno crea un evento de calendario
+  // compartido entre los dos casos a la vez) — si se marcan los dos a la
+  // vez, se avisa en vez de fingir que funciona.
+  async function renderVisitBuilder(slot, client) {
     slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>`;
     const allServices = await loadImportServicesOnce();
-    // bono.serviceId puede estar vacío o ya no corresponder a ningún
-    // tratamiento real en algún bono antiguo — si pasa, se localiza por su
-    // nombre (bono.serviceName) en vez de dejar la reserva bloqueada por un
-    // dato que la clienta no puede arreglar (mismo caso que en "Agendar
-    // siguiente sesión" de un solo bono).
+    const byCategory = {};
+    allServices.forEach((s) => { (byCategory[s.category] = byCategory[s.category] || []).push(s); });
+    const catalogOptionsHtml = Object.keys(byCategory).map((cat) => `
+      <optgroup label="${cat}">
+        ${byCategory[cat].map((s) => `<option value="${s.id}">${s.name} — ${s.price} €</option>`).join('')}
+      </optgroup>
+    `).join('');
+
     function resolveServiceId(bo) {
       if (allServices.find((s) => s.id === bo.serviceId)) return bo.serviceId;
       return (allServices.find((s) => s.name === bo.serviceName) || {}).id || '';
     }
 
     const activeBonos = client.bonos.filter((bo) => bo.sessionsRemaining > 0);
-    const picksHtml = activeBonos.map((bo) => `
-      <label class="cb-pick" data-bono-id="${bo.bonoId}" style="display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:4px;padding:12px 14px;margin-bottom:8px;background:#fff;cursor:pointer;">
-        <input type="checkbox" class="cb-pick-check" value="${bo.bonoId}">
-        <div style="flex:1;">
-          <div style="font-weight:600;font-size:14px;">${escapeHtml(bo.serviceName)}</div>
-          <div style="font-size:12px;color:var(--ink-soft);">Sesión ${(Number(bo.sessionsUsed) || 0) + 1} de ${bo.totalSessions}</div>
-        </div>
-      </label>
-    `).join('');
+    const vbState = {
+      selectedBonoIds: [],
+      added: [], // { localId, serviceId, isBono, bonoSessions, bonoPrice, bonoPriceTouched }
+      whenMode: 'new',
+      editingIdx: null,
+    };
+    let nextLocalId = 1;
 
-    slot.innerHTML = `
-      <div class="panel-new-appt">
-        <div class="panel-label">Agendar próxima sesión — ${escapeHtml(client.name) || 'esta clienta'}</div>
-        <p class="panel-status" style="margin-bottom:10px;">Marca los tratamientos que va a hacerse en esta misma visita — se agendan juntos, en un solo hueco de calendario.</p>
-        <div class="cb-picks">${picksHtml}</div>
-        <p class="panel-status cb-duration" style="display:none;"></p>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Profesional</label><select class="cb-employee"><option value="">Marca algún tratamiento primero…</option></select></div>
-          <div class="panel-field"><label>Fecha</label><input type="date" class="cb-date"></div>
-          <div class="panel-field"><label>Hora</label><select class="cb-time"><option value="">Elige fecha y profesional primero…</option></select></div>
-        </div>
-        <div class="panel-field-row">
-          <div class="panel-field"><label>Minutos extra (opcional)</label><input type="number" min="0" step="5" class="cb-extra-minutes"></div>
-          <div class="panel-field" style="flex:1;"><label>Notas (potencia, observaciones…) — una nota conjunta para toda la visita</label><textarea class="cb-notes" rows="2"></textarea></div>
-        </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-combined" disabled>Elige al menos un tratamiento</button>
-        <p class="panel-error" style="display:none;"></p>
-      </div>
-    `;
-
-    const checks = Array.from(slot.querySelectorAll('.cb-pick-check'));
-    const employeeSelect = slot.querySelector('.cb-employee');
-    const dateInput = slot.querySelector('.cb-date');
-    const timeSelect = slot.querySelector('.cb-time');
-    const extraMinutesInput = slot.querySelector('.cb-extra-minutes');
-    const notesInput = slot.querySelector('.cb-notes');
-    const confirmBtn = slot.querySelector('.panel-confirm-combined');
-    const errorEl = slot.querySelector('.panel-error');
-    const durationEl = slot.querySelector('.cb-duration');
-
-    function selectedBonos() {
-      return checks.filter((c) => c.checked).map((c) => activeBonos.find((bo) => bo.bonoId === c.value)).filter(Boolean);
+    function mode() {
+      const hasBono = vbState.selectedBonoIds.length > 0;
+      const hasCatalog = vbState.added.length > 0;
+      if (hasBono && hasCatalog) return 'mixed';
+      if (hasBono) return vbState.selectedBonoIds.length > 1 ? 'multi-bono' : 'single-bono';
+      if (hasCatalog) return 'catalog';
+      return 'empty';
     }
 
-    async function refreshSlots() {
-      const selected = selectedBonos();
-      if (!selected.length || !employeeSelect.value || !dateInput.value) {
-        timeSelect.innerHTML = '<option value="">Elige fecha y profesional primero…</option>';
-        durationEl.style.display = 'none';
-        return;
-      }
-      const serviceIds = selected.map(resolveServiceId).filter(Boolean);
-      const primary = serviceIds[0];
-      const rest = serviceIds.slice(1);
-      const extra = extraMinutesInput.value || 0;
-      timeSelect.innerHTML = '<option value="">Cargando…</option>';
-      try {
-        const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}&extraMinutes=${extra}`, { method: 'GET' });
-        const slots = data.slots || [];
-        timeSelect.innerHTML = slots.length
-          ? slots.map((t) => `<option value="${t}">${t}</option>`).join('')
-          : '<option value="">Sin huecos ese día</option>';
-        const totalDur = serviceIds.reduce((sum, id) => sum + ((allServices.find((s) => s.id === id) || {}).durationMinutes || 0), 0) + Number(extra);
-        durationEl.textContent = `Duración total del hueco: ${totalDur} min`;
-        durationEl.style.display = 'block';
-      } catch (e) {
-        timeSelect.innerHTML = '<option value="">Error al cargar huecos</option>';
-      }
+    function picksHtml() {
+      return activeBonos.map((bo) => {
+        const checked = vbState.selectedBonoIds.includes(bo.bonoId);
+        return `
+        <label class="vb-pick${checked ? ' vb-pick-checked' : ''}">
+          <input type="checkbox" class="vb-pick-check" value="${bo.bonoId}" ${checked ? 'checked' : ''}>
+          <div class="vb-pick-body">
+            <div class="vb-pick-name">${escapeHtml(bo.serviceName)}</div>
+            <div class="vb-pick-meta">Sesión ${(Number(bo.sessionsUsed) || 0) + 1} de ${bo.totalSessions}${Number(bo.remainingAmount) > 0 ? ` · pendiente de pago del bono: ${Number(bo.remainingAmount).toFixed(2)} €` : ''}</div>
+          </div>
+        </label>`;
+      }).join('');
     }
 
-    async function refreshEmployees() {
-      const selected = selectedBonos();
-      checks.forEach((c) => {
-        const pick = c.closest('.cb-pick');
-        pick.style.background = c.checked ? 'var(--sage-bg)' : '#fff';
-        pick.style.borderColor = c.checked ? 'var(--sage)' : 'var(--line)';
-      });
-      if (!selected.length) {
-        employeeSelect.innerHTML = '<option value="">Marca algún tratamiento primero…</option>';
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Elige al menos un tratamiento';
-        durationEl.style.display = 'none';
-        timeSelect.innerHTML = '<option value="">Elige fecha y profesional primero…</option>';
-        return;
+    function addedRowHtml(t, idx) {
+      const svc = allServices.find((s) => s.id === t.serviceId);
+      const editing = vbState.editingIdx === idx;
+      let row = `
+        <div class="vb-added-wrap">
+          <div class="vb-added-row">
+            <div class="vb-pick-body">
+              <div class="vb-pick-name">${escapeHtml(svc ? svc.name : '')}${t.isBono ? ' <span class="vb-bono-flag">🎟 bono</span>' : ''}</div>
+              <div class="vb-pick-meta">${svc ? svc.price + ' €' : ''}</div>
+            </div>
+            ${!t.isBono && vbState.added.length === 1 ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>` : ''}
+            <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-remove-added" data-idx="${idx}">Quitar</button>
+          </div>`;
+      if (editing) {
+        row += `
+          <div class="vb-bono-inline">
+            <div class="panel-field-row">
+              <div class="panel-field"><label>Nº de sesiones del bono</label><input type="number" min="1" step="1" class="vb-bono-sessions" value="${t.bonoSessions || ''}" placeholder="Ej. 2, 3, 6…"></div>
+              <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="vb-bono-price" value="${t.bonoPrice || ''}" placeholder="Precio a medida"></div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="panel-btn panel-btn-accent panel-btn-sm vb-confirm-bono" data-idx="${idx}">Guardar como bono</button>
+              <button type="button" class="panel-link-btn vb-cancel-bono" data-idx="${idx}">Cancelar</button>
+            </div>
+          </div>`;
       }
-      confirmBtn.disabled = false;
-      confirmBtn.textContent = `Confirmar cita combinada (${selected.length} tratamiento${selected.length > 1 ? 's' : ''})`;
-      const serviceIds = selected.map(resolveServiceId).filter(Boolean);
-      employeeSelect.innerHTML = '<option value="">Cargando…</option>';
-      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceIds.join(','))}`);
-      const data = await res.json();
-      const emps = data.employees || [];
-      employeeSelect.innerHTML = emps.length
-        ? '<option value="">Elige una profesional…</option>' + emps.map((e) => `<option value="${e.id}">${e.name}</option>`).join('')
-        : '<option value="">Ninguna profesional puede con todos a la vez</option>';
-      await refreshSlots();
+      row += `</div>`;
+      return row;
     }
 
-    checks.forEach((c) => c.addEventListener('change', refreshEmployees));
-    employeeSelect.addEventListener('change', refreshSlots);
-    dateInput.addEventListener('change', refreshSlots);
-    extraMinutesInput.addEventListener('input', refreshSlots);
+    function render() {
+      const m = mode();
+      const durationMinutes = vbState.selectedBonoIds
+        .map((id) => activeBonos.find((bo) => bo.bonoId === id))
+        .filter(Boolean)
+        .reduce((sum, bo) => sum + ((allServices.find((s) => s.id === resolveServiceId(bo)) || {}).durationMinutes || 0), 0)
+        + vbState.added.reduce((sum, t) => sum + ((allServices.find((s) => s.id === t.serviceId) || {}).durationMinutes || 0), 0);
 
-    confirmBtn.addEventListener('click', async (ev) => {
-      errorEl.style.display = 'none';
-      const selected = selectedBonos();
-      if (!selected.length || !employeeSelect.value || !dateInput.value || !timeSelect.value) {
-        errorEl.textContent = 'Elige tratamiento(s), profesional, fecha y hora.';
-        errorEl.style.display = 'block';
-        return;
-      }
-      ev.target.disabled = true;
-      try {
-        await panelFetch('/panel/book-combined-sessions', {
-          method: 'POST',
-          body: JSON.stringify({
-            bonoIds: selected.map((bo) => bo.bonoId),
-            employeeId: employeeSelect.value,
-            date: dateInput.value,
-            time: timeSelect.value,
-            notes: notesInput.value.trim(),
-            extraMinutes: extraMinutesInput.value,
-          }),
+      const catalogSuggestedPrice = vbState.added.reduce((sum, t) => {
+        if (t.isBono) return sum + (Number(t.bonoPrice) || 0);
+        const svc = allServices.find((s) => s.id === t.serviceId);
+        return sum + (svc ? Number(svc.price) : 0);
+      }, 0);
+
+      const canPast = m === 'single-bono' || m === 'catalog';
+
+      slot.innerHTML = `
+        <div class="panel-new-appt">
+          <div class="panel-label">+ Nueva visita — ${escapeHtml(client.name) || 'esta clienta'}</div>
+          <p class="panel-status" style="margin-bottom:10px;">Marca los bonos activos y/o añade tratamientos del catálogo — se agendan juntos, en un solo hueco.</p>
+          ${activeBonos.length ? `<div class="vb-picks">${picksHtml()}</div>` : ''}
+          ${vbState.added.length ? vbState.added.map((t, i) => addedRowHtml(t, i)).join('') : ''}
+          <div class="panel-field-row" style="margin-top:4px;">
+            <div class="panel-field" style="flex:1;"><select class="vb-catalog-select"><option value="">+ Añadir un tratamiento del catálogo…</option>${catalogOptionsHtml}</select></div>
+          </div>
+          ${m === 'mixed' ? '<p class="panel-error" style="display:block;margin-top:10px;">Un bono ya existente y un tratamiento nuevo no se pueden agendar juntos en el mismo hueco todavía — agenda primero uno y, cuando termine esta visita, añade el otro por separado.</p>' : ''}
+          ${m !== 'empty' && m !== 'mixed' ? `
+          <hr style="border:none;border-top:1px solid var(--line);margin:18px 0;">
+          <div class="panel-field-row">
+            <div class="vb-fork">
+              <button type="button" class="vb-fork-btn${vbState.whenMode === 'new' ? ' vb-fork-selected' : ''}" data-when="new">🗓️ Cita nueva<span>Respeta huecos reales</span></button>
+              ${canPast ? `<button type="button" class="vb-fork-btn${vbState.whenMode === 'past' ? ' vb-fork-selected' : ''}" data-when="past">↩️ Ya pasó — solo registrar<span>Cualquier fecha/hora</span></button>` : ''}
+            </div>
+          </div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Profesional</label><select class="vb-employee"><option value="">Cargando…</option></select></div>
+            <div class="panel-field"><label>Fecha</label><input type="date" class="vb-date"></div>
+            <div class="panel-field vb-time-field"><label>Hora</label>${vbState.whenMode === 'past' ? '<input type="time" class="vb-time-manual">' : '<select class="vb-time"><option value="">Elige profesional y fecha…</option></select>'}</div>
+          </div>
+          <p class="panel-status vb-duration" style="display:${durationMinutes ? 'block' : 'none'};margin:-6px 0 10px;">Duración total del hueco: ${durationMinutes} min</p>
+          <div class="panel-field-row">
+            <div class="panel-field" style="flex:1;"><label>Notas (potencia, observaciones…) — una nota para toda la visita</label><textarea class="vb-notes" rows="2"></textarea></div>
+          </div>
+          ${m === 'catalog' ? `
+          <div class="panel-field-row">
+            <div class="panel-field"><label>${vbState.added.some((t) => t.isBono) ? 'Precio total del bono (€)' : 'Precio total (€)'}</label><input type="number" step="0.01" class="vb-price" value="${catalogSuggestedPrice || ''}"></div>
+            <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="vb-paid" value="0"></div>
+            <div class="panel-field"><label>Pagado con</label><select class="vb-paidhow"><option value="tarjeta">Tarjeta</option><option value="efectivo">Efectivo</option><option value="bizum">Bizum</option></select></div>
+          </div>` : ''}
+          <button type="button" class="panel-btn panel-btn-primary vb-confirm">Confirmar visita</button>` : ''}
+          <p class="panel-error vb-error" style="display:none;"></p>
+        </div>
+      `;
+
+      wire();
+    }
+
+    function wire() {
+      slot.querySelectorAll('.vb-pick-check').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          vbState.selectedBonoIds = Array.from(slot.querySelectorAll('.vb-pick-check:checked')).map((c) => c.value);
+          render();
         });
-        slot.innerHTML = '<p class="panel-status">Cita combinada agendada ✓</p>';
-        doSearch();
-      } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.style.display = 'block';
-        ev.target.disabled = false;
+      });
+      const catalogSelect = slot.querySelector('.vb-catalog-select');
+      if (catalogSelect) {
+        catalogSelect.addEventListener('change', () => {
+          if (!catalogSelect.value) return;
+          vbState.added.push({ localId: nextLocalId++, serviceId: catalogSelect.value, isBono: false });
+          render();
+        });
       }
-    });
+      slot.querySelectorAll('.vb-remove-added').forEach((btn) => {
+        btn.addEventListener('click', () => { vbState.added.splice(Number(btn.dataset.idx), 1); vbState.editingIdx = null; render(); });
+      });
+      slot.querySelectorAll('.vb-convert-bono').forEach((btn) => {
+        btn.addEventListener('click', () => { vbState.editingIdx = Number(btn.dataset.idx); render(); });
+      });
+      slot.querySelectorAll('.vb-cancel-bono').forEach((btn) => {
+        btn.addEventListener('click', () => { vbState.editingIdx = null; render(); });
+      });
+      slot.querySelectorAll('.vb-confirm-bono').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const idx = Number(btn.dataset.idx);
+          const t = vbState.added[idx];
+          const sessionsInput = slot.querySelector('.vb-bono-sessions');
+          const priceInput = slot.querySelector('.vb-bono-price');
+          t.bonoSessions = Number(sessionsInput.value) || 1;
+          t.bonoPrice = Number(priceInput.value) || 0;
+          t.isBono = true;
+          vbState.editingIdx = null;
+          render();
+        });
+      });
+      const bonoSessionsInput = slot.querySelector('.vb-bono-sessions');
+      if (bonoSessionsInput) {
+        const idx = vbState.editingIdx;
+        const t = vbState.added[idx];
+        const priceInput = slot.querySelector('.vb-bono-price');
+        const svc = allServices.find((s) => s.id === t.serviceId);
+        bonoSessionsInput.addEventListener('input', (e) => {
+          const n = Number(e.target.value) || 0;
+          if (!t.bonoPriceTouched && svc) priceInput.value = n > 0 ? (svc.price * n).toFixed(2) : '';
+        });
+        priceInput.addEventListener('input', () => { t.bonoPriceTouched = true; });
+      }
+
+      const forkNewBtn = slot.querySelector('[data-when="new"]');
+      const forkPastBtn = slot.querySelector('[data-when="past"]');
+      if (forkNewBtn) forkNewBtn.addEventListener('click', () => { vbState.whenMode = 'new'; render(); });
+      if (forkPastBtn) forkPastBtn.addEventListener('click', () => { vbState.whenMode = 'past'; render(); });
+
+      const employeeSelect = slot.querySelector('.vb-employee');
+      const dateInput = slot.querySelector('.vb-date');
+      const timeSelect = slot.querySelector('.vb-time');
+      const errorEl = slot.querySelector('.vb-error');
+      const confirmBtn = slot.querySelector('.vb-confirm');
+
+      async function refreshEmployees() {
+        if (!employeeSelect) return;
+        const m = mode();
+        const ids = m === 'catalog'
+          ? vbState.added.map((t) => t.serviceId)
+          : vbState.selectedBonoIds.map((id) => resolveServiceId(activeBonos.find((bo) => bo.bonoId === id))).filter(Boolean);
+        employeeSelect.innerHTML = '<option value="">Cargando…</option>';
+        const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids.join(','))}`);
+        const data = await res.json();
+        const emps = data.employees || [];
+        employeeSelect.innerHTML = emps.length
+          ? '<option value="">Elige una profesional…</option>' + emps.map((e) => `<option value="${e.id}">${e.name}</option>`).join('')
+          : '<option value="">Ninguna profesional puede con todos a la vez</option>';
+        if (vbState.whenMode === 'new') refreshSlots();
+      }
+
+      async function refreshSlots() {
+        if (!timeSelect || vbState.whenMode !== 'new') return;
+        if (!employeeSelect.value || !dateInput.value) { timeSelect.innerHTML = '<option value="">Elige profesional y fecha…</option>'; return; }
+        const m = mode();
+        const ids = m === 'catalog'
+          ? vbState.added.map((t) => t.serviceId)
+          : vbState.selectedBonoIds.map((id) => resolveServiceId(activeBonos.find((bo) => bo.bonoId === id))).filter(Boolean);
+        const primary = ids[0];
+        const rest = ids.slice(1);
+        timeSelect.innerHTML = '<option value="">Cargando…</option>';
+        try {
+          const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}`, { method: 'GET' });
+          const slots = data.slots || [];
+          timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
+        } catch (e) {
+          timeSelect.innerHTML = '<option value="">Error al cargar huecos</option>';
+        }
+      }
+
+      if (employeeSelect) {
+        refreshEmployees();
+        employeeSelect.addEventListener('change', refreshSlots);
+      }
+      if (dateInput) dateInput.addEventListener('change', refreshSlots);
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', async (ev) => {
+          errorEl.style.display = 'none';
+          const m = mode();
+          const isPast = vbState.whenMode === 'past';
+          const timeVal = isPast ? slot.querySelector('.vb-time-manual').value : (timeSelect && timeSelect.value);
+          const notesVal = slot.querySelector('.vb-notes').value.trim();
+          if (!employeeSelect.value || !dateInput.value || (!isPast && !timeVal)) {
+            errorEl.textContent = 'Elige profesional, fecha y hora.';
+            errorEl.style.display = 'block';
+            return;
+          }
+          ev.target.disabled = true;
+          try {
+            if (m === 'single-bono') {
+              const bono = activeBonos.find((bo) => bo.bonoId === vbState.selectedBonoIds[0]);
+              await panelFetch('/panel/book-session', {
+                method: 'POST',
+                body: JSON.stringify({
+                  bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value,
+                  time: timeVal, notes: notesVal, force: isPast || undefined,
+                }),
+              });
+            } else if (m === 'multi-bono') {
+              await panelFetch('/panel/book-combined-sessions', {
+                method: 'POST',
+                body: JSON.stringify({
+                  bonoIds: vbState.selectedBonoIds, employeeId: employeeSelect.value,
+                  date: dateInput.value, time: timeVal, notes: notesVal,
+                }),
+              });
+            } else if (m === 'catalog') {
+              const priceInput = slot.querySelector('.vb-price');
+              const paidInput = slot.querySelector('.vb-paid');
+              const paidHowSelect = slot.querySelector('.vb-paidhow');
+              const primary = vbState.added[0];
+              const extras = vbState.added.slice(1);
+              // Si se convierte en bono, "Precio"/"Ya pagado" son el precio
+              // del bono en sí (va a bonoTotalPrice/bonoAmountPaid) — no se
+              // duplican también en price/amountPaid de la cita, o se
+              // contaría como cobrado dos veces (el bono por su lado y la
+              // cita por el suyo).
+              await panelFetch('/panel/import-legacy-booking', {
+                method: 'POST',
+                body: JSON.stringify({
+                  name: client.name, phone: client.phone, email: client.email,
+                  serviceId: primary.serviceId, employeeId: employeeSelect.value,
+                  date: dateInput.value, time: isPast ? undefined : timeVal,
+                  price: primary.isBono ? '' : priceInput.value,
+                  amountPaid: primary.isBono ? 0 : paidInput.value,
+                  paidHow: paidHowSelect.value,
+                  notes: notesVal, accountingOnly: isPast,
+                  isBono: primary.isBono, sessionNumber: 1, totalSessions: primary.bonoSessions,
+                  bonoTotalPrice: primary.isBono ? priceInput.value : undefined,
+                  bonoAmountPaid: primary.isBono ? paidInput.value : undefined,
+                  extraServiceIds: extras.map((t) => t.serviceId),
+                }),
+              });
+            }
+            slot.innerHTML = '<p class="panel-status">Visita agendada ✓</p>';
+            doSearch();
+            refreshAgendaBadge();
+          } catch (e) {
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+            ev.target.disabled = false;
+          }
+        });
+      }
+    }
+
+    render();
   }
 
   function toggleFollowup(clientEl, client) {
