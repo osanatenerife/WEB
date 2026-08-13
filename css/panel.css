@@ -60,8 +60,15 @@ body {
 .panel-pill-warn { background: var(--amber-bg); color: var(--amber); }
 .panel-pill-crit { background: var(--rose-bg); color: var(--rose); }
 .panel-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.panel-client-loyalty { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.panel-client-loyalty { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 .panel-client-loyalty .panel-pill { background: var(--panel-2); color: var(--clay); }
+
+.panel-client-minilinks { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 10px; }
+.panel-client-minilinks .panel-link-btn { font-size: 12px; }
+
+.panel-client-unclosed { background: var(--amber-bg); border: 1px solid var(--amber); border-radius: 6px; padding: 10px 14px; margin-top: 16px; }
+.panel-client-unclosed-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--amber); margin-bottom: 8px; }
+.panel-client-unclosed-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; padding: 4px 0; }
 
 .panel-section-label { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin: 30px 0 12px; }
 

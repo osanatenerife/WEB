@@ -1106,6 +1106,23 @@
       : `<span class="panel-pill panel-pill-ok"><span class="dot"></span>Sin faltas</span>`;
     const balance = Number(client.loyaltyBalance) || 0;
 
+    // Citas de esta clienta ya pasadas (o de hoy) que todavía no se han
+    // cerrado — se destacan arriba del todo para poder cobrarlas sin
+    // tener que bajar a buscarlas entre el resto del historial.
+    const unclosedToday = client.bookings.filter((b) => b.status === 'confirmed' && b.isPast
+      && (b.finalAmount === null || b.finalAmount === undefined));
+    const unclosedHtml = unclosedToday.length ? `
+      <div class="panel-client-unclosed">
+        <div class="panel-client-unclosed-label">📌 Sin cerrar</div>
+        ${unclosedToday.map((b) => `
+          <div class="panel-client-unclosed-row">
+            <span>${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time}</span>
+            <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-unclosed-close" data-booking-id="${b.bookingId}">💶 Cerrar y cobrar</button>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
     wrap.innerHTML = `
       <div class="panel-client-card">
         <div class="panel-client-top">
@@ -1117,12 +1134,14 @@
         </div>
         <div class="panel-client-loyalty">
           <span class="panel-pill">💶 Saldo: ${balance.toFixed(2)} €</span>
-          ${balance > 0 ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-redeem-toggle">Canjear saldo</button>' : ''}
-          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-addloyalty-toggle">➕ Añadir saldo</button>
-          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-followup-toggle">🔔 Marcar seguimiento</button>
-          <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editclient-toggle">✎ Editar datos</button>
           <button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-newbooking-toggle">📅 Nueva reserva</button>
           ${client.bonos.some((bo) => bo.sessionsRemaining > 0) ? '<button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-combined-toggle">📅 Agendar próxima sesión</button>' : ''}
+        </div>
+        <div class="panel-client-minilinks">
+          ${balance > 0 ? '<button type="button" class="panel-link-btn panel-redeem-toggle">Canjear saldo</button>' : ''}
+          <button type="button" class="panel-link-btn panel-addloyalty-toggle">➕ Añadir saldo</button>
+          <button type="button" class="panel-link-btn panel-followup-toggle">🔔 Marcar seguimiento</button>
+          <button type="button" class="panel-link-btn panel-editclient-toggle">✎ Editar datos</button>
         </div>
         <div class="panel-redeem-slot"></div>
         <div class="panel-addloyalty-slot"></div>
@@ -1130,6 +1149,7 @@
         <div class="panel-editclient-slot"></div>
         <div class="panel-newbooking-slot"></div>
         <div class="panel-combined-slot"></div>
+        ${unclosedHtml}
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
@@ -1168,6 +1188,19 @@
 
     const apptsContainer = wrap.querySelector('.panel-appts');
     client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client)));
+
+    // El botón "Cerrar y cobrar" de arriba abre el mismo panel de "Editar
+    // cita" que ya existe abajo, en vez de duplicar el flujo de cobro —
+    // solo ahorra tener que buscar la cita entre todo el historial.
+    wrap.querySelectorAll('.panel-unclosed-close').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const apptEl = apptsContainer.querySelector(`.panel-appt[data-booking-id="${window.CSS && CSS.escape ? CSS.escape(btn.dataset.bookingId) : btn.dataset.bookingId}"]`);
+        if (!apptEl) return;
+        const toggleBtn = apptEl.querySelector('.panel-editbooking-toggle');
+        if (toggleBtn && !apptEl.querySelector('.panel-editbooking-slot').innerHTML) toggleBtn.click();
+        apptEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
 
     els.results.appendChild(wrap);
   }
@@ -1731,6 +1764,7 @@
   function renderAppt(b, client) {
     const el = document.createElement('div');
     el.className = 'panel-appt';
+    el.dataset.bookingId = b.bookingId;
     const statusPill = {
       confirmed: '<span class="panel-pill panel-pill-ok"><span class="dot"></span>Confirmada</span>',
       no_show: '<span class="panel-pill panel-pill-crit"><span class="dot"></span>No-show</span>',
