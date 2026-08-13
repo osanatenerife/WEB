@@ -1056,12 +1056,14 @@
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-followup-toggle">🔔 Marcar seguimiento</button>
           <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editclient-toggle">✎ Editar datos</button>
           <button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-newbooking-toggle">📅 Nueva reserva</button>
+          ${client.bonos.some((bo) => bo.sessionsRemaining > 0) ? '<button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-combined-toggle">📅 Agendar próxima sesión</button>' : ''}
         </div>
         <div class="panel-redeem-slot"></div>
         <div class="panel-addloyalty-slot"></div>
         <div class="panel-followup-slot"></div>
         <div class="panel-editclient-slot"></div>
         <div class="panel-newbooking-slot"></div>
+        <div class="panel-combined-slot"></div>
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
@@ -1086,6 +1088,15 @@
       renderImportForm(nbSlot, { name: client.name, phone: client.phone, email: client.email });
     });
 
+    const combinedBtn = wrap.querySelector('.panel-combined-toggle');
+    if (combinedBtn) {
+      combinedBtn.addEventListener('click', () => {
+        const cbSlot = wrap.querySelector('.panel-combined-slot');
+        if (cbSlot.innerHTML) { cbSlot.innerHTML = ''; return; }
+        renderCombinedBookingForm(cbSlot, client);
+      });
+    }
+
     const bonosContainer = wrap.querySelector('.panel-bonos');
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
 
@@ -1093,6 +1104,149 @@
     client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client)));
 
     els.results.appendChild(wrap);
+  }
+
+  // Agenda de golpe la siguiente sesión de varios bonos activos de la misma
+  // clienta en un solo hueco de calendario (p.ej. pierna + axila + íntimo a
+  // la vez), en vez de tener que abrir/agendar/guardar/cerrar cada bono por
+  // separado. Se marca con checks qué tratamientos van en esta visita — el
+  // que se deje sin marcar (p.ej. un bono a punto de acabar que aún no se
+  // sabe si se va a renovar) no se toca para nada.
+  function renderCombinedBookingForm(slot, client) {
+    const activeBonos = client.bonos.filter((bo) => bo.sessionsRemaining > 0);
+    const picksHtml = activeBonos.map((bo) => `
+      <label class="cb-pick" data-bono-id="${bo.bonoId}" style="display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:4px;padding:12px 14px;margin-bottom:8px;background:#fff;cursor:pointer;">
+        <input type="checkbox" class="cb-pick-check" value="${bo.bonoId}">
+        <div style="flex:1;">
+          <div style="font-weight:600;font-size:14px;">${escapeHtml(bo.serviceName)}</div>
+          <div style="font-size:12px;color:var(--ink-soft);">Sesión ${(Number(bo.sessionsUsed) || 0) + 1} de ${bo.totalSessions}</div>
+        </div>
+      </label>
+    `).join('');
+
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Agendar próxima sesión — ${escapeHtml(client.name) || 'esta clienta'}</div>
+        <p class="panel-status" style="margin-bottom:10px;">Marca los tratamientos que va a hacerse en esta misma visita — se agendan juntos, en un solo hueco de calendario.</p>
+        <div class="cb-picks">${picksHtml}</div>
+        <p class="panel-status cb-duration" style="display:none;"></p>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Profesional</label><select class="cb-employee"><option value="">Marca algún tratamiento primero…</option></select></div>
+          <div class="panel-field"><label>Fecha</label><input type="date" class="cb-date"></div>
+          <div class="panel-field"><label>Hora</label><select class="cb-time"><option value="">Elige fecha y profesional primero…</option></select></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Minutos extra (opcional)</label><input type="number" min="0" step="5" class="cb-extra-minutes"></div>
+          <div class="panel-field" style="flex:1;"><label>Notas (potencia, observaciones…) — una nota conjunta para toda la visita</label><textarea class="cb-notes" rows="2"></textarea></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-combined" disabled>Elige al menos un tratamiento</button>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+
+    const checks = Array.from(slot.querySelectorAll('.cb-pick-check'));
+    const employeeSelect = slot.querySelector('.cb-employee');
+    const dateInput = slot.querySelector('.cb-date');
+    const timeSelect = slot.querySelector('.cb-time');
+    const extraMinutesInput = slot.querySelector('.cb-extra-minutes');
+    const notesInput = slot.querySelector('.cb-notes');
+    const confirmBtn = slot.querySelector('.panel-confirm-combined');
+    const errorEl = slot.querySelector('.panel-error');
+    const durationEl = slot.querySelector('.cb-duration');
+
+    function selectedBonos() {
+      return checks.filter((c) => c.checked).map((c) => activeBonos.find((bo) => bo.bonoId === c.value)).filter(Boolean);
+    }
+
+    async function refreshSlots() {
+      const selected = selectedBonos();
+      if (!selected.length || !employeeSelect.value || !dateInput.value) {
+        timeSelect.innerHTML = '<option value="">Elige fecha y profesional primero…</option>';
+        durationEl.style.display = 'none';
+        return;
+      }
+      const serviceIds = selected.map((bo) => bo.serviceId).filter(Boolean);
+      const primary = serviceIds[0];
+      const rest = serviceIds.slice(1);
+      const extra = extraMinutesInput.value || 0;
+      timeSelect.innerHTML = '<option value="">Cargando…</option>';
+      try {
+        const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}&extraMinutes=${extra}`, { method: 'GET' });
+        const slots = data.slots || [];
+        timeSelect.innerHTML = slots.length
+          ? slots.map((t) => `<option value="${t}">${t}</option>`).join('')
+          : '<option value="">Sin huecos ese día</option>';
+        const allServices = await loadImportServicesOnce();
+        const totalDur = serviceIds.reduce((sum, id) => sum + ((allServices.find((s) => s.id === id) || {}).durationMinutes || 0), 0) + Number(extra);
+        durationEl.textContent = `Duración total del hueco: ${totalDur} min`;
+        durationEl.style.display = 'block';
+      } catch (e) {
+        timeSelect.innerHTML = '<option value="">Error al cargar huecos</option>';
+      }
+    }
+
+    async function refreshEmployees() {
+      const selected = selectedBonos();
+      checks.forEach((c) => {
+        const pick = c.closest('.cb-pick');
+        pick.style.background = c.checked ? 'var(--sage-bg)' : '#fff';
+        pick.style.borderColor = c.checked ? 'var(--sage)' : 'var(--line)';
+      });
+      if (!selected.length) {
+        employeeSelect.innerHTML = '<option value="">Marca algún tratamiento primero…</option>';
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Elige al menos un tratamiento';
+        durationEl.style.display = 'none';
+        timeSelect.innerHTML = '<option value="">Elige fecha y profesional primero…</option>';
+        return;
+      }
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = `Confirmar cita combinada (${selected.length} tratamiento${selected.length > 1 ? 's' : ''})`;
+      const serviceIds = selected.map((bo) => bo.serviceId).filter(Boolean);
+      employeeSelect.innerHTML = '<option value="">Cargando…</option>';
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceIds.join(','))}`);
+      const data = await res.json();
+      const emps = data.employees || [];
+      employeeSelect.innerHTML = emps.length
+        ? '<option value="">Elige una profesional…</option>' + emps.map((e) => `<option value="${e.id}">${e.name}</option>`).join('')
+        : '<option value="">Ninguna profesional puede con todos a la vez</option>';
+      await refreshSlots();
+    }
+
+    checks.forEach((c) => c.addEventListener('change', refreshEmployees));
+    employeeSelect.addEventListener('change', refreshSlots);
+    dateInput.addEventListener('change', refreshSlots);
+    extraMinutesInput.addEventListener('input', refreshSlots);
+
+    confirmBtn.addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      const selected = selectedBonos();
+      if (!selected.length || !employeeSelect.value || !dateInput.value || !timeSelect.value) {
+        errorEl.textContent = 'Elige tratamiento(s), profesional, fecha y hora.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/book-combined-sessions', {
+          method: 'POST',
+          body: JSON.stringify({
+            bonoIds: selected.map((bo) => bo.bonoId),
+            employeeId: employeeSelect.value,
+            date: dateInput.value,
+            time: timeSelect.value,
+            notes: notesInput.value.trim(),
+            extraMinutes: extraMinutesInput.value,
+          }),
+        });
+        slot.innerHTML = '<p class="panel-status">Cita combinada agendada ✓</p>';
+        doSearch();
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
   }
 
   function toggleFollowup(clientEl, client) {
@@ -1538,7 +1692,7 @@
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-warn panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
-        ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">🗑 Eliminar</button>' : ''}
+        ${b.status !== 'cancelled_refunded' ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">${b.bonoId ? '↩ No se hizo — devolver sesión' : '🗑 Eliminar'}</button>` : ''}
       </div>
       <div class="panel-editbooking-slot"></div>
       <div class="panel-reschedule-slot"></div>
@@ -1567,7 +1721,7 @@
 
     const reschedBtn = el.querySelector('.panel-reschedule-toggle');
     if (reschedBtn) {
-      reschedBtn.addEventListener('click', () => toggleReschedule(el, b));
+      reschedBtn.addEventListener('click', () => toggleReschedule(el, b, client));
     }
 
     const noShowBtn = el.querySelector('.panel-noshow-btn');
@@ -1589,7 +1743,10 @@
     const deleteBtn = el.querySelector('.panel-delete-btn');
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async () => {
-        if (!confirm(`¿Eliminar la cita de ${b.serviceName} el ${b.date} (${client && client.name ? client.name : ''})? Libera el hueco del calendario y deja de contar como facturación. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`)) return;
+        const confirmMsg = b.bonoId
+          ? `¿"${b.serviceName}" no se hizo el ${b.date} (${client && client.name ? client.name : ''})? Se le devuelve la sesión al bono (no se cuenta como usada) y esta línea desaparece de la cita — el resto de tratamientos de la misma visita, si los hay, no se tocan.`
+          : `¿Eliminar la cita de ${b.serviceName} el ${b.date} (${client && client.name ? client.name : ''})? Libera el hueco del calendario y deja de contar como facturación. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`;
+        if (!confirm(confirmMsg)) return;
         deleteBtn.disabled = true;
         try {
           await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
@@ -2234,12 +2391,30 @@
     });
   }
 
-  async function toggleReschedule(apptEl, b) {
+  async function toggleReschedule(apptEl, b, client) {
     const slot = apptEl.querySelector('.panel-reschedule-slot');
     if (slot.innerHTML) { slot.innerHTML = ''; return; }
+
+    // Si otros tratamientos de la misma clienta comparten fecha/hora/
+    // profesional (una visita combinada), se puede elegir cuáles mover —
+    // los que se dejen sin marcar se quedan en su hora actual.
+    const siblings = (client && client.bookings || []).filter((x) => x.bookingId !== b.bookingId
+      && x.status === 'confirmed' && x.date === b.date && x.time === b.time && x.employeeId === b.employeeId);
+    const group = [b, ...siblings];
+    const picksHtml = group.length > 1 ? group.map((x) => `
+      <label class="resched-pick" style="display:flex;align-items:center;gap:10px;border:1px solid var(--sage);border-radius:4px;padding:9px 12px;margin-bottom:6px;background:var(--sage-bg);">
+        <input type="checkbox" class="resched-pick-check" value="${x.bookingId}" checked>
+        <div>${escapeHtml(x.serviceName)}</div>
+      </label>
+    `).join('') : '';
+
     slot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Reprogramar — ${escapeHtml(b.serviceName)} (ahora: ${b.date} a las ${b.time})</div>
+        ${group.length > 1 ? `
+          <p class="panel-status" style="margin-bottom:10px;">Esta cita comparte hueco con otros tratamientos de la misma visita. Marca los que quieres mover — los que dejes sin marcar se quedan donde estaban.</p>
+          <div class="resched-picks">${picksHtml}</div>
+        ` : ''}
         <div class="panel-field-row">
           <div class="panel-field"><label>Nueva fecha</label><input type="date" class="pf-date"></div>
           <div class="panel-field"><label>Nueva hora (huecos libres)</label><select class="pf-time"><option>Elige fecha primero</option></select></div>
@@ -2254,6 +2429,7 @@
     const timeSelect = slot.querySelector('.pf-time');
     const timeManualInput = slot.querySelector('.pf-time-manual');
     const errorEl = slot.querySelector('.panel-error');
+    const checks = Array.from(slot.querySelectorAll('.resched-pick-check'));
 
     dateInput.addEventListener('change', async () => {
       timeSelect.innerHTML = '<option>Cargando…</option>';
@@ -2275,13 +2451,26 @@
         errorEl.style.display = 'block';
         return;
       }
+      const selectedIds = checks.length ? checks.filter((c) => c.checked).map((c) => c.value) : [b.bookingId];
+      if (!selectedIds.length) {
+        errorEl.textContent = 'Marca al menos un tratamiento para mover.';
+        errorEl.style.display = 'block';
+        return;
+      }
       if (manualTime && !confirm(`Vas a forzar la cita a las ${manualTime}, aunque el sistema no la vea como libre. ¿Seguro?`)) return;
       ev.target.disabled = true;
       try {
-        await panelFetch('/panel/reschedule', {
-          method: 'POST',
-          body: JSON.stringify({ bookingId: b.bookingId, date: dateInput.value, time: chosenTime, force: !!manualTime }),
-        });
+        if (selectedIds.length > 1) {
+          await panelFetch('/panel/reschedule-combined', {
+            method: 'POST',
+            body: JSON.stringify({ bookingIds: selectedIds, date: dateInput.value, time: chosenTime, force: !!manualTime }),
+          });
+        } else {
+          await panelFetch('/panel/reschedule', {
+            method: 'POST',
+            body: JSON.stringify({ bookingId: selectedIds[0], date: dateInput.value, time: chosenTime, force: !!manualTime }),
+          });
+        }
         doSearch();
       } catch (e) {
         errorEl.textContent = e.message;

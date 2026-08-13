@@ -21,4 +21,15 @@ async function withLock(key, fn) {
   }
 }
 
-module.exports = { withLock };
+// Igual que withLock, pero para cuando una operación toca varios recursos a
+// la vez (p.ej. agendar una cita combinada que descuenta sesión de varios
+// bonos de golpe) — bloquea todas las claves anidando withLock, en el orden
+// en que se pasen (el llamador debe ordenarlas siempre igual si dos
+// operaciones pudieran compartir solo algunas claves, para evitar interbloqueos).
+async function withLocks(keys, fn) {
+  if (!keys.length) return fn();
+  const [first, ...rest] = keys;
+  return withLock(first, () => withLocks(rest, fn));
+}
+
+module.exports = { withLock, withLocks };

@@ -19,7 +19,7 @@ const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
-const { withLock } = require('../lib/asyncLock');
+const { withLock, withLocks } = require('../lib/asyncLock');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -1054,6 +1054,89 @@ router.post('/panel/reschedule', async (req, res) => {
   }
 });
 
+// ── Reprogramar varios tratamientos de una misma visita (que comparten
+// hueco de calendario) a la vez, con un solo cambio de fecha/hora — para no
+// tener que reprogramar cada uno por separado. Si se elige a TODOS los que
+// comparten el evento original, se mueve ese evento entero; si se deja
+// alguno sin marcar (p.ej. un bono que no se sabe si se va a renovar, o que
+// va a un ritmo distinto), ese se queda donde estaba y los marcados se
+// mueven a un evento nuevo aparte.
+router.post('/panel/reschedule-combined', async (req, res) => {
+  const { bookingIds, date, time, force } = req.body || {};
+  if (!Array.isArray(bookingIds) || bookingIds.length < 2 || !date || !time) {
+    return res.status(400).json({ error: 'Elige al menos dos tratamientos, fecha y hora.' });
+  }
+  if (!/^\d{2}:\d{2}$/.test(time)) return res.status(400).json({ error: 'Formato de hora inválido.' });
+  const uniqueIds = [...new Set(bookingIds)];
+  try {
+    return await withLocks(uniqueIds.slice().sort().map((id) => `booking:${id}`), async () => {
+    const bookings = [];
+    for (const id of uniqueIds) {
+      const booking = await findBookingById(id);
+      if (!booking) return res.status(404).json({ error: 'Una de las citas ya no existe.' });
+      if (booking.status !== 'confirmed') {
+        return res.status(409).json({ error: `"${booking.serviceName}" ya no está activa — no se puede mover así.` });
+      }
+      bookings.push(booking);
+    }
+    const first = bookings[0];
+    if (!bookings.every((b) => b.calendarId === first.calendarId && b.employeeId === first.employeeId)) {
+      return res.status(400).json({ error: 'Los tratamientos elegidos no son de la misma profesional/calendario.' });
+    }
+
+    const duration = bookings.reduce((sum, b) => sum + (Number(b.durationMinutes) || 0), 0);
+    if (!force) {
+      const freeSlots = await getAvailableSlots(date, first.calendarId, duration, weeklyScheduleFor(first.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
+      if (!freeSlots.includes(time)) {
+        return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora (o fuerza igualmente si sabes que sí cabe).' });
+      }
+    }
+
+    const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
+    const endISO = addMinutes(startISO, duration);
+
+    // Si se mueven TODOS los tratamientos que compartían el evento original,
+    // se parchea ese mismo evento. Si se deja alguno atrás, ese evento se
+    // queda tal cual para el que no se mueve, y se crea uno nuevo solo para
+    // los que sí se mueven (mismo patrón que /panel/reschedule).
+    const allBookingsForCheck = await getAllBookings();
+    const originalSiblings = allBookingsForCheck.filter((b) => b.status === 'confirmed' && b.calendarId === first.calendarId && b.eventId === first.eventId);
+    const movingIds = new Set(uniqueIds);
+    const allMoving = originalSiblings.every((b) => movingIds.has(b.bookingId));
+
+    let newEventId = first.eventId;
+    if (allMoving && await isEventUsable(first.calendarId, first.eventId)) {
+      await updateEvent(first.calendarId, first.eventId, { start: { dateTime: startISO }, end: { dateTime: endISO } });
+    } else {
+      const event = await createBookingEvent(first.calendarId, {
+        summary: bookings.map((b) => b.serviceName).join(' + '),
+        description: `Cliente: ${first.name || ''} · ${first.phone || ''}`,
+        startISO, endISO,
+        clientEmail: first.email, clientName: first.name,
+      });
+      newEventId = event.id;
+    }
+
+    for (const booking of bookings) {
+      await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId });
+    }
+
+    if (first.email) {
+      sendEmail({
+        to: first.email,
+        subject: first.lang === 'en' ? 'Your appointment was rescheduled — Osana' : 'Tu cita ha sido reprogramada — Osana',
+        html: rescheduleEmailHtml({ booking: first, oldDate: first.date, oldTime: first.time, newDate: date, newTime: time }),
+      }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
+    }
+
+    res.json({ ok: true });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo reprogramar la cita combinada.' });
+  }
+});
+
 // ── Ampliar el tiempo bloqueado de una cita (sin cambiar fecha/hora de
 // inicio) — útil cuando una clienta concreta necesita más tiempo del
 // habitual y hay que reservar ese hueco extra en el calendario para que
@@ -1647,7 +1730,23 @@ router.post('/panel/delete-booking', async (req, res) => {
       notes: booking.notes ? `${booking.notes}\n${deletedNote}` : deletedNote,
     });
 
-    res.json({ ok: true });
+    // Si era la sesión de un bono (p.ej. una de varias tratamientos de una
+    // cita combinada donde ese día no dio tiempo a esta zona en concreto),
+    // se le devuelve la sesión — no se ha llegado a hacer de verdad, así
+    // que no debería contar como usada. Las demás citas de la misma visita
+    // (si comparten el mismo hueco de calendario) no se tocan para nada.
+    let restoredBono = null;
+    if (booking.bonoId) {
+      const bono = await findSessionBonoById(booking.bonoId);
+      if (bono) {
+        const sessionsUsed = Math.max(0, (Number(bono.sessionsUsed) || 0) - 1);
+        const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) + 1;
+        await updateSessionBonoRow(bono._sheetRow, bono, { sessionsUsed, sessionsRemaining, status: 'active' });
+        restoredBono = { bonoId: bono.bonoId, sessionsRemaining };
+      }
+    }
+
+    res.json({ ok: true, restoredBono: restoredBono || undefined });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo eliminar la cita.' });
@@ -2169,6 +2268,125 @@ router.post('/panel/edit-bono', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo corregir el bono.' });
+  }
+});
+
+// ── Agendar de golpe la siguiente sesión de VARIOS bonos de la misma
+// clienta en un único hueco de calendario (p.ej. pierna + axila + íntimo a
+// la vez) — antes había que abrir cada bono por separado, agendar, guardar
+// y cerrar, tres veces seguidas para la misma visita. Un único evento de
+// Calendar, una fila de reserva por bono (cada uno descuenta su propia
+// sesión), todas enganchadas al mismo evento — así luego se pueden marcar
+// como "no hizo falta" una por una sin tocar las demás (ver /panel/no-show).
+router.post('/panel/book-combined-sessions', async (req, res) => {
+  const { bonoIds, employeeId, date, time, notes, extraMinutes } = req.body || {};
+  if (!Array.isArray(bonoIds) || bonoIds.length === 0 || !employeeId || !date || !time) {
+    return res.status(400).json({ error: 'Elige al menos un bono, profesional, fecha y hora.' });
+  }
+  const uniqueBonoIds = [...new Set(bonoIds)];
+  const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
+  try {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
+
+    return await withLock(`slot:${employeeId}:${date}`, async () => {
+    // Bloqueados en orden fijo (alfabético) para que dos peticiones que
+    // compartan solo ALGUNOS bonos no puedan interbloquearse entre sí.
+    return await withLocks(uniqueBonoIds.slice().sort(), async () => {
+      const bonos = [];
+      for (const bonoId of uniqueBonoIds) {
+        const bono = await findSessionBonoById(bonoId);
+        if (!bono) return res.status(404).json({ error: 'Uno de los bonos elegidos ya no existe.' });
+        if ((Number(bono.sessionsRemaining) || 0) <= 0) {
+          return res.status(409).json({ error: `El bono de ${bono.serviceName} no tiene sesiones restantes.` });
+        }
+        bonos.push(bono);
+      }
+      const phoneN = normalizePhone(bonos[0].clientPhone);
+      if (!bonos.every((b) => normalizePhone(b.clientPhone) === phoneN)) {
+        return res.status(400).json({ error: 'Los bonos elegidos no son de la misma clienta.' });
+      }
+      const bonoServices = bonos.map((b) => services.find((s) => s.id === b.serviceId));
+      const missingIdx = bonoServices.findIndex((s) => !s);
+      if (missingIdx !== -1) {
+        return res.status(404).json({ error: `El tratamiento del bono de ${bonos[missingIdx].serviceName} ya no existe en el catálogo.` });
+      }
+
+      const durationMinutes = bonoServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extra;
+      const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
+      const endISO = addMinutes(startISO, durationMinutes);
+
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true });
+      if (!freeSlots.includes(time)) {
+        return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+      }
+
+      const sessionLabels = bonos.map((b) => `${(Number(b.sessionsUsed) || 0) + 1}/${b.totalSessions}`);
+      const combinedLabel = bonoServices.map((s, i) => `${s.name} (${sessionLabels[i]})`).join(' + ');
+      const description = [
+        `Cliente: ${bonos[0].clientName}`,
+        `Teléfono: ${bonos[0].clientPhone}`,
+        ...bonos.map((b, i) => `Bono: ${b.serviceName} — sesión ${sessionLabels[i]}`),
+        'Ya pagada como parte del bono.',
+        notes ? `\n📝 Notas internas (solo equipo):\n${notes}` : '',
+      ].filter(Boolean).join('\n');
+
+      const event = await createBookingEvent(employee.calendarId, {
+        summary: `✅ ${combinedLabel} — ${bonos[0].clientName}`,
+        description,
+        startISO, endISO,
+        clientEmail: bonos[0].clientEmail,
+        clientName: bonos[0].clientName,
+      });
+
+      const bookingIds = [];
+      for (let i = 0; i < bonos.length; i++) {
+        const bono = bonos[i];
+        const service = bonoServices[i];
+        const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
+        const bookingId = crypto.randomUUID();
+        await appendBooking({
+          bookingId,
+          createdAt: new Date().toISOString(),
+          status: 'confirmed',
+          name: bono.clientName,
+          phone: bono.clientPhone,
+          email: bono.clientEmail,
+          serviceId: bono.serviceId || service.id,
+          serviceName: `${service.name} (${sessionLabels[i]})`,
+          employeeId,
+          employeeName: employee.name,
+          calendarId: employee.calendarId,
+          eventId: event.id,
+          date, time,
+          durationMinutes: service.durationMinutes,
+          price: '',
+          amountPaid: 0,
+          paymentType: 'bono',
+          paymentIntentId: '',
+          lang: bono.lang || 'es',
+          reminderSent: '',
+          birthdate: '',
+          bonoId: bono.bonoId,
+          sessionNumber: fromSession,
+          notes: notes || '',
+        });
+        bookingIds.push(bookingId);
+
+        const sessionsRemaining = Math.max(0, (Number(bono.sessionsRemaining) || 0) - 1);
+        await updateSessionBonoRow(bono._sheetRow, bono, {
+          sessionsUsed: fromSession,
+          sessionsRemaining,
+          status: sessionsRemaining <= 0 ? 'completed' : 'active',
+        });
+      }
+
+      res.json({ ok: true, bookingIds });
+    });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo agendar la cita combinada.' });
   }
 });
 
