@@ -1310,6 +1310,7 @@
     slot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Canjear saldo (máx. ${balance.toFixed(2)} €)</div>
+        <p style="font-size:11px;color:var(--rose);margin:0 0 10px;">⚠ Esto solo baja el saldo de la clienta — NO reduce el precio de ninguna cita. Si es para pagar una cita de hoy, es mejor descontarlo directamente en "Cerrar cita" (ahí sí se resta solo del total). Usa esto solo cuando no hay ninguna cita de por medio.</p>
         <div class="panel-field-row">
           <div class="panel-field"><label>Importe a canjear (€)</label><input type="number" step="0.01" class="rd-amount" max="${balance}"></div>
         </div>
@@ -1322,14 +1323,14 @@
     slot.querySelector('.panel-confirm-redeem').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       const amountToConfirm = Number(amountInput.value) || 0;
-      if (!confirm(`¿Canjear ${amountToConfirm.toFixed(2)} € de saldo como descuento?`)) return;
+      if (!confirm(`¿Descontar ${amountToConfirm.toFixed(2)} € del saldo? Esto NO reduce el precio de ninguna cita — si estás cobrando una cita ahora mismo, resta esta cantidad tú misma de lo que cobres.`)) return;
       ev.target.disabled = true;
       try {
         const data = await panelFetch('/panel/redeem', {
           method: 'POST',
           body: JSON.stringify({ phone: client.phone, amount: amountInput.value }),
         });
-        slot.innerHTML = `<p class="panel-status">Canjeado ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €</p>`;
+        slot.innerHTML = `<p class="panel-status">Descontado ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €. Recuerda: si era para una cita, resta ${amountToConfirm.toFixed(2)} € de lo que cobres.</p>`;
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
@@ -1396,6 +1397,7 @@
           <div class="panel-field"><label>Nombre</label><input type="text" class="ec-name" value="${escapeHtml(client.name || '')}"></div>
           <div class="panel-field"><label>Teléfono</label><input type="text" class="ec-phone" value="${escapeHtml(client.phone || '')}"></div>
           <div class="panel-field"><label>Email</label><input type="email" class="ec-email" value="${escapeHtml(client.email || '')}"></div>
+          <div class="panel-field"><label>Fecha de nacimiento</label><input type="date" class="ec-birthdate" value="${escapeHtml(client.birthdate || '')}"></div>
         </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-editclient">Guardar corrección</button>
         <p class="panel-error" style="display:none;"></p>
@@ -1405,6 +1407,7 @@
     const nameInput = slot.querySelector('.ec-name');
     const phoneInput = slot.querySelector('.ec-phone');
     const emailInput = slot.querySelector('.ec-email');
+    const birthdateInput = slot.querySelector('.ec-birthdate');
     const errorEl = slot.querySelector('.panel-error');
     const statusEl = slot.querySelector('.panel-status');
     slot.querySelector('.panel-confirm-editclient').addEventListener('click', async (ev) => {
@@ -1422,6 +1425,7 @@
           body: JSON.stringify({
             oldPhone: client.phone, name: nameInput.value.trim(),
             phone: phoneInput.value.trim(), email: emailInput.value.trim(),
+            birthdate: birthdateInput.value,
           }),
         });
         statusEl.textContent = `Corregido ✓ (${data.bookingsUpdated} cita${data.bookingsUpdated === 1 ? '' : 's'} actualizada${data.bookingsUpdated === 1 ? '' : 's'}).`;
@@ -2017,9 +2021,16 @@
               </select>
             </div>
           </div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Bono regalo (código, opcional)</label><input type="text" class="pf-giftcode" placeholder="Ej. REGALO2026"></div>
+          </div>
           ${balance > 0 ? `
           <div class="panel-field-row">
             <div class="panel-field"><label>Descontar saldo de fidelización (€) — disponible ${balance.toFixed(2)} € (mínimo 10 €)</label><input type="number" step="0.01" class="pf-redeem" min="10" max="${balance}"></div>
+          </div>` : ''}
+          ${linkedBono && Number(linkedBono.remainingAmount) > 0 ? `
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Este bono aún tiene pendiente ${Number(linkedBono.remainingAmount).toFixed(2)} € — ¿cuánto paga de eso hoy? (€)</label><input type="number" step="0.01" min="0" max="${Number(linkedBono.remainingAmount)}" class="pf-bono-paydown"></div>
           </div>` : ''}
           <label class="panel-split-toggle"><input type="checkbox" class="pf-split"> El resto se pagó dividido en dos formas de pago</label>
           <div class="panel-field-row pf-split-row" style="display:none;">
@@ -2371,6 +2382,8 @@
       const amountInput = slot.querySelector('.pf-amount');
       const paidHowSelect = slot.querySelector('.pf-paidhow');
       const redeemInput = slot.querySelector('.pf-redeem');
+      const giftCodeInput = slot.querySelector('.pf-giftcode');
+      const bonoPaydownInput = slot.querySelector('.pf-bono-paydown');
       const splitToggle = slot.querySelector('.pf-split');
       const splitRow = slot.querySelector('.pf-split-row');
       const amount2Input = slot.querySelector('.pf-amount2');
@@ -2414,6 +2427,8 @@
               remainderAmount2: splitToggle.checked ? amount2Input.value : 0,
               paidHow2: splitToggle.checked ? paidHow2Select.value : '',
               redeemAmount: redeemInput ? redeemInput.value : 0,
+              giftCode: giftCodeInput ? giftCodeInput.value.trim() : '',
+              bonoPaydown: bonoPaydownInput ? bonoPaydownInput.value : 0,
             }),
           });
           doSearch();

@@ -134,10 +134,14 @@ router.get('/panel/search', async (req, res) => {
       const bonos = allBonos.filter((bo) => normalizePhone(bo.clientPhone) === phoneN);
       const strike = allStrikes.find((s) => s.phoneNormalized === phoneN);
       const loyaltyMovements = allLoyalty.filter((m) => m.phoneNormalized === phoneN);
+      // El cumpleaños suele quedar guardado solo en la reserva donde se
+      // escribió por primera vez, no necesariamente en la más reciente.
+      const birthdateBooking = bookings.find((b) => b.birthdate);
       return {
         name: latest.name,
         phone: latest.phone,
         email: latest.email,
+        birthdate: birthdateBooking ? birthdateBooking.birthdate : '',
         strikeCount: strike ? Number(strike.strikeCount) || 0 : 0,
         loyaltyBalance: computeLoyaltyBalance(loyaltyMovements),
         bonos: bonos.map((bo) => ({
@@ -1194,7 +1198,13 @@ router.post('/panel/close', async (req, res) => {
   // dividido entre dos formas de pago (p.ej. mitad tarjeta, mitad efectivo).
   // redeemAmount es opcional — saldo de fidelización que se aplica como
   // descuento directamente aquí, para no tener que restarlo a mano.
-  const { bookingId, finalAmount, paidHow, remainderAmount2, paidHow2, redeemAmount } = req.body || {};
+  // giftCode es opcional — bono regalo de importe que se aplica como
+  // descuento igual que el saldo, y queda marcado como canjeado.
+  // bonoPaydown es opcional — cuánto de este cobro corresponde a pagar el
+  // pendiente de un bono (ver comentario junto a su uso más abajo).
+  const {
+    bookingId, finalAmount, paidHow, remainderAmount2, paidHow2, redeemAmount, giftCode, bonoPaydown,
+  } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   if (finalAmount !== undefined && finalAmount !== '' && !Number.isFinite(Number(finalAmount))) {
     return res.status(400).json({ error: 'El importe total no es un número válido.' });
@@ -1216,6 +1226,27 @@ router.post('/panel/close', async (req, res) => {
     const onlinePaid = Number(booking.amountPaid) || 0;
     const total = finalAmount !== undefined && finalAmount !== '' ? Number(finalAmount) : onlinePaid;
     let remainder = Math.max(0, round2(total - onlinePaid));
+
+    // Canjear un bono regalo de importe (tipo "amount") aquí mismo, igual
+    // que el saldo de fidelización: se resta del resto y el bono regalo
+    // queda marcado como canjeado — antes esto eran dos pasos sueltos sin
+    // relación entre sí, así que canjear el código no bajaba nada de lo
+    // que realmente se cobraba (el bono de tratamiento fijo sigue
+    // canjeándose aparte en "🎁 Bono regalo", no aquí).
+    let giftApplied = 0;
+    let giftRow = null;
+    if (!alreadyClosed && giftCode && String(giftCode).trim()) {
+      const cleanCode = String(giftCode).trim().toUpperCase();
+      const gifts = await getAllGifts();
+      giftRow = gifts.find((g) => String(g.code || '').trim().toUpperCase() === cleanCode);
+      if (!giftRow) return res.status(404).json({ error: 'No se ha encontrado ningún bono regalo con ese código.' });
+      if (giftRow.status === 'redeemed') return res.status(409).json({ error: 'Este bono regalo ya se marcó como canjeado.' });
+      if (giftRow.giftType !== 'amount') {
+        return res.status(400).json({ error: 'Este bono regalo es de tratamiento fijo — márcalo como canjeado desde "🎁 Bono regalo", no reduce un importe aquí.' });
+      }
+      giftApplied = Math.max(0, Math.min(remainder, round2(Number(giftRow.amount) || 0)));
+      remainder = round2(remainder - giftApplied);
+    }
 
     // Calcular canje de saldo (si se pide): se resta del resto antes de
     // repartirlo en formas de pago, y nunca puede superar ni lo que queda
@@ -1280,6 +1311,32 @@ router.post('/panel/close', async (req, res) => {
           amount: redeemed,
         });
       }
+
+      if (giftRow && giftApplied > 0) {
+        await updateGiftRow(giftRow._sheetRow, { status: 'redeemed', redeemedAt: new Date().toISOString() });
+      }
+
+      // bonoPaydown: cuánto de este cobro va a pagar el pendiente que aún
+      // arrastraba el bono (bono.remainingAmount) — antes esa cifra se
+      // fijaba al crear/convertir el bono y ya no se tocaba nunca más, así
+      // que se quedaba desactualizada aunque la clienta fuese pagando poco
+      // a poco en visitas siguientes. No depende de qué sesión sea (el
+      // pendiente es del bono entero, no de una sesión concreta) — y se
+      // escribe aquí, después de marcar la cita como cerrada, por la misma
+      // razón que el canje de saldo: un reintento no puede duplicarlo.
+      if (booking.bonoId && bonoPaydown && Number(bonoPaydown) > 0) {
+        const bono = await findSessionBonoById(booking.bonoId);
+        if (bono && Number(bono.remainingAmount) > 0) {
+          const paydownApplied = Math.max(0, Math.min(round2(Number(bono.remainingAmount)), round2(Number(bonoPaydown))));
+          if (paydownApplied > 0) {
+            await updateSessionBonoRow(bono._sheetRow, bono, {
+              remainingAmount: round2(Number(bono.remainingAmount) - paydownApplied),
+              remainingPaidHow: bono.remainingPaidHow || paidHow || '',
+            });
+          }
+        }
+      }
+
       // El saldo se acumula sobre TODO lo pagado de verdad (seña online +
       // resto), con una sola tasa para el conjunto: si alguna parte del
       // resto se pagó en efectivo, se aplica la tasa de efectivo al total
@@ -1505,7 +1562,7 @@ router.post('/panel/loyalty-adjust', async (req, res) => {
 // ausencia y puntos de fidelidad — para que quede todo bajo una sola
 // identidad y no se fragmenten los puntos ya ganados por un dato mal puesto.
 router.post('/panel/edit-client', async (req, res) => {
-  const { oldPhone, name, phone, email } = req.body || {};
+  const { oldPhone, name, phone, email, birthdate } = req.body || {};
   if (!oldPhone || !name || !name.trim() || !phone || !phone.trim()) {
     return res.status(400).json({ error: 'Indica el teléfono original y el nombre y teléfono corregidos.' });
   }
@@ -1515,6 +1572,12 @@ router.post('/panel/edit-client', async (req, res) => {
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
     const cleanEmail = (email || '').trim();
+    // birthdate: si el campo no viene en la petición (llamadas antiguas),
+    // no se toca; si viene, se escribe tal cual, incluso vacío — así se
+    // puede corregir un cumpleaños mal escrito y no queda fijado para
+    // siempre desde que se creó la primera reserva.
+    const birthdateProvided = birthdate !== undefined;
+    const cleanBirthdate = (birthdate || '').trim();
     const newPhoneN = normalizePhone(cleanPhone);
     const newEmailN = normalizeEmail(cleanEmail);
 
@@ -1525,7 +1588,10 @@ router.post('/panel/edit-client', async (req, res) => {
     let bookingsUpdated = 0;
     for (const b of allBookings) {
       if (normalizePhone(b.phone) === oldPhoneN) {
-        await updateBookingRow(b._sheetRow, b, { name: cleanName, phone: cleanPhone, email: cleanEmail || b.email });
+        await updateBookingRow(b._sheetRow, b, {
+          name: cleanName, phone: cleanPhone, email: cleanEmail || b.email,
+          ...(birthdateProvided ? { birthdate: cleanBirthdate } : {}),
+        });
         bookingsUpdated += 1;
       }
     }
