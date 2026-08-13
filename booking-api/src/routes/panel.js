@@ -2175,8 +2175,8 @@ router.post('/panel/followup-done', async (req, res) => {
 router.get('/panel/agenda', async (req, res) => {
   const days = Math.max(1, Number(req.query.days) || 7);
   try {
-    const [bookings, sessionBonos, customQuotes, followups] = await Promise.all([
-      getAllBookings(), getAllSessionBonos(), getAllCustomQuotes(), getAllFollowups(),
+    const [bookings, sessionBonos, customQuotes, followups, productSales] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllCustomQuotes(), getAllFollowups(), getAllProductSales(),
     ]);
     const now = Date.now();
     const rangeEndMs = now + days * 24 * 60 * 60 * 1000;
@@ -2210,6 +2210,41 @@ router.get('/panel/agenda', async (req, res) => {
       .filter((f) => f.status !== 'done' && new Date(`${f.dueDate}T12:00:00`).getTime() <= rangeEndMs)
       .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
+    // Bonos con el tratamiento roto/desenlazado: mismo chequeo que ya usa
+    // /panel/book-combined-sessions para no bloquear la reserva (nombre
+    // como respaldo del id) — aquí se reutiliza como DETECTOR, no como
+    // respaldo silencioso, para poder arreglarlo antes de que falle al
+    // intentar agendar la siguiente sesión.
+    const brokenServiceBonos = sessionBonos
+      .filter((bono) => bono.status === 'active' && !services.find((s) => s.id === bono.serviceId));
+
+    // Cobros de los últimos 14 días con la forma de pago sin asignar — el
+    // mismo chequeo "⚠️ sin asignar" que ya usa el frontend en Comprobar
+    // cobros (js/panel.js), pero calculado aquí para poder avisar antes
+    // de que alguien tenga que ir a buscarlo a mano.
+    const recentCutoffMs = now - 14 * 24 * 60 * 60 * 1000;
+    const unassignedPayments = [];
+    bookings.forEach((b) => {
+      if (b.finalAmount === undefined || b.finalAmount === '') return;
+      if (appointmentDateTime(b).getTime() < recentCutoffMs) return;
+      const onlinePaid = Number(b.amountPaid) || 0;
+      const finalAmount = Number(b.finalAmount) || 0;
+      const redeemed = Number(b.redeemedAmount) || 0;
+      const remainder = Math.max(0, round2(finalAmount - onlinePaid - redeemed));
+      const part2 = Number(b.remainderAmount2) || 0;
+      const part1 = round2(remainder - part2);
+      if (part1 > 0 && !b.remainderPaidHow) {
+        unassignedPayments.push({ bookingId: b.bookingId, name: b.name, phone: b.phone, serviceName: b.serviceName, date: b.date });
+      } else if (part2 > 0 && !b.remainderPaidHow2) {
+        unassignedPayments.push({ bookingId: b.bookingId, name: b.name, phone: b.phone, serviceName: b.serviceName, date: b.date });
+      }
+    });
+    productSales.forEach((s) => {
+      if (!s.bookingId || s.paidHow || s.status === 'deleted') return;
+      if (new Date(s.createdAt || s.date).getTime() < recentCutoffMs) return;
+      unassignedPayments.push({ bookingId: s.bookingId, name: '', phone: '', serviceName: s.product, date: s.date, isExtra: true });
+    });
+
     res.json({
       unclosedBookings: unclosedBookings.map((b) => ({
         bookingId: b.bookingId, name: b.name, phone: b.phone, serviceName: b.serviceName,
@@ -2218,6 +2253,8 @@ router.get('/panel/agenda', async (req, res) => {
       upcomingBookings: upcomingBookings.map((b) => ({
         bookingId: b.bookingId, name: b.name, phone: b.phone, serviceName: b.serviceName,
         date: b.date, time: b.time, employeeName: b.employeeName,
+        finalAmount: b.finalAmount !== undefined && b.finalAmount !== '' ? Number(b.finalAmount) : null,
+        amountPaid: Number(b.amountPaid) || 0,
       })),
       pendingBonoSessions: pendingBonoSessions.map((bono) => ({
         bonoId: bono.bonoId, clientName: bono.clientName, clientPhone: bono.clientPhone,
@@ -2235,10 +2272,50 @@ router.get('/panel/agenda', async (req, res) => {
         followupId: f.followupId, clientName: f.clientName, clientPhone: f.clientPhone,
         note: f.note, dueDate: f.dueDate,
       })),
+      brokenServiceBonos: brokenServiceBonos.map((bono) => ({
+        bonoId: bono.bonoId, clientName: bono.clientName, clientPhone: bono.clientPhone, serviceName: bono.serviceName,
+      })),
+      unassignedPayments,
     });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo cargar la agenda.' });
+  }
+});
+
+// ── Igual que /panel/agenda pero solo cuenta lo urgente — para el número
+// del botón de la barra de arriba, sin tener que traer/renderizar todo. ──
+router.get('/panel/agenda-summary', async (req, res) => {
+  try {
+    const [bookings, sessionBonos, productSales] = await Promise.all([
+      getAllBookings(), getAllSessionBonos(), getAllProductSales(),
+    ]);
+    const now = Date.now();
+    const unclosedCount = bookings.filter((b) => b.status === 'confirmed'
+      && (b.finalAmount === undefined || b.finalAmount === '') && appointmentDateTime(b).getTime() < now).length;
+    const brokenCount = sessionBonos.filter((bono) => bono.status === 'active' && !services.find((s) => s.id === bono.serviceId)).length;
+    const recentCutoffMs = now - 14 * 24 * 60 * 60 * 1000;
+    let unassignedCount = 0;
+    bookings.forEach((b) => {
+      if (b.finalAmount === undefined || b.finalAmount === '') return;
+      if (appointmentDateTime(b).getTime() < recentCutoffMs) return;
+      const onlinePaid = Number(b.amountPaid) || 0;
+      const finalAmount = Number(b.finalAmount) || 0;
+      const redeemed = Number(b.redeemedAmount) || 0;
+      const remainder = Math.max(0, round2(finalAmount - onlinePaid - redeemed));
+      const part2 = Number(b.remainderAmount2) || 0;
+      const part1 = round2(remainder - part2);
+      if ((part1 > 0 && !b.remainderPaidHow) || (part2 > 0 && !b.remainderPaidHow2)) unassignedCount += 1;
+    });
+    productSales.forEach((s) => {
+      if (!s.bookingId || s.paidHow || s.status === 'deleted') return;
+      if (new Date(s.createdAt || s.date).getTime() < recentCutoffMs) return;
+      unassignedCount += 1;
+    });
+    res.json({ attentionCount: unclosedCount + brokenCount + unassignedCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo cargar el resumen de la agenda.' });
   }
 });
 

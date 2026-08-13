@@ -57,6 +57,7 @@
   function showApp() {
     els.login.style.display = 'none';
     els.app.style.display = 'block';
+    refreshAgendaBadge();
   }
 
   async function panelFetch(path, options) {
@@ -646,15 +647,25 @@
     }
   });
 
+  // Número en el propio botón "Agenda", para saber si hay algo urgente sin
+  // tener que entrar a mirar — se pide una sola vez al cargar el panel.
+  async function refreshAgendaBadge() {
+    try {
+      const data = await panelFetch('/panel/agenda-summary');
+      const n = Number(data.attentionCount) || 0;
+      els.agendaToggle.innerHTML = `📋 Agenda${n > 0 ? ` <span class="panel-agenda-badge">${n}</span>` : ''}`;
+    } catch (e) { /* si falla, el botón se queda sin número — no es crítico */ }
+  }
+
   function agendaSection(title, emptyMsg, rowsHtml) {
     return `
       <div class="panel-section-label">${title}</div>
       ${rowsHtml || `<p class="panel-status">${emptyMsg}</p>`}
     `;
   }
-  function agendaRow(mainHtml, phone, extraButtonsHtml) {
+  function agendaRow(mainHtml, phone, extraButtonsHtml, crit) {
     return `
-      <div class="panel-agenda-row">
+      <div class="panel-agenda-row${crit ? ' panel-agenda-row-crit' : ''}">
         <div>${mainHtml}</div>
         <div class="actions">
           ${extraButtonsHtml || ''}
@@ -665,45 +676,78 @@
   }
 
   function renderAgenda(data) {
-    const unclosedHtml = data.unclosedBookings.map((b) => agendaRow(
-      `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time} · ${escapeHtml(b.employeeName) || ''}`,
-      b.phone,
-    )).join('');
+    // ── ⚠️ Necesita atención ya: citas sin cerrar + bonos con el
+    // tratamiento roto + cobros recientes sin forma de pago asignada —
+    // todo lo que puede complicar la contabilidad si no se arregla ya. ──
+    const unclosedRows = data.unclosedBookings.map((b) => agendaRow(
+      `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time} · ${escapeHtml(b.employeeName) || ''} <span class="panel-agenda-tag panel-agenda-tag-crit">Sin cerrar</span>`,
+      b.phone, '', true,
+    ));
+    const brokenRows = (data.brokenServiceBonos || []).map((bono) => agendaRow(
+      `<b>${escapeHtml(bono.clientName) || '(sin nombre)'}</b> — bono de ${escapeHtml(bono.serviceName)} <span class="panel-agenda-tag panel-agenda-tag-crit">Tratamiento del bono roto</span>`,
+      bono.clientPhone, '', true,
+    ));
+    const unassignedRows = (data.unassignedPayments || []).map((p) => agendaRow(
+      `<b>${escapeHtml(p.name) || (p.isExtra ? 'Venta suelta' : '(sin nombre)')}</b> — ${escapeHtml(p.serviceName)} · ${fmtDateShort(p.date)} <span class="panel-agenda-tag panel-agenda-tag-warn">Forma de pago sin asignar</span>`,
+      p.phone, '', false,
+    ));
+    const attentionHtml = [...unclosedRows, ...brokenRows, ...unassignedRows].join('');
+    const attentionCount = unclosedRows.length + brokenRows.length + unassignedRows.length;
 
-    // Agrupado por Hoy/Mañana/resto — antes era una lista plana de 7 días
-    // y había que leer la fecha de cada fila una por una para saber qué
-    // tocaba hoy mismo.
+    // ── 📅 Hoy: solo hoy expandido, el resto de la semana se pliega. ──
     const todayISO = new Date().toISOString().slice(0, 10);
-    const tomorrowISO = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
-    const upcomingRow = (b) => agendaRow(
-      `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time} · ${escapeHtml(b.employeeName) || ''}`,
-      b.phone,
-    );
+    const upcomingRow = (b) => {
+      const pill = b.finalAmount === null
+        ? ''
+        : (Math.max(0, b.finalAmount - (b.amountPaid || 0)) > 0.001
+          ? '<span class="panel-agenda-tag panel-agenda-tag-warn">Pendiente</span>'
+          : '<span class="panel-agenda-tag panel-agenda-tag-ok">✓ Pagado</span>');
+      return agendaRow(
+        `<b>${escapeHtml(b.name) || '(sin nombre)'}</b> — ${escapeHtml(b.serviceName)} · ${b.time} · ${escapeHtml(b.employeeName) || ''} ${pill}`,
+        b.phone,
+      );
+    };
     const todayBookings = data.upcomingBookings.filter((b) => b.date === todayISO);
-    const tomorrowBookings = data.upcomingBookings.filter((b) => b.date === tomorrowISO);
-    const laterBookings = data.upcomingBookings.filter((b) => b.date !== todayISO && b.date !== tomorrowISO);
-    const upcomingHtml = [
-      todayBookings.length ? `<div class="panel-agenda-subheader">Hoy</div>${todayBookings.map(upcomingRow).join('')}` : '',
-      tomorrowBookings.length ? `<div class="panel-agenda-subheader">Mañana</div>${tomorrowBookings.map(upcomingRow).join('')}` : '',
-      laterBookings.length ? `<div class="panel-agenda-subheader">Resto de la semana</div>${laterBookings.map(upcomingRow).join('')}` : '',
-    ].join('');
+    const restBookings = data.upcomingBookings.filter((b) => b.date !== todayISO);
+    const todayHtml = todayBookings.map(upcomingRow).join('');
+    const restHtml = restBookings.length
+      ? `<button type="button" class="panel-link-btn panel-agenda-showrest" style="margin:4px 0 10px;">Ver mañana y resto de la semana (${restBookings.length}) ▸</button>
+         <div class="panel-agenda-rest" style="display:none;">${restBookings.map(upcomingRow).join('')}</div>`
+      : '';
 
+    // ── 🎟️ Bonos que necesitan una cita: junta "sin agendar" y "caduca
+    // pronto" en una sola lista, más urgente primero. ──
+    const bonoMap = new Map();
+    data.pendingBonoSessions.forEach((bono) => {
+      bonoMap.set(bono.bonoId, { ...bono, pending: true });
+    });
+    data.expiringBonos.forEach((bono) => {
+      const existing = bonoMap.get(bono.bonoId) || { ...bono };
+      bonoMap.set(bono.bonoId, { ...existing, ...bono, expiring: true });
+    });
+    const bonoRows = Array.from(bonoMap.values()).sort((a, b) => {
+      const score = (x) => (x.pending && x.expiring ? 0 : x.expiring ? 1 : 2);
+      return score(a) - score(b);
+    });
+    const bonosHtml = bonoRows.map((bono) => {
+      const tags = [];
+      if (bono.expiring) tags.push(`<span class="panel-agenda-tag panel-agenda-tag-warn">Caduca ${fmtDateShort(bono.expiryDate)}</span>`);
+      if (bono.pending && !bono.expiring) tags.push('<span class="panel-agenda-tag">Sin agendar</span>');
+      const meta = bono.sessionsRemaining !== undefined
+        ? `${bono.sessionsRemaining} sesión(es) sin usar`
+        : `${bono.sessionsUsed}/${bono.totalSessions} usadas`;
+      return agendaRow(
+        `<b>${escapeHtml(bono.clientName) || '(sin nombre)'}</b> — ${escapeHtml(bono.serviceName)} (${meta}) ${tags.join(' ')}`,
+        bono.clientPhone,
+      );
+    }).join('');
+
+    // ── 🔔 Seguimientos y presupuestos: lo de menos prisa, al final. ──
     const followupsHtml = data.dueFollowups.map((f) => agendaRow(
       `<b>${escapeHtml(f.clientName) || '(sin nombre)'}</b> — vence ${fmtDateShort(f.dueDate)}${f.note ? ` · ${escapeHtml(f.note)}` : ''}`,
       f.clientPhone,
       `<button type="button" class="panel-btn panel-btn-primary panel-btn-sm agenda-followup-done" data-id="${f.followupId}">Hecho ✓</button>`,
     )).join('');
-
-    const bonoPendingHtml = data.pendingBonoSessions.map((bono) => agendaRow(
-      `<b>${escapeHtml(bono.clientName) || '(sin nombre)'}</b> — ${escapeHtml(bono.serviceName)} (${bono.sessionsUsed}/${bono.totalSessions} usadas)`,
-      bono.clientPhone,
-    )).join('');
-
-    const bonoExpiringHtml = data.expiringBonos.map((bono) => agendaRow(
-      `<b>${escapeHtml(bono.clientName) || '(sin nombre)'}</b> — ${escapeHtml(bono.serviceName)} (${bono.sessionsRemaining} sesiones sin usar) · caduca ${fmtDateShort(bono.expiryDate)}`,
-      bono.clientPhone,
-    )).join('');
-
     const quotesHtml = data.unpaidQuotes.map((q) => agendaRow(
       `<b>${escapeHtml(q.clientName) || '(sin nombre)'}</b> — ${escapeHtml(q.description)} · ${Number(q.amount).toFixed(2)} €`,
       q.clientPhone,
@@ -711,13 +755,15 @@
 
     els.agendaSlot.innerHTML = `
       <div class="panel-new-appt">
-        <div class="panel-label">Agenda — próximos 7 días</div>
-        ${agendaSection('🔴 Citas sin cerrar', 'No hay citas pendientes de cerrar.', unclosedHtml)}
-        ${agendaSection('📅 Próximas citas (7 días)', 'No hay citas en los próximos días.', upcomingHtml)}
-        ${agendaSection('🔔 Seguimientos que se acercan', 'No hay seguimientos pendientes.', followupsHtml)}
-        ${agendaSection('🎟️ Bonos con sesión por agendar', 'No hay bonos pendientes de agendar.', bonoPendingHtml)}
-        ${agendaSection('⏳ Bonos cerca de caducar (30 días)', 'No hay bonos por caducar.', bonoExpiringHtml)}
-        ${agendaSection('🧾 Presupuestos sin pagar', 'No hay presupuestos pendientes de pago.', quotesHtml)}
+        <div class="panel-agenda-summary">
+          <div class="panel-agenda-stat panel-agenda-stat-crit"><b>${attentionCount}</b><span>necesitan atención</span></div>
+          <div class="panel-agenda-stat"><b>${todayBookings.length}</b><span>citas hoy</span></div>
+          <div class="panel-agenda-stat"><b>${bonoRows.length}</b><span>bonos por agendar</span></div>
+        </div>
+        ${agendaSection('⚠️ Necesita atención ya', 'Nada urgente — todo en orden.', attentionHtml)}
+        ${agendaSection('📅 Hoy', 'No hay citas hoy.', todayHtml + restHtml)}
+        ${agendaSection('🎟️ Bonos que necesitan una cita', 'No hay bonos pendientes de agendar.', bonosHtml)}
+        ${agendaSection('🔔 Seguimientos y presupuestos', 'No hay nada pendiente.', followupsHtml + quotesHtml)}
       </div>
     `;
 
@@ -730,11 +776,19 @@
         try {
           await panelFetch('/panel/followup-done', { method: 'POST', body: JSON.stringify({ followupId: btn.dataset.id }) });
           btn.closest('.panel-agenda-row').remove();
+          refreshAgendaBadge();
         } catch (e) {
           btn.disabled = false;
         }
       });
     });
+    const showRestBtn = els.agendaSlot.querySelector('.panel-agenda-showrest');
+    if (showRestBtn) {
+      showRestBtn.addEventListener('click', () => {
+        els.agendaSlot.querySelector('.panel-agenda-rest').style.display = 'block';
+        showRestBtn.style.display = 'none';
+      });
+    }
   }
 
   // ── Bono regalo: buscar por código y marcar como canjeado ──
@@ -2444,6 +2498,7 @@
             }),
           });
           doSearch();
+          refreshAgendaBadge();
         } catch (e) {
           pfErrorEl.textContent = e.message;
           pfErrorEl.style.display = 'block';

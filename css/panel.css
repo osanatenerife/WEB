@@ -70,8 +70,22 @@ body {
 .panel-agenda-row:last-child { border-bottom: none; }
 .panel-agenda-row > div:first-child { flex: 1; min-width: 200px; }
 .panel-agenda-row .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.panel-agenda-row-crit { background: var(--rose-bg); margin: 0 -14px; padding: 10px 14px; border-radius: 6px; border-bottom: none; }
 .panel-agenda-subheader { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--clay); margin: 14px 0 4px; }
 .panel-agenda-subheader:first-child { margin-top: 4px; }
+
+.panel-agenda-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 20px; background: var(--rose); color: #fff; font-size: 10.5px; font-weight: 800; vertical-align: middle; }
+
+.panel-agenda-summary { display: flex; gap: 10px; margin-bottom: 22px; flex-wrap: wrap; }
+.panel-agenda-stat { flex: 1; min-width: 100px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; }
+.panel-agenda-stat b { font-size: 19px; display: block; }
+.panel-agenda-stat span { font-size: 11px; color: var(--ink-soft); }
+.panel-agenda-stat-crit b { color: var(--rose); }
+
+.panel-agenda-tag { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--panel-2); color: var(--ink-soft); white-space: nowrap; }
+.panel-agenda-tag-crit { background: var(--rose-bg); color: var(--rose); }
+.panel-agenda-tag-warn { background: var(--amber-bg); color: var(--amber); }
+.panel-agenda-tag-ok { background: var(--sage-bg); color: var(--sage); }
 
 /* ── Bono card ── */
 .panel-bono { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 18px 22px; margin-bottom: 10px; }
