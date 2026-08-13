@@ -377,24 +377,27 @@
 
     slot.innerHTML = `
       <div class="panel-new-appt">
-        <div class="panel-label">Añadir reserva manual (cita ya existente en el calendario)</div>
-        <p class="panel-status" style="margin-bottom:10px;">Si ya existe un evento en el calendario de Google cerca de esa hora, se enlaza con él. Si no existe (p.ej. la clienta lo pide en el momento, en el centro), se crea uno nuevo — solo comprueba que la profesional tenga hueco libre.</p>
+        <div class="panel-label">Añadir reserva manual</div>
+        <p class="panel-status pi-mode-hint" style="margin-bottom:10px;">Si ya existe un evento en el calendario de Google cerca de esa hora, se enlaza con él. Si no existe (p.ej. la clienta lo pide en el momento, en el centro), se crea uno nuevo — solo comprueba que la profesional tenga hueco libre.</p>
+        <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;">
+          <input type="checkbox" class="pi-accounting-only"> Cita ya pasada, solo para contabilidad (no comprueba hueco, no toca el calendario, no hace falta la hora ni identificar a la clienta)
+        </label>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Nombre de la clienta</label><input type="text" class="pi-name" value="${prefill && prefill.name ? escapeHtml(prefill.name) : ''}"></div>
-          <div class="panel-field"><label>Teléfono</label><input type="text" class="pi-phone" value="${prefill && prefill.phone ? escapeHtml(prefill.phone) : ''}"></div>
-          <div class="panel-field"><label>Email</label><input type="email" class="pi-email" value="${prefill && prefill.email ? escapeHtml(prefill.email) : ''}"></div>
+          <div class="panel-field"><label class="pi-name-label">Nombre de la clienta</label><input type="text" class="pi-name" value="${prefill && prefill.name ? escapeHtml(prefill.name) : ''}"></div>
+          <div class="panel-field"><label class="pi-phone-label">Teléfono</label><input type="text" class="pi-phone" value="${prefill && prefill.phone ? escapeHtml(prefill.phone) : ''}"></div>
+          <div class="panel-field"><label class="pi-email-label">Email</label><input type="email" class="pi-email" value="${prefill && prefill.email ? escapeHtml(prefill.email) : ''}"></div>
         </div>
         <div class="panel-field-row">
           <div class="panel-field"><label>Tratamiento</label>
             <select class="pi-service"><option value="">Elige un tratamiento…</option>${serviceOptions}</select>
           </div>
-          <div class="panel-field"><label>Profesional</label><select class="pi-employee"><option value="">Elige un tratamiento primero…</option></select></div>
+          <div class="panel-field"><label class="pi-employee-label">Profesional</label><select class="pi-employee"><option value="">Elige un tratamiento primero…</option></select></div>
         </div>
         <div class="pi-extra-services"></div>
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pi-add-extra" style="margin-bottom:10px;">+ Añadir otro tratamiento a la misma cita</button>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Fecha</label><input type="date" class="pi-date"></div>
-          <div class="panel-field"><label>Hora</label><input type="time" class="pi-time"></div>
+          <div class="panel-field"><label class="pi-date-label">Fecha</label><input type="date" class="pi-date"></div>
+          <div class="panel-field pi-time-field"><label>Hora</label><input type="time" class="pi-time"></div>
           <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="pi-birthdate"></div>
         </div>
         <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;">
@@ -428,7 +431,14 @@
     const employeeSelect = slot.querySelector('.pi-employee');
     const dateInput = slot.querySelector('.pi-date');
     const timeInput = slot.querySelector('.pi-time');
+    const timeField = slot.querySelector('.pi-time-field');
     const birthdateInput = slot.querySelector('.pi-birthdate');
+    const accountingOnlyCheck = slot.querySelector('.pi-accounting-only');
+    const modeHint = slot.querySelector('.pi-mode-hint');
+    const nameLabel = slot.querySelector('.pi-name-label');
+    const phoneLabel = slot.querySelector('.pi-phone-label');
+    const emailLabel = slot.querySelector('.pi-email-label');
+    const employeeLabel = slot.querySelector('.pi-employee-label');
     const isBonoCheck = slot.querySelector('.pi-is-bono');
     const bonoFieldsRow = slot.querySelector('.pi-bono-fields');
     const normalFieldsRow = slot.querySelector('.pi-normal-fields');
@@ -494,6 +504,18 @@
       recomputeSuggestedPrice();
     });
 
+    accountingOnlyCheck.addEventListener('change', () => {
+      const on = accountingOnlyCheck.checked;
+      timeField.style.display = on ? 'none' : 'block';
+      nameLabel.textContent = on ? 'Nombre de la clienta (opcional)' : 'Nombre de la clienta';
+      phoneLabel.textContent = on ? 'Teléfono (opcional)' : 'Teléfono';
+      emailLabel.textContent = on ? 'Email (opcional)' : 'Email';
+      employeeLabel.textContent = on ? 'Profesional (opcional)' : 'Profesional';
+      modeHint.textContent = on
+        ? 'Se registra solo para que cuente en la facturación — no crea ni busca ningún evento en el calendario de Google, y no hace falta identificar a la clienta si no interesa.'
+        : 'Si ya existe un evento en el calendario de Google cerca de esa hora, se enlaza con él. Si no existe (p.ej. la clienta lo pide en el momento, en el centro), se crea uno nuevo — solo comprueba que la profesional tenga hueco libre.';
+    });
+
     serviceSelect.addEventListener('change', async () => {
       const svc = allServices.find((s) => s.id === serviceSelect.value);
       recomputeSuggestedPrice();
@@ -512,7 +534,14 @@
     slot.querySelector('.panel-confirm-import').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       resultEl.style.display = 'none';
-      if (!nameInput.value.trim() || !phoneInput.value.trim() || !emailInput.value.trim()
+      const accountingOnly = accountingOnlyCheck.checked;
+      if (accountingOnly) {
+        if (!serviceSelect.value || !dateInput.value) {
+          errorEl.textContent = 'Indica al menos el tratamiento y la fecha en la que se hizo.';
+          errorEl.style.display = 'block';
+          return;
+        }
+      } else if (!nameInput.value.trim() || !phoneInput.value.trim() || !emailInput.value.trim()
         || !serviceSelect.value || !employeeSelect.value || !dateInput.value || !timeInput.value) {
         errorEl.textContent = 'Completa nombre, teléfono, email, tratamiento, profesional, fecha y hora.';
         errorEl.style.display = 'block';
@@ -530,9 +559,10 @@
           body: JSON.stringify({
             name: nameInput.value.trim(), phone: phoneInput.value.trim(), email: emailInput.value.trim(),
             birthdate: birthdateInput.value || '', serviceId: serviceSelect.value, employeeId: employeeSelect.value,
-            date: dateInput.value, time: timeInput.value,
+            date: dateInput.value, time: accountingOnly ? undefined : timeInput.value,
             price: priceInput.value, amountPaid: paidInput.value, notes: notesInput.value.trim(),
             paidHow: paidHowSelect.value,
+            accountingOnly,
             isBono: isBonoCheck.checked,
             sessionNumber: sessionNumberInput.value, totalSessions: totalSessionsInput.value,
             bonoTotalPrice: bonoPriceInput.value, bonoAmountPaid: bonoPaidInput.value,

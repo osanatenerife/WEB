@@ -758,8 +758,18 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     price, amountPaid, notes, extraServiceIds, paidHow,
     // Campos solo para sesiones de un bono ya vendido (isBono=true):
     isBono, totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid, bonoPurchaseDate,
+    // accountingOnly = cita que ya pasó y solo se registra para que cuente
+    // en la contabilidad — sin comprobar hueco ni tocar el calendario de
+    // Google (no haría falta, ya pasó), sin exigir hora (solo la fecha en
+    // la que se hizo) y sin exigir teléfono/email (para clientas sin ficha,
+    // que no interesa dejar identificadas).
+    accountingOnly,
   } = req.body || {};
-  if (!name || !phone || !email || !serviceId || !employeeId || !date || !time) {
+  if (accountingOnly) {
+    if (!serviceId || !date) {
+      return res.status(400).json({ error: 'Indica al menos el tratamiento y la fecha en la que se hizo.' });
+    }
+  } else if (!name || !phone || !email || !serviceId || !employeeId || !date || !time) {
     return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, teléfono, email, tratamiento, profesional, fecha y hora).' });
   }
   if (isBono && (!totalSessions || !sessionNumber)) {
@@ -775,9 +785,10 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
   }
   try {
     const service = services.find((s) => s.id === serviceId);
-    const employee = employees.find((e) => e.id === employeeId);
+    const employee = employeeId ? employees.find((e) => e.id === employeeId) : null;
     if (!service) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
-    if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
+    if (employeeId && !employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
+    if (!accountingOnly && !employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
 
     // Otros tratamientos añadidos a la misma cita (p.ej. uno ya pagado y otro
     // pendiente) — también puede haberlos junto a una sesión de bono (el
@@ -788,44 +799,49 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     const combinedServiceId = [serviceId, ...additionalServices.map((s) => s.id)].join(',');
     const combinedServiceName = [service.name, ...additionalServices.map((s) => s.name)].join(' + ');
 
-    const timeNorm = time.length === 5 ? time : `${time}:00`;
-    const startISO = localToISO(date, timeNorm, hours.timezone);
+    const timeNorm = time ? (time.length === 5 ? time : `${time}:00`) : '12:00';
     const durationMinutes = service.durationMinutes + additionalServices.reduce((sum, s) => sum + s.durationMinutes, 0);
 
-    const dayStartISO = localToISO(date, '00:00', hours.timezone);
-    const dayEndISO = localToISO(date, '23:59', hours.timezone);
-    const dayEvents = await listEvents(employee.calendarId, dayStartISO, dayEndISO);
-
-    const targetMs = new Date(startISO).getTime();
-    let best = null;
-    let bestDiff = Infinity;
-    dayEvents.forEach((ev) => {
-      if (!ev.start || !ev.start.dateTime) return; // ignora eventos de día completo
-      const diff = Math.abs(new Date(ev.start.dateTime).getTime() - targetMs);
-      if (diff < bestDiff) { bestDiff = diff; best = ev; }
-    });
-    let eventId;
-    if (best && bestDiff <= IMPORT_MATCH_TOLERANCE_MIN * 60 * 1000) {
-      // Ya existía un evento en el calendario cerca de esa hora (reserva
-      // hecha por teléfono o en persona y anotada primero a mano en Google
-      // Calendar) — se enlaza con él en vez de crear uno nuevo.
-      eventId = best.id;
+    let eventId = '';
+    if (accountingOnly) {
+      // Ya pasó y solo se registra por contabilidad — no hace falta
+      // comprobar hueco ni crear/enlazar ningún evento de Google Calendar.
     } else {
-      // No hay ningún evento ahí — es una cita completamente nueva (p.ej.
-      // la clienta la pide en el momento, estando en el centro) — se
-      // comprueba que el hueco está libre y se crea el evento nosotros.
-      const rangeEndISO = addMinutes(startISO, durationMinutes);
-      const free = await isRangeFree(date, employee.calendarId, startISO, rangeEndISO, weeklyScheduleFor(employeeId), { ignoreClosingTime: true });
-      if (!free) {
-        return res.status(409).json({ error: `${employee.name} no tiene hueco libre el ${date} a las ${timeNorm} para ese tratamiento. Elige otra hora.` });
-      }
-      const newEvent = await createBookingEvent(employee.calendarId, {
-        summary: combinedServiceName,
-        description: `Clienta: ${name} · ${phone}`,
-        startISO, endISO: rangeEndISO,
-        clientEmail: email, clientName: name,
+      const startISO = localToISO(date, timeNorm, hours.timezone);
+      const dayStartISO = localToISO(date, '00:00', hours.timezone);
+      const dayEndISO = localToISO(date, '23:59', hours.timezone);
+      const dayEvents = await listEvents(employee.calendarId, dayStartISO, dayEndISO);
+
+      const targetMs = new Date(startISO).getTime();
+      let best = null;
+      let bestDiff = Infinity;
+      dayEvents.forEach((ev) => {
+        if (!ev.start || !ev.start.dateTime) return; // ignora eventos de día completo
+        const diff = Math.abs(new Date(ev.start.dateTime).getTime() - targetMs);
+        if (diff < bestDiff) { bestDiff = diff; best = ev; }
       });
-      eventId = newEvent.id;
+      if (best && bestDiff <= IMPORT_MATCH_TOLERANCE_MIN * 60 * 1000) {
+        // Ya existía un evento en el calendario cerca de esa hora (reserva
+        // hecha por teléfono o en persona y anotada primero a mano en Google
+        // Calendar) — se enlaza con él en vez de crear uno nuevo.
+        eventId = best.id;
+      } else {
+        // No hay ningún evento ahí — es una cita completamente nueva (p.ej.
+        // la clienta la pide en el momento, estando en el centro) — se
+        // comprueba que el hueco está libre y se crea el evento nosotros.
+        const rangeEndISO = addMinutes(startISO, durationMinutes);
+        const free = await isRangeFree(date, employee.calendarId, startISO, rangeEndISO, weeklyScheduleFor(employeeId), { ignoreClosingTime: true });
+        if (!free) {
+          return res.status(409).json({ error: `${employee.name} no tiene hueco libre el ${date} a las ${timeNorm} para ese tratamiento. Elige otra hora.` });
+        }
+        const newEvent = await createBookingEvent(employee.calendarId, {
+          summary: combinedServiceName,
+          description: `Clienta: ${name} · ${phone}`,
+          startISO, endISO: rangeEndISO,
+          clientEmail: email, clientName: name,
+        });
+        eventId = newEvent.id;
+      }
     }
     let bonoId = '';
     let sessionNumberOut = '';
@@ -902,8 +918,8 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       status: 'confirmed',
       name, phone, email,
       serviceId: serviceIdOut, serviceName,
-      employeeId, employeeName: employee.name,
-      calendarId: employee.calendarId,
+      employeeId: employeeId || '', employeeName: employee ? employee.name : '',
+      calendarId: employee ? employee.calendarId : '',
       eventId,
       date, time: timeNorm,
       durationMinutes,
@@ -935,7 +951,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     // resto pendiente, se gana más tarde al cerrar la cita, junto con ese
     // resto y con una sola tasa para el conjunto — igual que una cita con
     // seña pagada online — para no contarla dos veces.
-    if (extrasFullyPaidNow && paidHow) {
+    if (extrasFullyPaidNow && paidHow && phone) {
       await earnLoyalty({
         booking: { serviceId: serviceIdOut, phone, email, name, bookingId },
         portionAmount: bookingAmountPaid,
