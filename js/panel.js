@@ -1032,6 +1032,13 @@
       whenMode: 'new',
       editingIdx: null,
       overrides: {}, // bonoId -> { open, serviceId } — "¿hoy toca otro tratamiento?"
+      // Nombre/teléfono/email/profesional/fecha/hora se guardan aquí y no
+      // solo en el DOM — cada vez que se marca un bono o se añade un
+      // tratamiento, toda la pantalla se vuelve a dibujar de cero, y sin
+      // esto lo ya escrito (p.ej. el nombre de una clienta nueva) se
+      // perdía en cada cambio.
+      ncName: '', ncPhone: '', ncEmail: '', ncBirthdate: '',
+      employeeId: '', date: '', time: '',
     };
     let nextLocalId = 1;
 
@@ -1130,12 +1137,12 @@
           <p class="panel-status" style="margin-bottom:10px;">${isNewClient ? 'Rellena sus datos y añade lo que se lleva hoy del catálogo.' : 'Marca los bonos activos y/o añade tratamientos del catálogo — se agendan juntos, en un solo hueco.'}</p>
           ${isNewClient ? `
           <div class="panel-field-row">
-            <div class="panel-field"><label class="vb-name-label">Nombre de la clienta</label><input type="text" class="vb-nc-name"></div>
-            <div class="panel-field"><label class="vb-phone-label">Teléfono</label><input type="text" class="vb-nc-phone"></div>
-            <div class="panel-field"><label class="vb-email-label">Email</label><input type="email" class="vb-nc-email"></div>
+            <div class="panel-field"><label class="vb-name-label">Nombre de la clienta</label><input type="text" class="vb-nc-name" value="${escapeHtml(vbState.ncName)}"></div>
+            <div class="panel-field"><label class="vb-phone-label">Teléfono</label><input type="text" class="vb-nc-phone" value="${escapeHtml(vbState.ncPhone)}"></div>
+            <div class="panel-field"><label class="vb-email-label">Email</label><input type="email" class="vb-nc-email" value="${escapeHtml(vbState.ncEmail)}"></div>
           </div>
           <div class="panel-field-row">
-            <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="vb-nc-birthdate"></div>
+            <div class="panel-field"><label>Fecha de nacimiento (opcional)</label><input type="date" class="vb-nc-birthdate" value="${vbState.ncBirthdate}"></div>
           </div>` : ''}
           ${activeBonos.length ? `<div class="vb-picks">${picksHtml()}</div>` : ''}
           ${vbState.added.length ? vbState.added.map((t, i) => addedRowHtml(t, i)).join('') : ''}
@@ -1153,8 +1160,8 @@
           </div>
           <div class="panel-field-row">
             <div class="panel-field"><label>Profesional</label><select class="vb-employee"><option value="">Cargando…</option></select></div>
-            <div class="panel-field"><label>Fecha</label><input type="date" class="vb-date"></div>
-            <div class="panel-field vb-time-field"><label>Hora</label>${vbState.whenMode === 'past' ? '<input type="time" class="vb-time-manual">' : '<select class="vb-time"><option value="">Elige profesional y fecha…</option></select>'}</div>
+            <div class="panel-field"><label>Fecha</label><input type="date" class="vb-date" value="${vbState.date}"></div>
+            <div class="panel-field vb-time-field"><label>Hora</label>${vbState.whenMode === 'past' ? `<input type="time" class="vb-time-manual" value="${vbState.time}">` : '<select class="vb-time"><option value="">Elige profesional y fecha…</option></select>'}</div>
           </div>
           <p class="panel-status vb-duration" style="display:${durationMinutes ? 'block' : 'none'};margin:-6px 0 10px;">Duración total del hueco: ${durationMinutes} min</p>
           <div class="panel-field-row">
@@ -1175,6 +1182,15 @@
     }
 
     function wire() {
+      const ncNameInput = slot.querySelector('.vb-nc-name');
+      if (ncNameInput) ncNameInput.addEventListener('input', () => { vbState.ncName = ncNameInput.value; });
+      const ncPhoneInput = slot.querySelector('.vb-nc-phone');
+      if (ncPhoneInput) ncPhoneInput.addEventListener('input', () => { vbState.ncPhone = ncPhoneInput.value; });
+      const ncEmailInput = slot.querySelector('.vb-nc-email');
+      if (ncEmailInput) ncEmailInput.addEventListener('input', () => { vbState.ncEmail = ncEmailInput.value; });
+      const ncBirthdateInput = slot.querySelector('.vb-nc-birthdate');
+      if (ncBirthdateInput) ncBirthdateInput.addEventListener('input', () => { vbState.ncBirthdate = ncBirthdateInput.value; });
+
       slot.querySelectorAll('.vb-pick-check').forEach((cb) => {
         cb.addEventListener('change', () => {
           vbState.selectedBonoIds = Array.from(slot.querySelectorAll('.vb-pick-check:checked')).map((c) => c.value);
@@ -1264,6 +1280,13 @@
         employeeSelect.innerHTML = emps.length
           ? '<option value="">Elige una profesional…</option>' + emps.map((e) => `<option value="${e.id}">${e.name}</option>`).join('')
           : '<option value="">Ninguna profesional puede con todos a la vez</option>';
+        // Igual que el nombre/teléfono, la profesional/fecha/hora ya
+        // elegidas se recuperan aquí — el desplegable se reconstruye entero
+        // cada vez que se marca otro tratamiento, y sin esto se perdía la
+        // selección aunque la profesional siguiera siendo válida.
+        if (vbState.employeeId && emps.some((e) => e.id === vbState.employeeId)) {
+          employeeSelect.value = vbState.employeeId;
+        }
         if (vbState.whenMode === 'new') refreshSlots();
       }
 
@@ -1281,6 +1304,7 @@
           const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}`, { method: 'GET' });
           const slots = data.slots || [];
           timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
+          if (vbState.time && slots.includes(vbState.time)) timeSelect.value = vbState.time;
         } catch (e) {
           timeSelect.innerHTML = '<option value="">Error al cargar huecos</option>';
         }
@@ -1288,9 +1312,12 @@
 
       if (employeeSelect) {
         refreshEmployees();
-        employeeSelect.addEventListener('change', refreshSlots);
+        employeeSelect.addEventListener('change', () => { vbState.employeeId = employeeSelect.value; refreshSlots(); });
       }
-      if (dateInput) dateInput.addEventListener('change', refreshSlots);
+      if (dateInput) dateInput.addEventListener('change', () => { vbState.date = dateInput.value; refreshSlots(); });
+      if (timeSelect) timeSelect.addEventListener('change', () => { vbState.time = timeSelect.value; });
+      const timeManualInput = slot.querySelector('.vb-time-manual');
+      if (timeManualInput) timeManualInput.addEventListener('input', () => { vbState.time = timeManualInput.value; });
 
       if (confirmBtn) {
         confirmBtn.addEventListener('click', async (ev) => {
