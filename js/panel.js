@@ -1313,8 +1313,18 @@
             ncPhone = slot.querySelector('.vb-nc-phone').value.trim();
             ncEmail = slot.querySelector('.vb-nc-email').value.trim();
             ncBirthdate = slot.querySelector('.vb-nc-birthdate').value;
-            if (!isPast && (!ncName || !ncPhone || !ncEmail)) {
-              errorEl.textContent = 'Indica nombre, teléfono y email de la clienta (o marca "Ya pasó" si no hace falta identificarla).';
+            // El teléfono hace falta SIEMPRE, incluso en "Ya pasó" — es lo
+            // único que enlaza esta visita con la ficha de la clienta al
+            // buscarla luego. Dejarlo en blanco no crea una cita "anónima
+            // válida", crea una cita huérfana: no aparece en su historial
+            // y no suma ni saldo ni bono a nadie.
+            if (!ncPhone) {
+              errorEl.textContent = 'Indica al menos el teléfono de la clienta — sin él, esta visita no se podrá encontrar luego ni sumar puntos a nadie.';
+              errorEl.style.display = 'block';
+              return;
+            }
+            if (!isPast && (!ncName || !ncEmail)) {
+              errorEl.textContent = 'Indica nombre y email de la clienta (o marca "Ya pasó" si de momento solo hace falta el teléfono).';
               errorEl.style.display = 'block';
               return;
             }
