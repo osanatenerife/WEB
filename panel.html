@@ -6,7 +6,7 @@
 <title>Panel interno — Osana</title>
 <meta name="robots" content="noindex, nofollow">
 <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/panel.css?v=15">
+<link rel="stylesheet" href="css/panel.css?v=16">
 </head>
 <body>
 
@@ -26,33 +26,44 @@
     <button type="button" id="panel-logout" class="panel-link-btn">Cerrar sesión</button>
   </div>
 
-  <div class="panel-search-row">
-    <input type="text" id="panel-search-input" class="panel-search-input" placeholder="Buscar por teléfono, email o nombre…">
-    <button type="button" id="panel-search-btn" class="panel-btn panel-btn-primary">Buscar</button>
-    <button type="button" id="panel-report-toggle" class="panel-btn panel-btn-ghost">📊 Informe trimestral</button>
+  <div class="panel-mode-toggle">
+    <button type="button" id="panel-mode-existing-btn" class="panel-mode-btn panel-mode-btn-active">🔍 Clienta existente</button>
+    <button type="button" id="panel-mode-new-btn" class="panel-mode-btn">+ Clienta nueva</button>
+  </div>
+
+  <div id="panel-existing-view">
+    <div class="panel-search-row">
+      <input type="text" id="panel-search-input" class="panel-search-input" placeholder="Buscar por teléfono, email o nombre…">
+      <button type="button" id="panel-search-btn" class="panel-btn panel-btn-primary">Buscar</button>
+    </div>
+    <p id="panel-search-error" class="panel-error" style="display:none;"></p>
+    <p id="panel-search-status" class="panel-status" style="display:none;"></p>
+    <div id="panel-results"></div>
+  </div>
+
+  <div id="panel-new-view" style="display:none;">
+    <div id="panel-newclient-slot"></div>
+  </div>
+
+  <div class="panel-tools-row">
+    <button type="button" id="panel-agenda-toggle" class="panel-btn panel-btn-ghost">📋 Agenda</button>
     <button type="button" id="panel-payments-toggle" class="panel-btn panel-btn-ghost">🧾 Comprobar cobros</button>
     <button type="button" id="panel-quote-toggle" class="panel-btn panel-btn-ghost">🧾 Presupuesto personalizado</button>
-    <button type="button" id="panel-import-toggle" class="panel-btn panel-btn-ghost">📅 Añadir reserva manual</button>
-    <button type="button" id="panel-agenda-toggle" class="panel-btn panel-btn-ghost">📋 Agenda</button>
     <button type="button" id="panel-gift-toggle" class="panel-btn panel-btn-ghost">🎁 Bono regalo</button>
     <button type="button" id="panel-discount-toggle" class="panel-btn panel-btn-ghost">🏷️ Descuentos</button>
     <button type="button" id="panel-campaign-toggle" class="panel-btn panel-btn-ghost">📧 Campaña de email</button>
+    <button type="button" id="panel-report-toggle" class="panel-btn panel-btn-ghost">📊 Informe trimestral</button>
   </div>
   <div id="panel-report-slot"></div>
   <div id="panel-payments-slot"></div>
   <div id="panel-quote-slot"></div>
-  <div id="panel-import-slot"></div>
   <div id="panel-agenda-slot"></div>
   <div id="panel-gift-slot"></div>
   <div id="panel-discount-slot"></div>
   <div id="panel-campaign-slot"></div>
-  <p id="panel-search-error" class="panel-error" style="display:none;"></p>
-  <p id="panel-search-status" class="panel-status" style="display:none;"></p>
-
-  <div id="panel-results"></div>
 </div>
 
 <script src="js/booking-config.js"></script>
-<script src="js/panel.js?v=49"></script>
+<script src="js/panel.js?v=50"></script>
 </body>
 </html>

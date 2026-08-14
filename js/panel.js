@@ -34,8 +34,11 @@
     paymentsSlot: document.getElementById('panel-payments-slot'),
     quoteToggle: document.getElementById('panel-quote-toggle'),
     quoteSlot: document.getElementById('panel-quote-slot'),
-    importToggle: document.getElementById('panel-import-toggle'),
-    importSlot: document.getElementById('panel-import-slot'),
+    modeExistingBtn: document.getElementById('panel-mode-existing-btn'),
+    modeNewBtn: document.getElementById('panel-mode-new-btn'),
+    existingView: document.getElementById('panel-existing-view'),
+    newView: document.getElementById('panel-new-view'),
+    newclientSlot: document.getElementById('panel-newclient-slot'),
     agendaToggle: document.getElementById('panel-agenda-toggle'),
     agendaSlot: document.getElementById('panel-agenda-slot'),
     giftToggle: document.getElementById('panel-gift-toggle'),
@@ -372,10 +375,19 @@
     return allEmployeesCache;
   }
 
-  els.importToggle.addEventListener('click', () => {
-    if (els.importSlot.innerHTML) { els.importSlot.innerHTML = ''; return; }
-    renderVisitBuilder(els.importSlot, null);
-  });
+  // ── Clienta existente / clienta nueva: un único punto de entrada al
+  // principio del panel, en vez de tener que adivinar cuál de varios
+  // botones del todo de arriba usar para dar de alta a alguien nueva. ──
+  function setClientMode(mode) {
+    const isNew = mode === 'new';
+    els.modeExistingBtn.classList.toggle('panel-mode-btn-active', !isNew);
+    els.modeNewBtn.classList.toggle('panel-mode-btn-active', isNew);
+    els.existingView.style.display = isNew ? 'none' : 'block';
+    els.newView.style.display = isNew ? 'block' : 'none';
+    if (isNew && !els.newclientSlot.innerHTML) renderVisitBuilder(els.newclientSlot, null);
+  }
+  els.modeExistingBtn.addEventListener('click', () => setClientMode('existing'));
+  els.modeNewBtn.addEventListener('click', () => setClientMode('new'));
 
   function fmtDateParts(dateStr) {
     const d = new Date(`${dateStr}T12:00:00`);
@@ -934,7 +946,7 @@
     });
 
     const bonosContainer = wrap.querySelector('.panel-bonos');
-    client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono, client)));
+    client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono)));
 
     const apptsContainer = wrap.querySelector('.panel-appts');
     client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client)));
@@ -994,6 +1006,7 @@
       added: [], // { localId, serviceId, isBono, bonoSessions, bonoPrice, bonoPriceTouched }
       whenMode: 'new',
       editingIdx: null,
+      overrides: {}, // bonoId -> { open, serviceId } — "¿hoy toca otro tratamiento?"
     };
     let nextLocalId = 1;
 
@@ -1009,12 +1022,30 @@
     function picksHtml() {
       return activeBonos.map((bo) => {
         const checked = vbState.selectedBonoIds.includes(bo.bonoId);
+        const owes = Number(bo.remainingAmount) > 0;
+        const ov = vbState.overrides[bo.bonoId] || {};
+        // El "tratamiento de hoy" distinto solo tiene sentido cuando se
+        // agenda ESTE bono solo (book-session admite treatmentOverrideId;
+        // book-combined-sessions, al agendar varios a la vez, no).
+        const canOverride = checked && vbState.selectedBonoIds.length === 1;
+        let extra = '';
+        if (canOverride) {
+          const ovName = ov.serviceId ? (allServices.find((s) => s.id === ov.serviceId) || {}).name : '';
+          extra += `<button type="button" class="vb-mini-link vb-override-toggle" data-bono="${bo.bonoId}">🔁 ${ovName ? `Hoy: ${escapeHtml(ovName)} (cambiar)` : '¿Hoy toca otro tratamiento?'}</button>`;
+          if (ov.open) {
+            extra += `<select class="vb-override-select" data-bono="${bo.bonoId}">
+              <option value="">Usar el tratamiento del bono (${escapeHtml(bo.serviceName)})</option>
+              ${catalogOptionsHtml}
+            </select>`;
+          }
+        }
         return `
-        <label class="vb-pick${checked ? ' vb-pick-checked' : ''}">
+        <label class="vb-pick${checked ? ' vb-pick-checked' : ''}${checked && owes ? ' vb-pick-owes' : ''}">
           <input type="checkbox" class="vb-pick-check" value="${bo.bonoId}" ${checked ? 'checked' : ''}>
           <div class="vb-pick-body">
             <div class="vb-pick-name">${escapeHtml(bo.serviceName)}</div>
-            <div class="vb-pick-meta">Sesión ${(Number(bo.sessionsUsed) || 0) + 1} de ${bo.totalSessions}${Number(bo.remainingAmount) > 0 ? ` · pendiente de pago del bono: ${Number(bo.remainingAmount).toFixed(2)} €` : ''}</div>
+            <div class="vb-pick-meta">Sesión ${(Number(bo.sessionsUsed) || 0) + 1} de ${bo.totalSessions}${owes ? ` · pendiente de pago del bono: ${bo.remainingAmount.toFixed(2)} €` : ''}</div>
+            ${extra ? `<div class="vb-pick-extra">${extra}</div>` : ''}
           </div>
         </label>`;
       }).join('');
@@ -1120,6 +1151,20 @@
       slot.querySelectorAll('.vb-pick-check').forEach((cb) => {
         cb.addEventListener('change', () => {
           vbState.selectedBonoIds = Array.from(slot.querySelectorAll('.vb-pick-check:checked')).map((c) => c.value);
+          render();
+        });
+      });
+      slot.querySelectorAll('.vb-override-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.bono;
+          vbState.overrides[id] = { ...vbState.overrides[id], open: !(vbState.overrides[id] || {}).open };
+          render();
+        });
+      });
+      slot.querySelectorAll('.vb-override-select').forEach((sel) => {
+        sel.addEventListener('change', () => {
+          const id = sel.dataset.bono;
+          vbState.overrides[id] = { ...vbState.overrides[id], serviceId: sel.value };
           render();
         });
       });
@@ -1249,11 +1294,13 @@
           try {
             if (m === 'single-bono') {
               const bono = activeBonos.find((bo) => bo.bonoId === vbState.selectedBonoIds[0]);
+              const override = vbState.overrides[bono.bonoId];
               await panelFetch('/panel/book-session', {
                 method: 'POST',
                 body: JSON.stringify({
                   bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value,
                   time: timeVal, notes: notesVal, force: isPast || undefined,
+                  treatmentOverrideId: override ? override.serviceId : undefined,
                 }),
               });
             } else if (m === 'multi-bono') {
@@ -1295,10 +1342,17 @@
                 }),
               });
             }
-            slot.innerHTML = isNewClient
-              ? `<p class="panel-status">Reserva dada de alta ✓ — búscala por teléfono (${escapeHtml(ncPhone)}) para verla.</p>`
-              : '<p class="panel-status">Visita agendada ✓</p>';
-            if (!isNewClient) doSearch();
+            slot.innerHTML = '<p class="panel-status">Visita agendada ✓</p>';
+            if (isNewClient) {
+              // En vez de dejarla ahí con un mensaje suelto, se pasa
+              // directamente a "Clienta existente" con su ficha ya
+              // cargada — es la misma clienta a partir de ahora.
+              els.searchInput.value = ncPhone;
+              setClientMode('existing');
+              doSearch();
+            } else {
+              doSearch();
+            }
             refreshAgendaBadge();
           } catch (e) {
             errorEl.textContent = e.message;
@@ -1495,7 +1549,7 @@
     });
   }
 
-  function renderBono(bono, client) {
+  function renderBono(bono) {
     const el = document.createElement('div');
     el.className = 'panel-bono';
     const pct = bono.totalSessions ? Math.round((bono.sessionsUsed / bono.totalSessions) * 100) : 0;
@@ -1507,17 +1561,12 @@
       </div>
       <div class="panel-progress-track"><div class="panel-progress-fill" style="width:${pct}%;"></div></div>
       ${remaining > 0 ? `<p class="panel-status" style="margin-top:6px;">Pendiente de pago del bono: <b>${remaining.toFixed(2)} €</b></p>` : ''}
+      ${!bono.sessionsRemaining ? '<p class="panel-status">Bono completado</p>' : ''}
       <div class="panel-bono-actions">
-        ${bono.sessionsRemaining > 0 ? '<button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-book-session">+ Agendar siguiente sesión</button>' : '<span class="panel-status">Bono completado</span>'}
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editbono-toggle">✎ Corregir nº de sesiones</button>
       </div>
-      <div class="panel-new-appt-slot"></div>
       <div class="panel-editbono-slot"></div>
     `;
-    const bookBtn = el.querySelector('.panel-book-session');
-    if (bookBtn) {
-      bookBtn.addEventListener('click', () => toggleBookSessionForm(el, bono, bookBtn, client));
-    }
     el.querySelector('.panel-editbono-toggle').addEventListener('click', () => toggleEditBono(el, bono));
     return el;
   }
