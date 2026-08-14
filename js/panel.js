@@ -890,7 +890,11 @@
         ${unclosedToday.map((b) => `
           <div class="panel-client-unclosed-row">
             <span>${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time}</span>
-            <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-unclosed-close" data-booking-id="${b.bookingId}">💶 Cerrar y cobrar</button>
+            <div class="panel-client-unclosed-actions">
+              <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-unclosed-close" data-booking-id="${b.bookingId}">💶 Cerrar y cobrar</button>
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-unclosed-resched" data-booking-id="${b.bookingId}">🗓️ Reprogramar</button>
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-unclosed-noshow" data-booking-id="${b.bookingId}">🚫 No se presentó</button>
+            </div>
           </div>
         `).join('')}
       </div>
@@ -954,13 +958,34 @@
     // El botón "Cerrar y cobrar" de arriba abre el mismo panel de "Editar
     // cita" que ya existe abajo, en vez de duplicar el flujo de cobro —
     // solo ahorra tener que buscar la cita entre todo el historial.
+    function findApptEl(bookingId) {
+      const id = window.CSS && CSS.escape ? CSS.escape(bookingId) : bookingId;
+      return apptsContainer.querySelector(`.panel-appt[data-booking-id="${id}"]`);
+    }
     wrap.querySelectorAll('.panel-unclosed-close').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const apptEl = apptsContainer.querySelector(`.panel-appt[data-booking-id="${window.CSS && CSS.escape ? CSS.escape(btn.dataset.bookingId) : btn.dataset.bookingId}"]`);
+        const apptEl = findApptEl(btn.dataset.bookingId);
         if (!apptEl) return;
         const toggleBtn = apptEl.querySelector('.panel-editbooking-toggle');
         if (toggleBtn && !apptEl.querySelector('.panel-editbooking-slot').innerHTML) toggleBtn.click();
         apptEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+    wrap.querySelectorAll('.panel-unclosed-resched').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const apptEl = findApptEl(btn.dataset.bookingId);
+        if (!apptEl) return;
+        const toggleBtn = apptEl.querySelector('.panel-reschedule-toggle');
+        if (toggleBtn && !apptEl.querySelector('.panel-reschedule-slot').innerHTML) toggleBtn.click();
+        apptEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+    wrap.querySelectorAll('.panel-unclosed-noshow').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const apptEl = findApptEl(btn.dataset.bookingId);
+        if (!apptEl) return;
+        const realBtn = apptEl.querySelector('.panel-noshow-btn');
+        if (realBtn) realBtn.click();
       });
     });
 
@@ -1068,9 +1093,11 @@
         row += `
           <div class="vb-bono-inline">
             <div class="panel-field-row">
-              <div class="panel-field"><label>Nº de sesiones del bono</label><input type="number" min="1" step="1" class="vb-bono-sessions" value="${t.bonoSessions || ''}" placeholder="Ej. 2, 3, 6…"></div>
+              <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="vb-bono-sessions" value="${t.bonoSessions || ''}" placeholder="Ej. 2, 3, 6…"></div>
+              <div class="panel-field"><label>Esta cita es la sesión nº</label><input type="number" min="1" step="1" class="vb-bono-sessionnum" value="${t.bonoSessionNumber || 1}"></div>
               <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="vb-bono-price" value="${t.bonoPrice || ''}" placeholder="Precio a medida"></div>
             </div>
+            <p class="field-hint" style="font-size:11px;color:var(--ink-faint);margin:-6px 0 10px;">Si el bono ya se vendió antes y ya tenía sesiones hechas (p.ej. lo estás dando de alta ahora pero ya iba por la 2 de 3), cambia el número de sesión — no hace falta que empiece siempre en 1.</p>
             <div style="display:flex;gap:8px;">
               <button type="button" class="panel-btn panel-btn-accent panel-btn-sm vb-confirm-bono" data-idx="${idx}">Guardar como bono</button>
               <button type="button" class="panel-link-btn vb-cancel-bono" data-idx="${idx}">Cancelar</button>
@@ -1190,8 +1217,10 @@
           const idx = Number(btn.dataset.idx);
           const t = vbState.added[idx];
           const sessionsInput = slot.querySelector('.vb-bono-sessions');
+          const sessionNumInput = slot.querySelector('.vb-bono-sessionnum');
           const priceInput = slot.querySelector('.vb-bono-price');
           t.bonoSessions = Number(sessionsInput.value) || 1;
+          t.bonoSessionNumber = Math.min(t.bonoSessions, Number(sessionNumInput.value) || 1);
           t.bonoPrice = Number(priceInput.value) || 0;
           t.isBono = true;
           vbState.editingIdx = null;
@@ -1335,7 +1364,7 @@
                   amountPaid: primary.isBono ? 0 : paidInput.value,
                   paidHow: paidHowSelect.value,
                   notes: notesVal, accountingOnly: isPast,
-                  isBono: primary.isBono, sessionNumber: 1, totalSessions: primary.bonoSessions,
+                  isBono: primary.isBono, sessionNumber: primary.bonoSessionNumber || 1, totalSessions: primary.bonoSessions,
                   bonoTotalPrice: primary.isBono ? priceInput.value : undefined,
                   bonoAmountPaid: primary.isBono ? paidInput.value : undefined,
                   extraServiceIds: extras.map((t) => t.serviceId),
@@ -1806,7 +1835,7 @@
       <div class="panel-appt-actions">
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-note-toggle">✎ Nota</button>
         ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editbooking-toggle">✎ Editar cita</button>' : ''}
-        ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
+        ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-warn panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
         ${b.status !== 'cancelled_refunded' ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">${b.bonoId ? '↩ No se hizo — devolver sesión' : '🗑 Eliminar'}</button>` : ''}
@@ -2123,6 +2152,7 @@
               </select>
             </div>
           </div>
+          <p class="panel-status pf-remainder-preview" style="margin:-6px 0 10px;"></p>
           <div class="panel-field-row">
             <div class="panel-field"><label>Bono regalo (código, opcional)</label><input type="text" class="pf-giftcode" placeholder="Ej. REGALO2026"></div>
           </div>
@@ -2491,6 +2521,22 @@
       const amount2Input = slot.querySelector('.pf-amount2');
       const paidHow2Select = slot.querySelector('.pf-paidhow2');
       const pfErrorEl = slot.querySelector('.pf-error');
+      const remainderPreview = slot.querySelector('.pf-remainder-preview');
+      // Muestra en vivo cuánto queda de verdad por cobrar en el centro —
+      // antes solo se veía el importe total, y no quedaba claro que una
+      // cita ya pagada del todo (p.ej. seña online = precio) no tiene
+      // nada más que cobrar aquí, aunque el desplegable de forma de pago
+      // se siguiera mostrando como si hiciera falta elegir una.
+      function updateRemainderPreview() {
+        const total = Number(amountInput.value) || 0;
+        const remainder = Math.max(0, round2ForDisplay(total - alreadyPaid));
+        remainderPreview.textContent = remainder > 0
+          ? `Queda por cobrar en el centro: ${remainder.toFixed(2)} €`
+          : '✓ Ya está pagado del todo — no queda nada más por cobrar en el centro.';
+      }
+      function round2ForDisplay(n) { return Math.round(n * 100) / 100; }
+      amountInput.addEventListener('input', updateRemainderPreview);
+      updateRemainderPreview();
       splitToggle.addEventListener('change', () => {
         splitRow.style.display = splitToggle.checked ? 'grid' : 'none';
       });
