@@ -228,13 +228,16 @@
           ? `<p class="panel-error" style="display:block;margin:0 0 10px;">⚠️ ${unassignedCount} cobro${unassignedCount === 1 ? '' : 's'} sin forma de pago asignada en este rango — búscalos abajo (⚠️ sin asignar) y complétalos antes de cuadrar caja.</p>`
           : '';
 
+        const payMethodOptions = (selected) => ['efectivo', 'tarjeta', 'bizum', 'bonos archipiélago', 'bono adeje']
+          .map((v) => `<option value="${v}"${v === selected ? ' selected' : ''}>${v.charAt(0).toUpperCase() + v.slice(1)}</option>`).join('');
+
         const bookingsHtml = (data.closedBookings || []).map((b) => {
           const part1 = b.remainder - b.remainderAmount2;
           const parts = [];
           if (part1 > 0) parts.push(`${part1.toFixed(2)} € (${b.remainderPaidHow || '⚠️ sin asignar'})`);
           if (b.remainderAmount2 > 0) parts.push(`${b.remainderAmount2.toFixed(2)} € (${b.remainderPaidHow2 || '⚠️ sin asignar'})`);
           return `
-            <div class="line-item">
+            <div class="line-item" data-booking-id="${b.bookingId}">
               <div class="line-item-row">
                 <div class="line-item-main"><div class="line-item-name">${escapeHtml(b.name)} <span class="line-item-meta">${b.date} ${b.time} · ${escapeHtml(b.serviceName)}</span></div></div>
                 <div class="line-item-price">${b.finalAmount.toFixed(2)} €</div>
@@ -242,16 +245,45 @@
               <div class="line-item-meta" style="padding:0 0 8px;">
                 ${b.onlinePaid > 0 ? `${b.depositPaidHow ? `Pagado por adelantado en el centro: ${b.onlinePaid.toFixed(2)} € (${b.depositPaidHow})` : `Seña online: ${b.onlinePaid.toFixed(2)} €`} · ` : ''}${b.redeemed > 0 ? `Saldo canjeado: ${b.redeemed.toFixed(2)} € · ` : ''}En el centro: ${parts.length ? parts.join(' + ') : '0.00 €'}
               </div>
+              <div class="pp-edit-row">
+                <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pp-edit-toggle">✎ Editar</button>
+                <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pp-goto-client" data-phone="${escapeHtml(b.phone || '')}">Ver ficha (corregir datos de la clienta)</button>
+              </div>
+              <div class="pp-edit-form" style="display:none;">
+                <div class="panel-field-row">
+                  <div class="panel-field"><label>Importe total (€)</label><input type="number" step="0.01" class="pp-edit-amount" value="${b.finalAmount}"></div>
+                  <div class="panel-field"><label>Pagado con</label><select class="pp-edit-paidhow">${payMethodOptions(b.remainderPaidHow)}</select></div>
+                </div>
+                ${b.remainderAmount2 > 0 ? `
+                <div class="panel-field-row">
+                  <div class="panel-field"><label>Importe con la 2ª forma (€)</label><input type="number" step="0.01" class="pp-edit-amount2" value="${b.remainderAmount2}"></div>
+                  <div class="panel-field"><label>2ª forma de pago</label><select class="pp-edit-paidhow2">${payMethodOptions(b.remainderPaidHow2)}</select></div>
+                </div>` : ''}
+                <button type="button" class="panel-btn panel-btn-primary panel-btn-sm pp-edit-save">Guardar corrección</button>
+                <p class="panel-error pp-edit-error" style="display:none;"></p>
+              </div>
             </div>`;
         }).join('') || '<p class="panel-status">Sin citas cerradas en este rango.</p>';
 
         const extrasHtml = (data.extraLines || []).map((e) => `
-          <div class="line-item">
+          <div class="line-item" data-sale-id="${e.saleId || ''}">
             <div class="line-item-row">
               <div class="line-item-main"><div class="line-item-name">${escapeHtml(e.product)} <span class="line-item-meta">${e.date} · extra${e.bookingId ? '' : ' suelto'}</span></div></div>
               <div class="line-item-price">${e.amount.toFixed(2)} €</div>
             </div>
             <div class="line-item-meta" style="padding:0 0 8px;">Pagado con: ${e.paidHow || '⚠️ sin asignar'}</div>
+            ${e.saleId ? `
+            <div class="pp-edit-row">
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pp-edit-extra-toggle">✎ Editar</button>
+            </div>
+            <div class="pp-edit-extra-form" style="display:none;">
+              <div class="panel-field-row">
+                <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="pp-edit-extra-amount" value="${e.amount}"></div>
+                <div class="panel-field"><label>Pagado con</label><select class="pp-edit-extra-paidhow">${payMethodOptions(e.paidHow)}</select></div>
+              </div>
+              <button type="button" class="panel-btn panel-btn-primary panel-btn-sm pp-edit-extra-save">Guardar corrección</button>
+              <p class="panel-error pp-edit-extra-error" style="display:none;"></p>
+            </div>` : ''}
           </div>`).join('') || '<p class="panel-status">Sin extras en este rango.</p>';
 
         resultEl.innerHTML = `
@@ -262,6 +294,75 @@
           <div class="panel-section-label">Extras</div>
           ${extrasHtml}
         `;
+
+        // ── Corregir un importe/forma de pago con error, sin salir de
+        // Comprobar cobros — reutiliza /panel/close, que ya sabe actualizar
+        // una cita que ya estaba cerrada sin duplicar puntos ni canjes. ──
+        resultEl.querySelectorAll('.pp-edit-toggle').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const form = btn.closest('.line-item').querySelector('.pp-edit-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+          });
+        });
+        resultEl.querySelectorAll('.pp-goto-client').forEach((btn) => {
+          btn.addEventListener('click', () => jumpToClient(btn.dataset.phone));
+        });
+        resultEl.querySelectorAll('.pp-edit-save').forEach((btn) => {
+          btn.addEventListener('click', async (ev) => {
+            const row = btn.closest('.line-item');
+            const bookingId = row.dataset.bookingId;
+            const amountInput = row.querySelector('.pp-edit-amount');
+            const paidHowSelect = row.querySelector('.pp-edit-paidhow');
+            const amount2Input = row.querySelector('.pp-edit-amount2');
+            const paidHow2Select = row.querySelector('.pp-edit-paidhow2');
+            const errorEl2 = row.querySelector('.pp-edit-error');
+            errorEl2.style.display = 'none';
+            ev.target.disabled = true;
+            try {
+              await panelFetch('/panel/close', {
+                method: 'POST',
+                body: JSON.stringify({
+                  bookingId, finalAmount: amountInput.value, paidHow: paidHowSelect.value,
+                  remainderAmount2: amount2Input ? amount2Input.value : 0,
+                  paidHow2: amount2Input ? paidHow2Select.value : '',
+                }),
+              });
+              runSearch();
+            } catch (e) {
+              errorEl2.textContent = e.message;
+              errorEl2.style.display = 'block';
+              ev.target.disabled = false;
+            }
+          });
+        });
+        resultEl.querySelectorAll('.pp-edit-extra-toggle').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const form = btn.closest('.line-item').querySelector('.pp-edit-extra-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+          });
+        });
+        resultEl.querySelectorAll('.pp-edit-extra-save').forEach((btn) => {
+          btn.addEventListener('click', async (ev) => {
+            const row = btn.closest('.line-item');
+            const saleId = row.dataset.saleId;
+            const amountInput = row.querySelector('.pp-edit-extra-amount');
+            const paidHowSelect = row.querySelector('.pp-edit-extra-paidhow');
+            const errorEl2 = row.querySelector('.pp-edit-extra-error');
+            errorEl2.style.display = 'none';
+            ev.target.disabled = true;
+            try {
+              await panelFetch('/panel/product-sale-edit', {
+                method: 'POST',
+                body: JSON.stringify({ saleId, amount: amountInput.value, paidHow: paidHowSelect.value }),
+              });
+              runSearch();
+            } catch (e) {
+              errorEl2.textContent = e.message;
+              errorEl2.style.display = 'block';
+              ev.target.disabled = false;
+            }
+          });
+        });
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
@@ -402,6 +503,7 @@
 
   function jumpToClient(phone) {
     els.agendaSlot.innerHTML = '';
+    setClientMode('existing');
     els.searchInput.value = phone || '';
     doSearch();
     els.searchInput.scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -167,6 +167,8 @@ body {
 .line-item-price { font-size: 13px; font-weight: 700; color: var(--clay); white-space: nowrap; }
 .line-item-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .line-item-edit { background: var(--panel-2); border: 1px dashed var(--line); border-radius: 6px; padding: 14px 16px; margin-top: 10px; }
+.pp-edit-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.pp-edit-form, .pp-edit-extra-form { background: var(--panel-2); border: 1px dashed var(--line); border-radius: 6px; padding: 14px 16px; margin-top: 8px; }
 .type-tabs, .cat-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .type-tab, .cat-pill { padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid var(--line); background: var(--panel); color: var(--ink-soft); cursor: pointer; }
 .type-tab.active, .cat-pill.active { background: var(--clay); color: var(--panel); border-color: var(--clay); }
