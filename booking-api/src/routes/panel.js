@@ -622,7 +622,10 @@ router.post('/panel/book-session', async (req, res) => {
     return res.status(400).json({ error: 'La hora no tiene un formato válido (HH:MM).' });
   }
   const useCount = Math.max(1, Math.round(Number(sessionsToUse) || 1));
-  const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
+  // Puede ser negativo — el equipo sabe que en realidad da tiempo de sobra
+  // y quiere liberar ese hueco para más citas (nunca se deja bajar de un
+  // mínimo absurdo, ver más abajo donde se aplica a durationMinutes).
+  const extra = Math.round(Number(extraMinutes) || 0);
   try {
     // Dos peticiones casi simultáneas para el mismo bono (doble clic, o dos
     // pestañas del panel) podrían leer el mismo "sessionsRemaining" antes de
@@ -655,7 +658,7 @@ router.post('/panel/book-session', async (req, res) => {
     }
     const displayName = displayService ? displayService.name : bono.serviceName;
 
-    const durationMinutes = (displayService || baseService).durationMinutes + extra;
+    const durationMinutes = Math.max(5, (displayService || baseService).durationMinutes + extra);
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
     const endISO = addMinutes(startISO, durationMinutes);
     const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
@@ -759,7 +762,7 @@ const LEGACY_BONO_VALIDITY_MONTHS = 12;
 router.post('/panel/import-legacy-booking', async (req, res) => {
   const {
     name, phone, email, birthdate, serviceId, employeeId, date, time,
-    price, amountPaid, notes, extraServiceIds, paidHow,
+    price, amountPaid, notes, extraServiceIds, paidHow, extraMinutes,
     // Campos solo para sesiones de un bono ya vendido (isBono=true):
     isBono, totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid, bonoPurchaseDate,
     // accountingOnly = cita que ya pasó y solo se registra para que cuente
@@ -803,7 +806,11 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     const combinedServiceName = [service.name, ...additionalServices.map((s) => s.name)].join(' + ');
 
     const timeNorm = time ? (time.length === 5 ? time : `${time}:00`) : '12:00';
-    const durationMinutes = service.durationMinutes + additionalServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+    // extraMinutes: ajuste sobre la duración estándar del catálogo para
+    // esta visita en concreto — puede ser negativo (el equipo sabe que da
+    // tiempo de sobra y quiere liberar ese hueco para más citas).
+    const extraMin = Math.round(Number(extraMinutes) || 0);
+    const durationMinutes = Math.max(5, service.durationMinutes + additionalServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extraMin);
 
     let eventId = '';
     if (accountingOnly) {
@@ -948,7 +955,11 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         calendarId: employee ? employee.calendarId : '',
         eventId,
         date, time: timeNorm,
-        durationMinutes: svc.durationMinutes,
+        // El ajuste de minutos de toda la visita (si lo hay) se refleja en
+        // la fila del tratamiento principal — las demás guardan su
+        // duración estándar de catálogo (solo importa de verdad para el
+        // hueco de calendario, que ya usa el total ajustado más arriba).
+        durationMinutes: isPrimary ? Math.max(1, svc.durationMinutes + extraMin) : svc.durationMinutes,
         price: carriesPrice ? bookingPrice : (isPrimary && isBono ? '' : 0),
         amountPaid: carriesPrice ? bookingAmountPaid : 0,
         paymentType: isPrimary ? paymentType : '',
@@ -2473,7 +2484,8 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
     return res.status(400).json({ error: 'Elige al menos un bono, profesional, fecha y hora.' });
   }
   const uniqueBonoIds = [...new Set(bonoIds)];
-  const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
+  // Puede ser negativo — ver /panel/book-session para el mismo criterio.
+  const extra = Math.round(Number(extraMinutes) || 0);
   const overrides = treatmentOverrides && typeof treatmentOverrides === 'object' ? treatmentOverrides : {};
   try {
     const employee = employees.find((e) => e.id === employeeId);
@@ -2515,7 +2527,7 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
         return overrideId ? (services.find((s) => s.id === overrideId) || bonoServices[i]) : bonoServices[i];
       });
 
-      const durationMinutes = displayServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extra;
+      const durationMinutes = Math.max(5, displayServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extra);
       const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
       const endISO = addMinutes(startISO, durationMinutes);
 

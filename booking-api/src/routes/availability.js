@@ -26,12 +26,13 @@ router.get('/availability', async (req, res) => {
       return res.json({ slots: [] });
     }
 
-    // extraMinutes: minutos de más que se sabe de antemano que va a llevar
-    // esta sesión en concreto (p.ej. sesiones de láser avanzadas que cada
-    // vez tardan más) — para que el hueco reservado sea el real, no el
-    // estándar del tratamiento.
-    const duration = totalDuration(service, resolveExtras(parseExtraIds(extraIds)), resolveExtraServices(parseExtraIds(extraServiceIds)))
-      + Math.max(0, Number(extraMinutes) || 0);
+    // extraMinutes: ajuste (en minutos) sobre la duración estándar del
+    // catálogo para esta sesión en concreto — puede ser positivo (se sabe
+    // que va a llevar más tiempo) o negativo (el equipo sabe que en
+    // realidad da tiempo de sobra y quiere liberar ese hueco para más
+    // citas). Nunca se deja bajar de un mínimo absurdo (5 min).
+    const duration = Math.max(5, totalDuration(service, resolveExtras(parseExtraIds(extraIds)), resolveExtraServices(parseExtraIds(extraServiceIds)))
+      + Math.round(Number(extraMinutes) || 0));
     const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
     res.json({ slots });
   } catch (err) {

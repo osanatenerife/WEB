@@ -1160,6 +1160,10 @@
       // perdía en cada cambio.
       ncName: '', ncPhone: '', ncEmail: '', ncBirthdate: '',
       employeeId: (prefill && prefill.employeeId) || '', date: '', time: '',
+      // Duración del hueco que se va a reservar — vacío significa "usar la
+      // estándar del catálogo"; si se rellena, sustituye a esa (puede ser
+      // menor, p.ej. la clienta sabe que le da tiempo de sobra).
+      durationInput: '',
     };
     let nextLocalId = 1;
     // "Agendar próxima sesión" desde una cita ya existente — precarga los
@@ -1232,7 +1236,7 @@
               <div class="vb-pick-name">${escapeHtml(svc ? svc.name : '')}${t.isBono ? ' <span class="vb-bono-flag">🎟 bono</span>' : ''}</div>
               <div class="vb-pick-meta">${svc ? svc.price + ' €' : ''}</div>
             </div>
-            ${!t.isBono && vbState.added.length === 1 ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>` : ''}
+            ${!t.isBono && !vbState.added.some((x) => x.isBono) ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>` : ''}
             <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-remove-added" data-idx="${idx}">Quitar</button>
           </div>`;
       if (editing) {
@@ -1254,13 +1258,20 @@
       return row;
     }
 
-    function render() {
-      const m = mode();
-      const durationMinutes = vbState.selectedBonoIds
+    // Duración estándar del catálogo para lo marcado/añadido ahora mismo —
+    // se usa tanto para mostrarla como referencia (render) como para
+    // calcular el ajuste que se manda al backend (wire, al confirmar).
+    function catalogDurationMinutes() {
+      return vbState.selectedBonoIds
         .map((id) => activeBonos.find((bo) => bo.bonoId === id))
         .filter(Boolean)
         .reduce((sum, bo) => sum + ((allServices.find((s) => s.id === bonoEffectiveServiceId(bo)) || {}).durationMinutes || 0), 0)
         + vbState.added.reduce((sum, t) => sum + ((allServices.find((s) => s.id === t.serviceId) || {}).durationMinutes || 0), 0);
+    }
+
+    function render() {
+      const m = mode();
+      const durationMinutes = catalogDurationMinutes();
 
       const catalogSuggestedPrice = vbState.added.reduce((sum, t) => {
         if (t.isBono) return sum + (Number(t.bonoPrice) || 0);
@@ -1302,7 +1313,12 @@
             <div class="panel-field"><label>Fecha</label><input type="date" class="vb-date" value="${vbState.date}"></div>
             <div class="panel-field vb-time-field"><label>Hora</label>${vbState.whenMode === 'past' ? `<input type="time" class="vb-time-manual" value="${vbState.time}">` : '<select class="vb-time"><option value="">Elige profesional y fecha…</option></select>'}</div>
           </div>
-          <p class="panel-status vb-duration" style="display:${durationMinutes ? 'block' : 'none'};margin:-6px 0 10px;">Duración total del hueco: ${durationMinutes} min</p>
+          ${durationMinutes ? `
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Duración del hueco a reservar (min)</label><input type="number" min="5" step="5" class="vb-duration-input" value="${vbState.durationInput !== '' ? vbState.durationInput : durationMinutes}"></div>
+          </div>
+          <p class="panel-status" style="margin:-6px 0 10px;font-size:11.5px;">Duración estándar del catálogo: ${durationMinutes} min — cámbiala si sabes que esta visita en concreto va a durar menos (o más) tiempo real.</p>
+          ` : ''}
           <div class="panel-field-row">
             <div class="panel-field" style="flex:1;"><label>Notas (potencia, observaciones…) — una nota para toda la visita</label><textarea class="vb-notes" rows="2"></textarea></div>
           </div>
@@ -1438,6 +1454,25 @@
       const timeSelect = slot.querySelector('.vb-time');
       const errorEl = slot.querySelector('.vb-error');
       const confirmBtn = slot.querySelector('.vb-confirm');
+      const durationInputEl = slot.querySelector('.vb-duration-input');
+
+      // Diferencia entre lo que se ha escrito en "Duración del hueco a
+      // reservar" y la duración estándar del catálogo — puede ser negativa
+      // (la clienta sabe que da tiempo de sobra) o positiva. 0 si no se ha
+      // tocado el campo.
+      function extraMinutesForSend() {
+        if (!durationInputEl || durationInputEl.value === '') return 0;
+        const val = Number(durationInputEl.value);
+        if (!Number.isFinite(val)) return 0;
+        return Math.round(val - catalogDurationMinutes());
+      }
+
+      if (durationInputEl) {
+        durationInputEl.addEventListener('change', () => {
+          vbState.durationInput = durationInputEl.value;
+          refreshSlots();
+        });
+      }
 
       async function refreshEmployees() {
         if (!employeeSelect) return;
@@ -1473,7 +1508,7 @@
         const rest = ids.slice(1);
         timeSelect.innerHTML = '<option value="">Cargando…</option>';
         try {
-          const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}`, { method: 'GET' });
+          const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}&extraMinutes=${extraMinutesForSend()}`, { method: 'GET' });
           const slots = data.slots || [];
           timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
           if (vbState.time && slots.includes(vbState.time)) timeSelect.value = vbState.time;
@@ -1539,6 +1574,7 @@
                   bonoId: bono.bonoId, employeeId: employeeSelect.value, date: dateInput.value,
                   time: timeVal, notes: notesVal, force: isPast || undefined,
                   treatmentOverrideId: override ? override.serviceId : undefined,
+                  extraMinutes: extraMinutesForSend(),
                 }),
               });
             } else if (m === 'multi-bono') {
@@ -1552,14 +1588,22 @@
                 body: JSON.stringify({
                   bonoIds: vbState.selectedBonoIds, employeeId: employeeSelect.value,
                   date: dateInput.value, time: timeVal, notes: notesVal, treatmentOverrides,
+                  extraMinutes: extraMinutesForSend(),
                 }),
               });
             } else if (m === 'catalog') {
               const priceInput = slot.querySelector('.vb-price');
               const paidInput = slot.querySelector('.vb-paid');
               const paidHowSelect = slot.querySelector('.vb-paidhow');
-              const primary = vbState.added[0];
-              const extras = vbState.added.slice(1);
+              // El tratamiento marcado como bono (si lo hay) va como
+              // "principal" al backend, sea cual sea el orden en que se
+              // añadió — el resto entra como extraServiceIds. Solo puede
+              // haber un bono por visita (el botón "Es un bono" ya lo
+              // impide en la interfaz).
+              const bonoIdx = vbState.added.findIndex((t) => t.isBono);
+              const primaryIdx = bonoIdx !== -1 ? bonoIdx : 0;
+              const primary = vbState.added[primaryIdx];
+              const extras = vbState.added.filter((t, i) => i !== primaryIdx);
               // Si se convierte en bono, "Precio"/"Ya pagado" son el precio
               // del bono en sí (va a bonoTotalPrice/bonoAmountPaid) — no se
               // duplican también en price/amountPaid de la cita, o se
@@ -1582,6 +1626,7 @@
                   bonoTotalPrice: primary.isBono ? priceInput.value : undefined,
                   bonoAmountPaid: primary.isBono ? paidInput.value : undefined,
                   extraServiceIds: extras.map((t) => t.serviceId),
+                  extraMinutes: isPast ? undefined : extraMinutesForSend(),
                 }),
               });
             }
