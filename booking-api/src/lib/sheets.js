@@ -659,6 +659,12 @@ const PRODUCT_SALE_COLUMNS = [
   // hay, engancha la línea a la cita desde la que se creó, para poder
   // mostrarla ahí. status permite "quitar" una línea sin borrar el rastro.
   'category', 'bookingId', 'status',
+  // clientPhone/clientName/clientEmail: quién la compró, si se identificó
+  // a la clienta al venderla — permite mostrar su historial de productos
+  // comprados en su propia ficha, no solo dentro de la cita a la que
+  // estuviera enganchada (columnas nuevas al final para no romper las
+  // filas ya existentes, que las tendrán vacías).
+  'clientPhone', 'clientName', 'clientEmail',
 ];
 const PRODUCT_SALE_LAST_COL = colLetter(PRODUCT_SALE_COLUMNS.length);
 

@@ -1124,6 +1124,34 @@
       </div>
       ${client.bonos.length ? '<div class="panel-section-label">Bonos activos</div>' : ''}
       <div class="panel-bonos"></div>
+      ${client.products && client.products.length ? `
+      <div class="panel-section-label">Productos comprados</div>
+      <div class="panel-products">${client.products.map((p) => `
+        <div class="panel-appt" data-sale-id="${p.saleId}">
+          <div class="panel-appt-top">
+            <div class="panel-appt-date">${fmtDateParts(p.date).month}<span class="day">${fmtDateParts(p.date).day}</span></div>
+            <div class="panel-appt-body">
+              <div class="svc">${escapeHtml(p.product)}</div>
+              <div class="with">${p.paidHow ? escapeHtml(p.paidHow) : (p.bookingId ? 'pagado junto con la cita' : '—')}</div>
+            </div>
+            <div>${p.amount.toFixed(2)} €</div>
+          </div>
+          <div class="panel-appt-actions">
+            <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pc-edit-toggle">✎ Editar</button>
+            <button type="button" class="panel-btn panel-btn-noshow panel-btn-sm pc-delete-btn">🗑 Eliminar</button>
+          </div>
+          <div class="pc-edit-form" style="display:none;">
+            <div class="panel-field-row">
+              <div class="panel-field" style="flex:2;"><label>Producto</label><input type="text" class="pc-edit-product" value="${escapeHtml(p.product)}"></div>
+              <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="pc-edit-amount" value="${p.amount}"></div>
+              <div class="panel-field"><label>Pagado con</label><select class="pc-edit-paidhow"><option value="efectivo"${p.paidHow === 'efectivo' ? ' selected' : ''}>Efectivo</option><option value="tarjeta"${p.paidHow === 'tarjeta' ? ' selected' : ''}>Tarjeta</option><option value="bizum"${p.paidHow === 'bizum' ? ' selected' : ''}>Bizum</option></select></div>
+            </div>
+            <button type="button" class="panel-btn panel-btn-primary panel-btn-sm pc-edit-save">Guardar corrección</button>
+            <p class="panel-error pc-edit-error" style="display:none;"></p>
+          </div>
+        </div>
+      `).join('')}</div>
+      ` : ''}
       <div class="panel-section-label">Todas las citas</div>
       <div class="panel-appts"></div>
     `;
@@ -1136,6 +1164,54 @@
     wrap.querySelector('.panel-addloyalty-toggle').addEventListener('click', () => toggleAddLoyalty(wrap, client));
 
     wrap.querySelector('.panel-clientsale-toggle').addEventListener('click', () => toggleClientProductSale(wrap, client));
+
+    wrap.querySelectorAll('.pc-edit-toggle').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const form = btn.closest('.panel-appt').querySelector('.pc-edit-form');
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+      });
+    });
+    wrap.querySelectorAll('.pc-edit-save').forEach((btn) => {
+      btn.addEventListener('click', async (ev) => {
+        const row = btn.closest('.panel-appt');
+        const saleId = row.dataset.saleId;
+        const errorEl = row.querySelector('.pc-edit-error');
+        errorEl.style.display = 'none';
+        ev.target.disabled = true;
+        try {
+          await panelFetch('/panel/product-sale-edit', {
+            method: 'POST',
+            body: JSON.stringify({
+              saleId,
+              product: row.querySelector('.pc-edit-product').value.trim(),
+              amount: row.querySelector('.pc-edit-amount').value,
+              paidHow: row.querySelector('.pc-edit-paidhow').value,
+            }),
+          });
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    });
+    wrap.querySelectorAll('.pc-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const row = btn.closest('.panel-appt');
+        const saleId = row.dataset.saleId;
+        const product = row.querySelector('.svc').textContent;
+        if (!confirm(`¿Eliminar la venta de "${product}"? No borra ningún cobro ya hecho en Stripe/tarjeta — eso, si hiciera falta, se gestiona aparte.`)) return;
+        btn.disabled = true;
+        try {
+          await panelFetch('/panel/product-sale-edit', { method: 'POST', body: JSON.stringify({ saleId, deleted: true }) });
+          doSearch();
+        } catch (e) {
+          alert(e.message);
+          btn.disabled = false;
+        }
+      });
+    });
 
     wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
 
@@ -1922,11 +1998,10 @@
             clientPhone: client.phone, clientName: client.name, clientEmail: client.email,
           }),
         });
-        statusEl.textContent = 'Venta guardada ✓ — suma saldo de fidelización como cualquier compra.';
-        statusEl.style.display = 'block';
-        productInput.value = '';
-        amountInput.value = '';
-        ev.target.disabled = false;
+        // Recarga la ficha entera para que la venta aparezca ya en
+        // "Productos comprados" — confirmación más clara que un simple
+        // mensaje de texto.
+        doSearch();
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';

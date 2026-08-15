@@ -118,7 +118,12 @@ router.get('/my-bookings/history', async (req, res) => {
     const all = await getAllBookings();
     const now = Date.now();
     const past = all.filter((b) => (
-      b.status !== '' // solo filas reales
+      // Solo citas que de verdad tuvieron lugar — una cancelada (con o sin
+      // reembolso) o una falta no son una "visita" real, y enseñar su
+      // precio aquí como si se hubiera cobrado normal confundiría a la
+      // clienta (parecería que se le cobró algo que en realidad se le
+      // devolvió, o que vino un día que no vino).
+      b.status === 'confirmed'
       && isOwner(b, phone, email)
       && appointmentDateTime(b).getTime() <= now
     ));

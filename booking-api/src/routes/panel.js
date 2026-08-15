@@ -134,6 +134,14 @@ router.get('/panel/search', async (req, res) => {
       const bonos = allBonos.filter((bo) => normalizePhone(bo.clientPhone) === phoneN);
       const strike = allStrikes.find((s) => s.phoneNormalized === phoneN);
       const loyaltyMovements = allLoyalty.filter((m) => m.phoneNormalized === phoneN);
+      // Productos comprados por esta clienta — tanto sueltos (vendidos
+      // desde su ficha o desde la herramienta aparte) como los añadidos
+      // como extra dentro de una cita, siempre que se identificara a la
+      // clienta al venderlos (los de antes de que esto existiera no
+      // llevan teléfono guardado y no aparecerán aquí).
+      const products = allExtras
+        .filter((s) => s.status !== 'deleted' && s.clientPhone && normalizePhone(s.clientPhone) === phoneN)
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)));
       // El cumpleaños suele quedar guardado solo en la reserva donde se
       // escribió por primera vez, no necesariamente en la más reciente.
       const birthdateBooking = bookings.find((b) => b.birthdate);
@@ -154,6 +162,10 @@ router.get('/panel/search', async (req, res) => {
           expiryDate: bo.expiryDate,
           remainingAmount: Number(bo.remainingAmount) || 0,
           remainingPaidHow: bo.remainingPaidHow || '',
+        })),
+        products: products.map((s) => ({
+          saleId: s.saleId, date: s.date, product: s.product,
+          amount: Number(s.amount) || 0, paidHow: s.paidHow || '', bookingId: s.bookingId || '',
         })),
         bookings: bookings
           .sort((a, b) => appointmentDateTime(b) - appointmentDateTime(a))
@@ -1443,6 +1455,9 @@ router.post('/panel/product-sale', async (req, res) => {
       category: cat,
       bookingId: bookingId || '',
       status: 'active',
+      clientPhone: clientPhone || '',
+      clientName: clientName || '',
+      clientEmail: clientEmail || '',
     });
 
     // Si esta línea va enganchada a una cita, cómo se pagó se decide UNA
