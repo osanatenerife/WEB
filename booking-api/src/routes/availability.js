@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.get('/availability', async (req, res) => {
   try {
-    const { serviceId, employeeId, date, extraIds, extraServiceIds, extraMinutes } = req.query;
+    const { serviceId, employeeId, date, extraIds, extraServiceIds, extraMinutes, skipGapHeuristic } = req.query;
     if (!serviceId || !employeeId || !date) {
       return res.status(400).json({ error: 'Faltan parámetros: serviceId, employeeId, date' });
     }
@@ -33,7 +33,12 @@ router.get('/availability', async (req, res) => {
     // citas). Nunca se deja bajar de un mínimo absurdo (5 min).
     const duration = Math.max(5, totalDuration(service, resolveExtras(parseExtraIds(extraIds)), resolveExtraServices(parseExtraIds(extraServiceIds)))
       + Math.round(Number(extraMinutes) || 0));
-    const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
+    // skipGapHeuristic: solo lo manda el panel interno (el equipo, al
+    // reservar a mano, sabe perfectamente si un hueco que deja un tramo
+    // corto detrás le sirve o no) — la reserva pública de clientas sigue
+    // ocultando esos huecos "muertos" para no fragmentar el día sin que
+    // nadie se dé cuenta.
+    const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly, { skipGapHeuristic: skipGapHeuristic === 'true' });
     res.json({ slots });
   } catch (err) {
     console.error(err);

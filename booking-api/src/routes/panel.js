@@ -684,7 +684,12 @@ router.post('/panel/book-session', async (req, res) => {
       // huecos libres no la ofrece — no es una reserva de verdad, es dejar
       // constancia de una que ya pasó.
       if (!force) {
-        const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true });
+        // skipGapHeuristic: el panel ya le enseñó este hueco al equipo con
+        // ese mismo criterio relajado (ver /availability) — sin esto, un
+        // hueco que el buscador de huecos "buenos" descarta por dejar un
+        // tramo corto detrás (pero que SÍ está libre de verdad) se
+        // rechazaría aquí aunque el panel lo acabase de ofrecer.
+        const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true, skipGapHeuristic: true });
         if (!freeSlots.includes(time)) return null;
       }
       const event = await createBookingEvent(employee.calendarId, {
@@ -2531,7 +2536,8 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
       const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
       const endISO = addMinutes(startISO, durationMinutes);
 
-      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true });
+      // skipGapHeuristic: ver el mismo comentario en /panel/book-session.
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly, { ignoreClosingTime: true, skipGapHeuristic: true });
       if (!freeSlots.includes(time)) {
         return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
       }

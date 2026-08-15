@@ -1508,7 +1508,7 @@
         const rest = ids.slice(1);
         timeSelect.innerHTML = '<option value="">Cargando…</option>';
         try {
-          const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}&extraMinutes=${extraMinutesForSend()}`, { method: 'GET' });
+          const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}&extraMinutes=${extraMinutesForSend()}&skipGapHeuristic=true`, { method: 'GET' });
           const slots = data.slots || [];
           timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
           if (vbState.time && slots.includes(vbState.time)) timeSelect.value = vbState.time;
@@ -2003,7 +2003,7 @@
       try {
         const extra = Number(extraMinutesInput.value) || 0;
         const svcId = treatmentOverrideSelect.value || bonoServiceId || '';
-        const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(svcId)}&extraMinutes=${extra}`);
+        const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(svcId)}&extraMinutes=${extra}&skipGapHeuristic=true`);
         const slots = data.slots || [];
         timeSelect.innerHTML = slots.length
           ? slots.map((t) => `<option value="${t}">${t}</option>`).join('')
