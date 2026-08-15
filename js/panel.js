@@ -286,9 +286,21 @@
             </div>` : ''}
           </div>`).join('') || '<p class="panel-status">Sin extras en este rango.</p>';
 
+        const depositsHtml = (data.advanceDeposits || []).map((d) => `
+          <div class="line-item">
+            <div class="line-item-row">
+              <div class="line-item-main"><div class="line-item-name">${escapeHtml(d.name)} <span class="line-item-meta">${d.date} · seña de la cita del ${d.apptDate} ${d.apptTime} · ${escapeHtml(d.serviceName)}</span></div></div>
+              <div class="line-item-price">${d.amount.toFixed(2)} €</div>
+            </div>
+            <div class="line-item-meta" style="padding:0 0 8px;">Pagado con: ${d.paidHow}</div>
+          </div>`).join('') || '<p class="panel-status">Sin señas cobradas en persona en este rango.</p>';
+
         resultEl.innerHTML = `
           ${unassignedHtml}
           ${totalsHtml}
+          <div class="panel-section-label">Señas/pagos por adelantado cobrados en persona</div>
+          <p class="panel-status" style="margin:0 0 10px;">Contados el día en que se cobraron de verdad, no el día de la cita.</p>
+          ${depositsHtml}
           <div class="panel-section-label">Citas cerradas</div>
           ${bookingsHtml}
           <div class="panel-section-label">Extras</div>

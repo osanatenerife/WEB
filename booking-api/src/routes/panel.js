@@ -2345,6 +2345,10 @@ router.get('/panel/payments-log', async (req, res) => {
           // Si "onlinePaid" en realidad se cobró en persona (reserva manual
           // con pago por adelantado), depositPaidHow dice cómo — si viene
           // vacío es un pago online real por Stripe, que nunca pasa por caja.
+          // Ese importe NO se suma aquí a los totales del rango (ver
+          // advanceDeposits más abajo): se cobró el día que se dio de alta
+          // la cita, no el día de la cita en sí, así que contarlo aquí
+          // haría que apareciera en la fecha equivocada al cuadrar caja.
           depositPaidHow: b.depositPaidHow || '',
           remainderPaidHow: b.remainderPaidHow || '',
           remainderAmount2: Number(b.remainderAmount2) || 0,
@@ -2352,6 +2356,22 @@ router.get('/panel/payments-log', async (req, res) => {
         };
       })
       .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
+
+    // Señas/pagos por adelantado cobrados en persona (efectivo/tarjeta/bizum
+    // al dar de alta la cita, no un pago online por Stripe): se cuentan por
+    // el día en que se cobraron de verdad (createdAt de la cita), no por el
+    // día de la cita — si no, un pago de hoy para una cita dentro de tres
+    // semanas no aparecería en caja hasta esa fecha futura, y ese día
+    // parecería que se cobró algo que en realidad ya se cobró hace tiempo.
+    // Independiente de si la cita ya se cerró o no.
+    const advanceDeposits = bookings
+      .filter((b) => b.depositPaidHow && Number(b.amountPaid) > 0 && b.createdAt && inRange(String(b.createdAt).slice(0, 10)))
+      .map((b) => ({
+        bookingId: b.bookingId, date: String(b.createdAt).slice(0, 10), name: b.name, phone: b.phone,
+        serviceName: b.serviceName, amount: Number(b.amountPaid) || 0, paidHow: b.depositPaidHow,
+        apptDate: b.date, apptTime: b.time,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     const extraLines = sales
       .filter((s) => inRange(s.date))
@@ -2371,11 +2391,11 @@ router.get('/panel/payments-log', async (req, res) => {
       const part1 = round2(b.remainder - b.remainderAmount2);
       addTotal(b.remainderPaidHow, part1);
       addTotal(b.remainderPaidHow2, b.remainderAmount2);
-      if (b.depositPaidHow) addTotal(b.depositPaidHow, b.onlinePaid);
     });
+    advanceDeposits.forEach((d) => addTotal(d.paidHow, d.amount));
     extraLines.forEach((e) => addTotal(e.paidHow, e.amount));
 
-    res.json({ from, to, closedBookings, extraLines, totals });
+    res.json({ from, to, closedBookings, advanceDeposits, extraLines, totals });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo cargar el registro de cobros.' });
