@@ -47,6 +47,8 @@
     discountSlot: document.getElementById('panel-discount-slot'),
     campaignToggle: document.getElementById('panel-campaign-toggle'),
     campaignSlot: document.getElementById('panel-campaign-slot'),
+    saleToggle: document.getElementById('panel-sale-toggle'),
+    saleSlot: document.getElementById('panel-sale-slot'),
   };
 
   function showLogin(errorMsg) {
@@ -677,6 +679,84 @@
       });
     }
   }
+
+  // ── Venta de producto suelta (no ligada a ninguna cita, p.ej. alguien
+  // que solo compra una crema sin tener cita ese día) — se calcula sola en
+  // "Comprobar cobros" y suma saldo de fidelidad si se identifica a la
+  // clienta. Para un extra DENTRO de una cita ya existente, se usa
+  // "Editar cita → Añadir extra" en vez de esto.
+  els.saleToggle.addEventListener('click', () => {
+    if (els.saleSlot.innerHTML) { els.saleSlot.innerHTML = ''; return; }
+    const today = new Date().toISOString().slice(0, 10);
+    els.saleSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Registrar venta de producto</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Fecha</label><input type="date" class="ps-date" value="${today}"></div>
+          <div class="panel-field"><label>Producto</label><input type="text" class="ps-product" placeholder="Ej. Crema hidratante"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="ps-amount"></div>
+          <div class="panel-field"><label>Pagado con</label>
+            <select class="ps-paidhow">
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="bizum">Bizum</option>
+              <option value="bonos archipiélago">Bonos Archipiélago</option>
+              <option value="bono adeje">Bono Adeje</option>
+            </select>
+          </div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Teléfono de la clienta (opcional, para acumular puntos)</label><input type="text" class="ps-phone"></div>
+          <div class="panel-field"><label>Nombre (opcional)</label><input type="text" class="ps-name"></div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-sale">Guardar venta</button>
+        <p class="panel-status" style="display:none;"></p>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const slot = els.saleSlot;
+    const dateInput = slot.querySelector('.ps-date');
+    const productInput = slot.querySelector('.ps-product');
+    const amountInput = slot.querySelector('.ps-amount');
+    const paidHowSelect = slot.querySelector('.ps-paidhow');
+    const phoneInput = slot.querySelector('.ps-phone');
+    const nameInput = slot.querySelector('.ps-name');
+    const statusEl = slot.querySelector('.panel-status');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-sale').addEventListener('click', async (ev) => {
+      statusEl.style.display = 'none';
+      errorEl.style.display = 'none';
+      if (!dateInput.value || !productInput.value.trim() || !amountInput.value) {
+        errorEl.textContent = 'Indica fecha, producto e importe.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/product-sale', {
+          method: 'POST',
+          body: JSON.stringify({
+            date: dateInput.value, product: productInput.value.trim(), amount: amountInput.value,
+            paidHow: paidHowSelect.value,
+            clientPhone: phoneInput.value.trim(), clientName: nameInput.value.trim(),
+          }),
+        });
+        statusEl.textContent = 'Venta guardada ✓';
+        statusEl.style.display = 'block';
+        productInput.value = '';
+        amountInput.value = '';
+        phoneInput.value = '';
+        nameInput.value = '';
+        ev.target.disabled = false;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+  });
 
   // ── Bono regalo: buscar por código y marcar como canjeado ──
   els.giftToggle.addEventListener('click', () => {
