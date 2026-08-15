@@ -1667,9 +1667,17 @@
         if (vbState.whenMode === 'new') refreshSlots();
       }
 
+      // Si se cambia fecha/profesional/duración varias veces seguidas
+      // (p.ej. bajando los minutos poco a poco hasta encontrar hueco), cada
+      // cambio dispara su propia petición — sin esto, una respuesta más
+      // lenta de un cambio ANTERIOR podía llegar después y pisar el
+      // resultado correcto de la búsqueda más reciente, dejando en pantalla
+      // "sin huecos" aunque la última búsqueda sí los hubiera encontrado.
+      let slotsRequestSeq = 0;
       async function refreshSlots() {
         if (!timeSelect || vbState.whenMode !== 'new') return;
         if (!employeeSelect.value || !dateInput.value) { timeSelect.innerHTML = '<option value="">Elige profesional y fecha…</option>'; return; }
+        const requestId = ++slotsRequestSeq;
         const m = mode();
         const ids = m === 'catalog'
           ? vbState.added.map((t) => t.serviceId)
@@ -1679,10 +1687,12 @@
         timeSelect.innerHTML = '<option value="">Cargando…</option>';
         try {
           const data = await panelFetch(`/availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&serviceId=${encodeURIComponent(primary)}&extraServiceIds=${encodeURIComponent(rest.join(','))}&extraMinutes=${extraMinutesForSend()}&skipGapHeuristic=true`, { method: 'GET' });
+          if (requestId !== slotsRequestSeq) return; // ya hay una búsqueda más nueva en marcha
           const slots = data.slots || [];
           timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
           if (vbState.time && slots.includes(vbState.time)) timeSelect.value = vbState.time;
         } catch (e) {
+          if (requestId !== slotsRequestSeq) return;
           timeSelect.innerHTML = '<option value="">Error al cargar huecos</option>';
         }
       }
