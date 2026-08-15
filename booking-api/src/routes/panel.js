@@ -2422,12 +2422,13 @@ router.post('/panel/edit-bono', async (req, res) => {
 // sesión), todas enganchadas al mismo evento — así luego se pueden marcar
 // como "no hizo falta" una por una sin tocar las demás (ver /panel/no-show).
 router.post('/panel/book-combined-sessions', async (req, res) => {
-  const { bonoIds, employeeId, date, time, notes, extraMinutes } = req.body || {};
+  const { bonoIds, employeeId, date, time, notes, extraMinutes, treatmentOverrides } = req.body || {};
   if (!Array.isArray(bonoIds) || bonoIds.length === 0 || !employeeId || !date || !time) {
     return res.status(400).json({ error: 'Elige al menos un bono, profesional, fecha y hora.' });
   }
   const uniqueBonoIds = [...new Set(bonoIds)];
   const extra = Math.max(0, Math.round(Number(extraMinutes) || 0));
+  const overrides = treatmentOverrides && typeof treatmentOverrides === 'object' ? treatmentOverrides : {};
   try {
     const employee = employees.find((e) => e.id === employeeId);
     if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
@@ -2459,8 +2460,16 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
       if (missingIdx !== -1) {
         return res.status(404).json({ error: `El tratamiento del bono de ${bonos[missingIdx].serviceName} ya no existe en el catálogo.` });
       }
+      // Igual que en /panel/book-session: si esta visita en concreto usa
+      // un bono para otra zona/tratamiento (mismo precio, distinto
+      // nombre), la sesión se sigue descontando del MISMO bono — solo
+      // cambia qué se muestra/registra para esa línea.
+      const displayServices = bonos.map((b, i) => {
+        const overrideId = overrides[b.bonoId];
+        return overrideId ? (services.find((s) => s.id === overrideId) || bonoServices[i]) : bonoServices[i];
+      });
 
-      const durationMinutes = bonoServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extra;
+      const durationMinutes = displayServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extra;
       const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
       const endISO = addMinutes(startISO, durationMinutes);
 
@@ -2470,11 +2479,11 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
       }
 
       const sessionLabels = bonos.map((b) => `${(Number(b.sessionsUsed) || 0) + 1}/${b.totalSessions}`);
-      const combinedLabel = bonoServices.map((s, i) => `${s.name} (${sessionLabels[i]})`).join(' + ');
+      const combinedLabel = displayServices.map((s, i) => `${s.name} (${sessionLabels[i]})`).join(' + ');
       const description = [
         `Cliente: ${bonos[0].clientName}`,
         `Teléfono: ${bonos[0].clientPhone}`,
-        ...bonos.map((b, i) => `Bono: ${b.serviceName} — sesión ${sessionLabels[i]}`),
+        ...bonos.map((b, i) => `Bono: ${b.serviceName} — sesión ${sessionLabels[i]}${displayServices[i] !== bonoServices[i] ? ` · Tratamiento de hoy: ${displayServices[i].name}` : ''}`),
         'Ya pagada como parte del bono.',
         notes ? `\n📝 Notas internas (solo equipo):\n${notes}` : '',
       ].filter(Boolean).join('\n');
@@ -2490,7 +2499,7 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
       const bookingIds = [];
       for (let i = 0; i < bonos.length; i++) {
         const bono = bonos[i];
-        const service = bonoServices[i];
+        const service = displayServices[i];
         const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
         const bookingId = crypto.randomUUID();
         await appendBooking({

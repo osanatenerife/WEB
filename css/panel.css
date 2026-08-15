@@ -95,6 +95,7 @@ body {
 .vb-added-row { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; background: #fff; }
 .vb-bono-flag { font-size: 11px; font-weight: 700; color: var(--clay); background: var(--panel-2); padding: 2px 7px; border-radius: 20px; }
 .vb-bono-inline { border: 1px solid var(--line); border-top: none; border-radius: 0 0 4px 4px; padding: 14px; background: var(--panel-2); }
+.vb-sessionedit-inline { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #fff; width: 100%; }
 .vb-fork { display: flex; gap: 10px; width: 100%; }
 .vb-fork-btn { flex: 1; padding: 12px 14px; border-radius: 6px; border: 1.5px solid var(--line); background: #fff; cursor: pointer; text-align: left; font-family: inherit; font-size: 13px; font-weight: 700; }
 .vb-fork-btn span { display: block; font-size: 11px; font-weight: 600; color: var(--ink-faint); margin-top: 2px; }

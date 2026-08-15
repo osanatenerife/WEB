@@ -1121,6 +1121,12 @@
       if (allServices.find((s) => s.id === bo.serviceId)) return bo.serviceId;
       return (allServices.find((s) => s.name === bo.serviceName) || {}).id || '';
     }
+    // Si el bono tiene marcado "¿Hoy toca otro tratamiento?", ese id manda
+    // sobre el del bono en sí — para calcular bien duración/huecos/profesional.
+    function bonoEffectiveServiceId(bo) {
+      const ov = vbState.overrides[bo.bonoId];
+      return (ov && ov.serviceId) || resolveServiceId(bo);
+    }
 
     // client === null significa "clienta nueva, todavía sin ficha" — mismo
     // formulario, pero sin bonos que marcar y con nombre/teléfono/email a
@@ -1134,6 +1140,7 @@
       whenMode: 'new',
       editingIdx: null,
       overrides: {}, // bonoId -> { open, serviceId } — "¿hoy toca otro tratamiento?"
+      sessionEdits: {}, // bonoId -> { open, used, total } — "✎ corregir sesiones"
       // Nombre/teléfono/email/profesional/fecha/hora se guardan aquí y no
       // solo en el DOM — cada vez que se marca un bono o se añade un
       // tratamiento, toda la pantalla se vuelve a dibujar de cero, y sin
@@ -1158,19 +1165,26 @@
         const checked = vbState.selectedBonoIds.includes(bo.bonoId);
         const owes = Number(bo.remainingAmount) > 0;
         const ov = vbState.overrides[bo.bonoId] || {};
-        // El "tratamiento de hoy" distinto solo tiene sentido cuando se
-        // agenda ESTE bono solo (book-session admite treatmentOverrideId;
-        // book-combined-sessions, al agendar varios a la vez, no).
-        const canOverride = checked && vbState.selectedBonoIds.length === 1;
+        const se = vbState.sessionEdits[bo.bonoId] || {};
         let extra = '';
-        if (canOverride) {
+        if (checked) {
           const ovName = ov.serviceId ? (allServices.find((s) => s.id === ov.serviceId) || {}).name : '';
           extra += `<button type="button" class="vb-mini-link vb-override-toggle" data-bono="${bo.bonoId}">🔁 ${ovName ? `Hoy: ${escapeHtml(ovName)} (cambiar)` : '¿Hoy toca otro tratamiento?'}</button>`;
+          extra += `<button type="button" class="vb-mini-link vb-sessionedit-toggle" data-bono="${bo.bonoId}">✎ corregir sesiones</button>`;
           if (ov.open) {
             extra += `<select class="vb-override-select" data-bono="${bo.bonoId}">
               <option value="">Usar el tratamiento del bono (${escapeHtml(bo.serviceName)})</option>
               ${catalogOptionsHtml}
             </select>`;
+          }
+          if (se.open) {
+            extra += `<div class="vb-sessionedit-inline">
+              <div class="panel-field-row">
+                <div class="panel-field"><label>Sesiones ya usadas de verdad</label><input type="number" min="0" step="1" class="vb-se-used" data-bono="${bo.bonoId}" value="${se.used !== undefined ? se.used : bo.sessionsUsed}"></div>
+                <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="vb-se-total" data-bono="${bo.bonoId}" value="${se.total !== undefined ? se.total : bo.totalSessions}"></div>
+              </div>
+              <button type="button" class="panel-btn panel-btn-accent panel-btn-sm vb-se-save" data-bono="${bo.bonoId}">Guardar corrección</button>
+            </div>`;
           }
         }
         return `
@@ -1222,7 +1236,7 @@
       const durationMinutes = vbState.selectedBonoIds
         .map((id) => activeBonos.find((bo) => bo.bonoId === id))
         .filter(Boolean)
-        .reduce((sum, bo) => sum + ((allServices.find((s) => s.id === resolveServiceId(bo)) || {}).durationMinutes || 0), 0)
+        .reduce((sum, bo) => sum + ((allServices.find((s) => s.id === bonoEffectiveServiceId(bo)) || {}).durationMinutes || 0), 0)
         + vbState.added.reduce((sum, t) => sum + ((allServices.find((s) => s.id === t.serviceId) || {}).durationMinutes || 0), 0);
 
       const catalogSuggestedPrice = vbState.added.reduce((sum, t) => {
@@ -1313,6 +1327,39 @@
           render();
         });
       });
+      slot.querySelectorAll('.vb-sessionedit-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.bono;
+          vbState.sessionEdits[id] = { ...vbState.sessionEdits[id], open: !(vbState.sessionEdits[id] || {}).open };
+          render();
+        });
+      });
+      slot.querySelectorAll('.vb-se-used, .vb-se-total').forEach((inp) => {
+        inp.addEventListener('input', () => {
+          const id = inp.dataset.bono;
+          const usedInp = slot.querySelector(`.vb-se-used[data-bono="${id}"]`);
+          const totalInp = slot.querySelector(`.vb-se-total[data-bono="${id}"]`);
+          vbState.sessionEdits[id] = { ...vbState.sessionEdits[id], used: usedInp.value, total: totalInp.value };
+        });
+      });
+      slot.querySelectorAll('.vb-se-save').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.bono;
+          const usedInp = slot.querySelector(`.vb-se-used[data-bono="${id}"]`);
+          const totalInp = slot.querySelector(`.vb-se-total[data-bono="${id}"]`);
+          btn.disabled = true;
+          try {
+            await panelFetch('/panel/edit-bono', {
+              method: 'POST',
+              body: JSON.stringify({ bonoId: id, totalSessions: totalInp.value, sessionsUsed: usedInp.value }),
+            });
+            doSearch();
+          } catch (e) {
+            btn.disabled = false;
+            alert(e.message);
+          }
+        });
+      });
       const catalogSelect = slot.querySelector('.vb-catalog-select');
       if (catalogSelect) {
         catalogSelect.addEventListener('change', () => {
@@ -1374,7 +1421,7 @@
         const m = mode();
         const ids = m === 'catalog'
           ? vbState.added.map((t) => t.serviceId)
-          : vbState.selectedBonoIds.map((id) => resolveServiceId(activeBonos.find((bo) => bo.bonoId === id))).filter(Boolean);
+          : vbState.selectedBonoIds.map((id) => bonoEffectiveServiceId(activeBonos.find((bo) => bo.bonoId === id))).filter(Boolean);
         employeeSelect.innerHTML = '<option value="">Cargando…</option>';
         const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids.join(','))}`);
         const data = await res.json();
@@ -1398,7 +1445,7 @@
         const m = mode();
         const ids = m === 'catalog'
           ? vbState.added.map((t) => t.serviceId)
-          : vbState.selectedBonoIds.map((id) => resolveServiceId(activeBonos.find((bo) => bo.bonoId === id))).filter(Boolean);
+          : vbState.selectedBonoIds.map((id) => bonoEffectiveServiceId(activeBonos.find((bo) => bo.bonoId === id))).filter(Boolean);
         const primary = ids[0];
         const rest = ids.slice(1);
         timeSelect.innerHTML = '<option value="">Cargando…</option>';
@@ -1472,11 +1519,16 @@
                 }),
               });
             } else if (m === 'multi-bono') {
+              const treatmentOverrides = {};
+              vbState.selectedBonoIds.forEach((id) => {
+                const ov = vbState.overrides[id];
+                if (ov && ov.serviceId) treatmentOverrides[id] = ov.serviceId;
+              });
               await panelFetch('/panel/book-combined-sessions', {
                 method: 'POST',
                 body: JSON.stringify({
                   bonoIds: vbState.selectedBonoIds, employeeId: employeeSelect.value,
-                  date: dateInput.value, time: timeVal, notes: notesVal,
+                  date: dateInput.value, time: timeVal, notes: notesVal, treatmentOverrides,
                 }),
               });
             } else if (m === 'catalog') {
