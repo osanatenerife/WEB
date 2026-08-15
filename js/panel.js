@@ -1110,11 +1110,13 @@
         <div class="panel-client-minilinks">
           ${balance > 0 ? '<button type="button" class="panel-link-btn panel-redeem-toggle">Canjear saldo</button>' : ''}
           <button type="button" class="panel-link-btn panel-addloyalty-toggle">➕ Añadir saldo</button>
+          <button type="button" class="panel-link-btn panel-clientsale-toggle">🛍️ Vender producto</button>
           <button type="button" class="panel-link-btn panel-followup-toggle">🔔 Marcar seguimiento</button>
           <button type="button" class="panel-link-btn panel-editclient-toggle">✎ Editar datos</button>
         </div>
         <div class="panel-redeem-slot"></div>
         <div class="panel-addloyalty-slot"></div>
+        <div class="panel-clientsale-slot"></div>
         <div class="panel-followup-slot"></div>
         <div class="panel-editclient-slot"></div>
         <div class="panel-visitbuilder-slot"></div>
@@ -1132,6 +1134,8 @@
     }
 
     wrap.querySelector('.panel-addloyalty-toggle').addEventListener('click', () => toggleAddLoyalty(wrap, client));
+
+    wrap.querySelector('.panel-clientsale-toggle').addEventListener('click', () => toggleClientProductSale(wrap, client));
 
     wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
 
@@ -1853,6 +1857,76 @@
           body: JSON.stringify({ phone: client.phone, amount: amountInput.value, note: noteInput.value.trim() }),
         });
         slot.innerHTML = `<p class="panel-status">Saldo añadido ✓ — nuevo saldo: ${data.newBalance.toFixed(2)} €</p>`;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+  }
+
+  // Venta de producto ya enganchada a esta clienta (sin volver a escribir
+  // su teléfono/nombre) — para venderle algo suelto (p.ej. una crema) el
+  // mismo día que una sesión de bono o un tratamiento, sin salir de su
+  // ficha. No necesita hueco de calendario, por eso va aparte de "+ Nueva
+  // visita" en vez de mezclada con los tratamientos.
+  function toggleClientProductSale(clientEl, client) {
+    const slot = clientEl.querySelector('.panel-clientsale-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    const today = new Date().toISOString().slice(0, 10);
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Vender producto a ${escapeHtml(client.name) || 'esta clienta'}</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Fecha</label><input type="date" class="ps-date" value="${today}"></div>
+          <div class="panel-field"><label>Producto</label><input type="text" class="ps-product" placeholder="Ej. Crema hidratante"></div>
+        </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Importe (€)</label><input type="number" step="0.01" class="ps-amount"></div>
+          <div class="panel-field"><label>Pagado con</label>
+            <select class="ps-paidhow">
+              <option value="efectivo">Efectivo</option>
+              <option value="tarjeta">Tarjeta</option>
+              <option value="bizum">Bizum</option>
+              <option value="bonos archipiélago">Bonos Archipiélago</option>
+              <option value="bono adeje">Bono Adeje</option>
+            </select>
+          </div>
+        </div>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-clientsale">Guardar venta</button>
+        <p class="panel-status" style="display:none;"></p>
+        <p class="panel-error" style="display:none;"></p>
+      </div>
+    `;
+    const dateInput = slot.querySelector('.ps-date');
+    const productInput = slot.querySelector('.ps-product');
+    const amountInput = slot.querySelector('.ps-amount');
+    const paidHowSelect = slot.querySelector('.ps-paidhow');
+    const statusEl = slot.querySelector('.panel-status');
+    const errorEl = slot.querySelector('.panel-error');
+    slot.querySelector('.panel-confirm-clientsale').addEventListener('click', async (ev) => {
+      statusEl.style.display = 'none';
+      errorEl.style.display = 'none';
+      if (!dateInput.value || !productInput.value.trim() || !amountInput.value) {
+        errorEl.textContent = 'Indica fecha, producto e importe.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/product-sale', {
+          method: 'POST',
+          body: JSON.stringify({
+            date: dateInput.value, product: productInput.value.trim(), amount: amountInput.value,
+            paidHow: paidHowSelect.value,
+            clientPhone: client.phone, clientName: client.name, clientEmail: client.email,
+          }),
+        });
+        statusEl.textContent = 'Venta guardada ✓ — suma saldo de fidelización como cualquier compra.';
+        statusEl.style.display = 'block';
+        productInput.value = '';
+        amountInput.value = '';
+        ev.target.disabled = false;
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
