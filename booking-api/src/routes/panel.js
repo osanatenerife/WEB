@@ -766,10 +766,13 @@ const LEGACY_BONO_VALIDITY_MONTHS = 12;
 
 router.post('/panel/import-legacy-booking', async (req, res) => {
   const {
-    name, phone, email, birthdate, serviceId, employeeId, date, time,
-    price, amountPaid, notes, extraServiceIds, paidHow, extraMinutes,
-    // Campos solo para sesiones de un bono ya vendido (isBono=true):
-    isBono, totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid, bonoPurchaseDate,
+    name, phone, email, birthdate, employeeId, date, time,
+    price, amountPaid, notes, paidHow, extraMinutes, bonoPurchaseDate,
+    // items: cada tratamiento de la visita — { serviceId, isBono,
+    // totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid }.
+    // CUALQUIERA de ellos puede ser un bono (no solo el primero) — una
+    // clienta puede comprar dos bonos distintos en la misma visita.
+    items,
     // accountingOnly = cita que ya pasó y solo se registra para que cuente
     // en la contabilidad — sin comprobar hueco ni tocar el calendario de
     // Google (no haría falta, ya pasó), sin exigir hora (solo la fecha en
@@ -777,45 +780,45 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     // que no interesa dejar identificadas).
     accountingOnly,
   } = req.body || {};
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Indica al menos un tratamiento.' });
+  }
   if (accountingOnly) {
-    if (!serviceId || !date) {
-      return res.status(400).json({ error: 'Indica al menos el tratamiento y la fecha en la que se hizo.' });
+    if (!date) return res.status(400).json({ error: 'Indica la fecha en la que se hizo.' });
+  } else if (!name || !phone || !email || !employeeId || !date || !time) {
+    return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, teléfono, email, profesional, fecha y hora).' });
+  }
+  for (const item of items) {
+    if (!item || !item.serviceId) return res.status(400).json({ error: 'Falta el tratamiento de una de las líneas.' });
+    if (item.isBono && (!item.totalSessions || !item.sessionNumber)) {
+      return res.status(400).json({ error: 'Indica el número de sesión y el total de sesiones de cada bono.' });
     }
-  } else if (!name || !phone || !email || !serviceId || !employeeId || !date || !time) {
-    return res.status(400).json({ error: 'Faltan datos obligatorios (nombre, teléfono, email, tratamiento, profesional, fecha y hora).' });
   }
-  if (isBono && (!totalSessions || !sessionNumber)) {
-    return res.status(400).json({ error: 'Indica el número de sesión de esta cita y el total de sesiones del bono.' });
-  }
-  for (const [label, val] of [
-    ['El precio', price], ['El importe pagado', amountPaid],
-    ['El precio del bono', bonoTotalPrice], ['El importe pagado del bono', bonoAmountPaid],
-  ]) {
+  const numericChecks = [['El precio', price], ['El importe pagado', amountPaid]];
+  items.forEach((item, i) => {
+    numericChecks.push([`El precio del bono ${i + 1}`, item.bonoTotalPrice], [`El importe pagado del bono ${i + 1}`, item.bonoAmountPaid]);
+  });
+  for (const [label, val] of numericChecks) {
     if (val !== undefined && val !== '' && (!Number.isFinite(Number(val)) || Number(val) < 0)) {
       return res.status(400).json({ error: `${label} no es un número válido.` });
     }
   }
   try {
-    const service = services.find((s) => s.id === serviceId);
+    const resolvedItems = items.map((item) => ({ ...item, service: services.find((s) => s.id === item.serviceId) }));
+    const missingIdx = resolvedItems.findIndex((r) => !r.service);
+    if (missingIdx !== -1) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
     const employee = employeeId ? employees.find((e) => e.id === employeeId) : null;
-    if (!service) return res.status(404).json({ error: 'Tratamiento no encontrado.' });
     if (employeeId && !employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
     if (!accountingOnly && !employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
 
-    // Otros tratamientos añadidos a la misma cita (p.ej. uno ya pagado y otro
-    // pendiente) — también puede haberlos junto a una sesión de bono (el
-    // bono en sí tiene su propio precio aparte, ver más abajo).
-    const additionalServices = Array.isArray(extraServiceIds)
-      ? extraServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean)
-      : [];
-    const combinedServiceName = [service.name, ...additionalServices.map((s) => s.name)].join(' + ');
+    const combinedServiceName = resolvedItems.map((r) => r.service.name).join(' + ');
 
     const timeNorm = time ? (time.length === 5 ? time : `${time}:00`) : '12:00';
     // extraMinutes: ajuste sobre la duración estándar del catálogo para
     // esta visita en concreto — puede ser negativo (el equipo sabe que da
     // tiempo de sobra y quiere liberar ese hueco para más citas).
     const extraMin = Math.round(Number(extraMinutes) || 0);
-    const durationMinutes = Math.max(5, service.durationMinutes + additionalServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extraMin);
+    const durationMinutes = Math.max(5, resolvedItems.reduce((sum, r) => sum + r.service.durationMinutes, 0) + extraMin);
 
     let eventId = '';
     if (accountingOnly) {
@@ -858,145 +861,134 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         eventId = newEvent.id;
       }
     }
-    let bonoId = '';
-    let sessionNumberOut = '';
-    let primaryServiceName = service.name;
-    let paidOnlineForLoyalty = 0; // el importe del bono en sí, si lo hay — ver más abajo
-    const defaultPrice = service.price + additionalServices.reduce((sum, s) => sum + s.price, 0);
-    let bookingPrice = price !== undefined && price !== '' ? Number(price) : defaultPrice;
-    let bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
-    let paymentType = '';
 
-    if (isBono) {
-      const total = Number(totalSessions);
-      const current = Number(sessionNumber);
-      // Esta misma cita YA es la sesión "current" (se está dando de alta
-      // confirmada, con su hora y calendario) — cuenta como usada desde ya,
-      // así que sessionsUsed es "current", no "current - 1" (eso dejaba un
-      // bono de 1 sesión ya hecha mostrando "0 de 1 usadas" en vez de
-      // "completado", y ofreciendo agendar una sesión que ya no existe).
-      const sessionsUsed = Math.min(total, current);
-      const sessionsRemaining = Math.max(0, total - sessionsUsed);
-      const bonoPrice = bonoTotalPrice !== undefined && bonoTotalPrice !== '' ? Number(bonoTotalPrice) : round2(service.price * total);
-      const paidOnline = bonoAmountPaid !== undefined && bonoAmountPaid !== '' ? Number(bonoAmountPaid) : bonoPrice;
-      const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
-      paidOnlineForLoyalty = paidOnline;
+    // El precio/importe pagado que se pide en el formulario es solo el de
+    // los tratamientos SUELTOS (no-bono) de la visita — cada bono, si lo
+    // hay, lleva su propio precio aparte (en su fila de SessionBono), para
+    // no duplicar el importe.
+    const looseItems = resolvedItems.filter((r) => !r.isBono);
+    const looseDefaultPrice = looseItems.reduce((sum, r) => sum + r.service.price, 0);
+    const bookingPrice = price !== undefined && price !== '' ? Number(price) : (looseItems.length ? looseDefaultPrice : '');
+    const bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
 
-      bonoId = crypto.randomUUID();
-      await appendSessionBono({
-        bonoId,
-        createdAt: new Date().toISOString(),
-        clientName: name, clientPhone: phone, clientEmail: email,
-        serviceId, serviceName: service.name,
-        employeeId,
-        totalSessions: total,
-        sessionsUsed,
-        sessionsRemaining,
-        totalPrice: bonoPrice,
-        amountPaidOnline: paidOnline,
-        paymentType: '',
-        remainingAmount,
-        remainingPaidHow: '',
-        status: sessionsRemaining <= 0 ? 'completed' : 'active',
-        expiryDate: addMonthsISO(LEGACY_BONO_VALIDITY_MONTHS, bonoPurchaseDate || undefined),
-        paymentIntentId: '',
-        lang: 'es',
-      });
-
-      sessionNumberOut = current;
-      // El precio del bono en sí ya queda registrado arriba (en su propia
-      // fila de SessionBono) — lo que se guarda en la fila de esta cita es
-      // solo el precio de los tratamientos EXTRA añadidos a esta sesión
-      // (si los hay), para no duplicar el importe del bono.
-      primaryServiceName = `${service.name} (${current}/${total})`;
-      const extrasDefaultPrice = additionalServices.reduce((sum, s) => sum + s.price, 0);
-      bookingPrice = price !== undefined && price !== '' ? Number(price) : (extrasDefaultPrice || '');
-      bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
-      paymentType = 'bono';
-    }
-
-    // Si lo cobrado ahora mismo (tratamiento suelto/extras, sin contar el
-    // bono en sí) ya cubre el precio entero, no queda nada por cobrar más
-    // adelante — se da por cerrada desde ya (igual que una cita pagada al
-    // 100% online), en vez de esperar a que pase la fecha de la cita para
-    // poder cerrarla a mano. Así aparece ya en "Comprobar cobros" y no se
-    // vuelve a contar el saldo de fidelización una segunda vez al cerrarla.
+    // Si lo cobrado ahora mismo (la parte suelta, sin contar los bonos) ya
+    // cubre el precio entero, no queda nada por cobrar más adelante — se da
+    // por cerrada desde ya (igual que una cita pagada al 100% online), en
+    // vez de esperar a que pase la fecha de la cita para poder cerrarla a
+    // mano. Así aparece ya en "Comprobar cobros" y no se vuelve a contar el
+    // saldo de fidelización una segunda vez al cerrarla.
     const extrasFullyPaidNow = bookingPrice !== '' && Number(bookingPrice) > 0
       && bookingAmountPaid > 0 && round2(Number(bookingPrice) - bookingAmountPaid) <= 0;
 
-    // Cada tratamiento de la visita (el principal + los añadidos) se guarda
-    // en su PROPIA fila — comparten fecha/hora/profesional/evento (es la
-    // misma visita), pero así cada uno se puede reprogramar, marcar como
-    // no-show o eliminar por separado (igual que ya pasa con varios bonos
-    // combinados en /panel/book-combined-sessions), en vez de quedar
-    // encajonados como un único texto "A + B + C" imposible de tocar por
-    // partes.
-    const rowSpecs = [
-      { svc: service, isPrimary: true },
-      ...additionalServices.map((svc) => ({ svc, isPrimary: false })),
-    ];
-    // El precio/importe pagado de la visita se registra en una sola fila
-    // (la del tratamiento principal si no es bono, o si no, la del primer
-    // extra) para no contarlo varias veces al sumar todas las filas de la
-    // clienta — el bono en sí, si lo hay, ya lleva su propio precio en su
-    // fila de SessionBono, aparte.
-    const priceRowIdx = isBono ? (additionalServices.length ? 1 : -1) : 0;
+    // Cada tratamiento de la visita se guarda en su PROPIA fila — comparten
+    // fecha/hora/profesional/evento (es la misma visita), pero así cada uno
+    // se puede reprogramar, marcar como no-show o eliminar por separado
+    // (igual que ya pasa con varios bonos combinados en
+    // /panel/book-combined-sessions), en vez de quedar encajonados como un
+    // único texto "A + B + C" imposible de tocar por partes.
+    const priceRowIdx = resolvedItems.findIndex((r) => !r.isBono);
 
     const bookingIds = [];
-    let primaryBookingId = '';
     let priceBookingId = '';
     let priceServiceId = '';
-    for (let i = 0; i < rowSpecs.length; i++) {
-      const { svc, isPrimary } = rowSpecs[i];
-      const bookingId = crypto.randomUUID();
+    for (let i = 0; i < resolvedItems.length; i++) {
+      const r = resolvedItems[i];
+      const isFirst = i === 0;
       const carriesPrice = i === priceRowIdx;
+      let rowServiceName = r.service.name;
+      let rowBonoId = '';
+      let rowSessionNumber = '';
+      let rowPaymentType = '';
+      let paidOnlineForLoyalty = 0;
+
+      if (r.isBono) {
+        const total = Number(r.totalSessions);
+        const current = Number(r.sessionNumber);
+        // Esta misma cita YA es la sesión "current" (se está dando de alta
+        // confirmada, con su hora y calendario) — cuenta como usada desde
+        // ya, así que sessionsUsed es "current", no "current - 1" (eso
+        // dejaba un bono de 1 sesión ya hecha mostrando "0 de 1 usadas" en
+        // vez de "completado", y ofreciendo agendar una sesión inexistente).
+        const sessionsUsed = Math.min(total, current);
+        const sessionsRemaining = Math.max(0, total - sessionsUsed);
+        const bonoPrice = r.bonoTotalPrice !== undefined && r.bonoTotalPrice !== '' ? Number(r.bonoTotalPrice) : round2(r.service.price * total);
+        const paidOnline = r.bonoAmountPaid !== undefined && r.bonoAmountPaid !== '' ? Number(r.bonoAmountPaid) : bonoPrice;
+        const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
+        paidOnlineForLoyalty = paidOnline;
+
+        rowBonoId = crypto.randomUUID();
+        await appendSessionBono({
+          bonoId: rowBonoId,
+          createdAt: new Date().toISOString(),
+          clientName: name, clientPhone: phone, clientEmail: email,
+          serviceId: r.serviceId, serviceName: r.service.name,
+          employeeId,
+          totalSessions: total,
+          sessionsUsed,
+          sessionsRemaining,
+          totalPrice: bonoPrice,
+          amountPaidOnline: paidOnline,
+          paymentType: '',
+          remainingAmount,
+          remainingPaidHow: '',
+          status: sessionsRemaining <= 0 ? 'completed' : 'active',
+          expiryDate: addMonthsISO(LEGACY_BONO_VALIDITY_MONTHS, bonoPurchaseDate || undefined),
+          paymentIntentId: '',
+          lang: 'es',
+        });
+        rowServiceName = `${r.service.name} (${current}/${total})`;
+        rowSessionNumber = current;
+        rowPaymentType = 'bono';
+      }
+
+      const bookingId = crypto.randomUUID();
       await appendBooking({
         bookingId,
         createdAt: new Date().toISOString(),
         status: 'confirmed',
         name, phone, email,
-        serviceId: svc.id, serviceName: isPrimary ? primaryServiceName : svc.name,
+        serviceId: r.serviceId, serviceName: rowServiceName,
         employeeId: employeeId || '', employeeName: employee ? employee.name : '',
         calendarId: employee ? employee.calendarId : '',
         eventId,
         date, time: timeNorm,
         // El ajuste de minutos de toda la visita (si lo hay) se refleja en
-        // la fila del tratamiento principal — las demás guardan su
-        // duración estándar de catálogo (solo importa de verdad para el
-        // hueco de calendario, que ya usa el total ajustado más arriba).
-        durationMinutes: isPrimary ? Math.max(1, svc.durationMinutes + extraMin) : svc.durationMinutes,
-        price: carriesPrice ? bookingPrice : (isPrimary && isBono ? '' : 0),
+        // la fila del primer tratamiento — las demás guardan su duración
+        // estándar de catálogo (solo importa de verdad para el hueco de
+        // calendario, que ya usa el total ajustado más arriba).
+        durationMinutes: isFirst ? Math.max(1, r.service.durationMinutes + extraMin) : r.service.durationMinutes,
+        price: carriesPrice ? bookingPrice : (r.isBono ? '' : 0),
         amountPaid: carriesPrice ? bookingAmountPaid : 0,
-        paymentType: isPrimary ? paymentType : '',
+        paymentType: rowPaymentType,
         paymentIntentId: '',
         lang: 'es',
         reminderSent: '',
-        birthdate: isPrimary ? (birthdate || '') : '',
-        bonoId: isPrimary ? bonoId : '',
-        sessionNumber: isPrimary ? sessionNumberOut : '',
-        notes: isPrimary ? (notes || 'Alta manual de cita ya existente.') : '',
+        birthdate: isFirst ? (birthdate || '') : '',
+        bonoId: rowBonoId,
+        sessionNumber: rowSessionNumber,
+        notes: isFirst ? (notes || 'Alta manual de cita ya existente.') : '',
         depositPaidHow: carriesPrice ? (paidHow || '') : '',
         ...(carriesPrice && extrasFullyPaidNow && paidHow ? { finalAmount: bookingAmountPaid, remainderPaidHow: paidHow } : {}),
       });
       bookingIds.push(bookingId);
-      if (isPrimary) primaryBookingId = bookingId;
-      if (carriesPrice) { priceBookingId = bookingId; priceServiceId = svc.id; }
+      if (carriesPrice) { priceBookingId = bookingId; priceServiceId = r.serviceId; }
+
+      // El importe de este bono en sí (si lo hay) no vuelve a pasar por
+      // /panel/close — se gana siempre aquí, al momento.
+      if (paidOnlineForLoyalty > 0 && paidHow) {
+        await earnLoyalty({
+          booking: { serviceId: r.serviceId, phone, email, name, bookingId },
+          portionAmount: paidOnlineForLoyalty,
+          paidHow,
+        });
+      }
     }
 
-    // El importe del bono en sí (si lo hay) no vuelve a pasar por
-    // /panel/close — se gana siempre aquí, al momento.
-    if (paidOnlineForLoyalty > 0 && paidHow) {
-      await earnLoyalty({
-        booking: { serviceId, phone, email, name, bookingId: primaryBookingId },
-        portionAmount: paidOnlineForLoyalty,
-        paidHow,
-      });
-    }
-    // La parte de tratamiento suelto/extras solo se gana aquí si queda
-    // completamente pagada ya (nada por cobrar después). Si queda un
-    // resto pendiente, se gana más tarde al cerrar la cita, junto con ese
-    // resto y con una sola tasa para el conjunto — igual que una cita con
-    // seña pagada online — para no contarla dos veces.
+    // La parte suelta solo se gana aquí si queda completamente pagada ya
+    // (nada por cobrar después). Si queda un resto pendiente, se gana más
+    // tarde al cerrar la cita, junto con ese resto y con una sola tasa para
+    // el conjunto — igual que una cita con seña pagada online — para no
+    // contarla dos veces.
     if (extrasFullyPaidNow && paidHow && phone && priceBookingId) {
       await earnLoyalty({
         booking: { serviceId: priceServiceId, phone, email, name, bookingId: priceBookingId },
@@ -1005,7 +997,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
       });
     }
 
-    res.json({ ok: true, bookingId: primaryBookingId, bookingIds, bonoId: bonoId || undefined });
+    res.json({ ok: true, bookingId: bookingIds[0], bookingIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo dar de alta la reserva.' });

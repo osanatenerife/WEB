@@ -1236,7 +1236,7 @@
               <div class="vb-pick-name">${escapeHtml(svc ? svc.name : '')}${t.isBono ? ' <span class="vb-bono-flag">🎟 bono</span>' : ''}</div>
               <div class="vb-pick-meta">${svc ? svc.price + ' €' : ''}</div>
             </div>
-            ${!t.isBono && !vbState.added.some((x) => x.isBono) ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>` : ''}
+            ${!t.isBono ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>` : ''}
             <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-remove-added" data-idx="${idx}">Quitar</button>
           </div>`;
       if (editing) {
@@ -1245,7 +1245,10 @@
             <div class="panel-field-row">
               <div class="panel-field"><label>Total de sesiones del bono</label><input type="number" min="1" step="1" class="vb-bono-sessions" value="${t.bonoSessions || ''}" placeholder="Ej. 2, 3, 6…"></div>
               <div class="panel-field"><label>Esta cita es la sesión nº</label><input type="number" min="1" step="1" class="vb-bono-sessionnum" value="${t.bonoSessionNumber || 1}"></div>
+            </div>
+            <div class="panel-field-row">
               <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="vb-bono-price" value="${t.bonoPrice || ''}" placeholder="Precio a medida"></div>
+              <div class="panel-field"><label>Ya pagado de este bono (€)</label><input type="number" step="0.01" class="vb-bono-paid" value="${t.bonoAmountPaid !== undefined ? t.bonoAmountPaid : '0'}"></div>
             </div>
             <p class="field-hint" style="font-size:11px;color:var(--ink-faint);margin:-6px 0 10px;">Si el bono ya se vendió antes y ya tenía sesiones hechas (p.ej. lo estás dando de alta ahora pero ya iba por la 2 de 3), cambia el número de sesión — no hace falta que empiece siempre en 1.</p>
             <div style="display:flex;gap:8px;">
@@ -1273,8 +1276,11 @@
       const m = mode();
       const durationMinutes = catalogDurationMinutes();
 
-      const catalogSuggestedPrice = vbState.added.reduce((sum, t) => {
-        if (t.isBono) return sum + (Number(t.bonoPrice) || 0);
+      // El precio/ya pagado compartido de la visita solo cubre los
+      // tratamientos SUELTOS — cada bono (si lo hay, puede haber varios)
+      // lleva su propio precio y su propio "ya pagado" en su formulario.
+      const looseAdded = vbState.added.filter((t) => !t.isBono);
+      const catalogSuggestedPrice = looseAdded.reduce((sum, t) => {
         const svc = allServices.find((s) => s.id === t.serviceId);
         return sum + (svc ? Number(svc.price) : 0);
       }, 0);
@@ -1324,8 +1330,10 @@
           </div>
           ${m === 'catalog' ? `
           <div class="panel-field-row">
-            <div class="panel-field"><label>${vbState.added.some((t) => t.isBono) ? 'Precio total del bono (€)' : 'Precio total (€)'}</label><input type="number" step="0.01" class="vb-price" value="${catalogSuggestedPrice || ''}"></div>
-            <div class="panel-field"><label>Ya pagado (€)</label><input type="number" step="0.01" class="vb-paid" value="0"></div>
+            ${looseAdded.length ? `
+            <div class="panel-field"><label>Precio de lo suelto (€)</label><input type="number" step="0.01" class="vb-price" value="${catalogSuggestedPrice || ''}"></div>
+            <div class="panel-field"><label>Ya pagado de lo suelto (€)</label><input type="number" step="0.01" class="vb-paid" value="0"></div>
+            ` : ''}
             <div class="panel-field"><label>Pagado con</label><select class="vb-paidhow"><option value="tarjeta">Tarjeta</option><option value="efectivo">Efectivo</option><option value="bizum">Bizum</option></select></div>
           </div>` : ''}
           <button type="button" class="panel-btn panel-btn-primary vb-confirm">Confirmar visita</button>` : ''}
@@ -1423,9 +1431,11 @@
           const sessionsInput = slot.querySelector('.vb-bono-sessions');
           const sessionNumInput = slot.querySelector('.vb-bono-sessionnum');
           const priceInput = slot.querySelector('.vb-bono-price');
+          const paidInput = slot.querySelector('.vb-bono-paid');
           t.bonoSessions = Number(sessionsInput.value) || 1;
           t.bonoSessionNumber = Math.min(t.bonoSessions, Number(sessionNumInput.value) || 1);
           t.bonoPrice = Number(priceInput.value) || 0;
+          t.bonoAmountPaid = Number(paidInput.value) || 0;
           t.isBono = true;
           vbState.editingIdx = null;
           render();
@@ -1595,20 +1605,18 @@
               const priceInput = slot.querySelector('.vb-price');
               const paidInput = slot.querySelector('.vb-paid');
               const paidHowSelect = slot.querySelector('.vb-paidhow');
-              // El tratamiento marcado como bono (si lo hay) va como
-              // "principal" al backend, sea cual sea el orden en que se
-              // añadió — el resto entra como extraServiceIds. Solo puede
-              // haber un bono por visita (el botón "Es un bono" ya lo
-              // impide en la interfaz).
-              const bonoIdx = vbState.added.findIndex((t) => t.isBono);
-              const primaryIdx = bonoIdx !== -1 ? bonoIdx : 0;
-              const primary = vbState.added[primaryIdx];
-              const extras = vbState.added.filter((t, i) => i !== primaryIdx);
-              // Si se convierte en bono, "Precio"/"Ya pagado" son el precio
-              // del bono en sí (va a bonoTotalPrice/bonoAmountPaid) — no se
-              // duplican también en price/amountPaid de la cita, o se
-              // contaría como cobrado dos veces (el bono por su lado y la
-              // cita por el suyo).
+              // Cualquiera de los tratamientos añadidos puede ser un bono
+              // (puede haber varios a la vez) — cada uno lleva su propio
+              // precio/pagado; el precio/pagado del formulario compartido
+              // es solo para los tratamientos sueltos (looseAdded).
+              const items = vbState.added.map((t) => ({
+                serviceId: t.serviceId,
+                isBono: !!t.isBono,
+                sessionNumber: t.isBono ? (t.bonoSessionNumber || 1) : undefined,
+                totalSessions: t.isBono ? t.bonoSessions : undefined,
+                bonoTotalPrice: t.isBono ? t.bonoPrice : undefined,
+                bonoAmountPaid: t.isBono ? t.bonoAmountPaid : undefined,
+              }));
               await panelFetch('/panel/import-legacy-booking', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -1616,16 +1624,12 @@
                   phone: isNewClient ? ncPhone : client.phone,
                   email: isNewClient ? ncEmail : client.email,
                   birthdate: isNewClient ? ncBirthdate : undefined,
-                  serviceId: primary.serviceId, employeeId: employeeSelect.value,
+                  items, employeeId: employeeSelect.value,
                   date: dateInput.value, time: isPast ? undefined : timeVal,
-                  price: primary.isBono ? '' : priceInput.value,
-                  amountPaid: primary.isBono ? 0 : paidInput.value,
+                  price: priceInput ? priceInput.value : '',
+                  amountPaid: paidInput ? paidInput.value : 0,
                   paidHow: paidHowSelect.value,
                   notes: notesVal, accountingOnly: isPast,
-                  isBono: primary.isBono, sessionNumber: primary.bonoSessionNumber || 1, totalSessions: primary.bonoSessions,
-                  bonoTotalPrice: primary.isBono ? priceInput.value : undefined,
-                  bonoAmountPaid: primary.isBono ? paidInput.value : undefined,
-                  extraServiceIds: extras.map((t) => t.serviceId),
                   extraMinutes: isPast ? undefined : extraMinutesForSend(),
                 }),
               });
