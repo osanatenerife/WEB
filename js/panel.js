@@ -1067,7 +1067,7 @@
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono)));
 
     const apptsContainer = wrap.querySelector('.panel-appts');
-    client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client)));
+    client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client, wrap)));
 
     // El botón "Cerrar y cobrar" de arriba abre el mismo panel de "Editar
     // cita" que ya existe abajo, en vez de duplicar el flujo de cobro —
@@ -1118,7 +1118,7 @@
   // hoy por ningún endpoint (ninguno crea un evento de calendario
   // compartido entre los dos casos a la vez) — si se marcan los dos a la
   // vez, se avisa en vez de fingir que funciona.
-  async function renderVisitBuilder(slot, client) {
+  async function renderVisitBuilder(slot, client, prefill) {
     slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>`;
     const allServices = await loadImportServicesOnce();
     const byCategory = {};
@@ -1159,9 +1159,20 @@
       // esto lo ya escrito (p.ej. el nombre de una clienta nueva) se
       // perdía en cada cambio.
       ncName: '', ncPhone: '', ncEmail: '', ncBirthdate: '',
-      employeeId: '', date: '', time: '',
+      employeeId: (prefill && prefill.employeeId) || '', date: '', time: '',
     };
     let nextLocalId = 1;
+    // "Agendar próxima sesión" desde una cita ya existente — precarga los
+    // mismos tratamientos (sueltos, no bonos) para no tener que volver a
+    // elegirlos uno a uno; se pueden quitar los que no toque repetir antes
+    // de confirmar la nueva fecha/hora.
+    if (prefill && Array.isArray(prefill.addServiceIds)) {
+      prefill.addServiceIds.forEach((id) => {
+        if (allServices.find((s) => s.id === id)) {
+          vbState.added.push({ localId: nextLocalId++, serviceId: id, isBono: false });
+        }
+      });
+    }
 
     function mode() {
       const hasBono = vbState.selectedBonoIds.length > 0;
@@ -1995,7 +2006,7 @@
     });
   }
 
-  function renderAppt(b, client) {
+  function renderAppt(b, client, wrap) {
     const el = document.createElement('div');
     el.className = 'panel-appt';
     el.dataset.bookingId = b.bookingId;
@@ -2012,6 +2023,12 @@
     if (b.status === 'confirmed') {
       if (b.finalAmount !== null && b.finalAmount !== undefined) {
         paymentLine = '<div class="with">✓ Pagado</div>';
+      } else if (!b.bonoId && b.price === '0' && Number(b.amountPaid) === 0) {
+        // Tratamiento de una visita combinada (varios tratamientos sueltos
+        // en el mismo hueco) cuyo precio se cobra en OTRA de las líneas de
+        // la misma visita, no en esta — mostrar "✓ Pagado" aquí sería
+        // engañoso (nada se ha cobrado todavía por esta línea en concreto).
+        paymentLine = '<div class="with" style="opacity:.7;">Va incluido en el precio de otro tratamiento de esta misma visita</div>';
       } else {
         const pending = Math.max(0, (Number(b.price) || 0) - (Number(b.amountPaid) || 0));
         paymentLine = pending > 0
@@ -2039,6 +2056,7 @@
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-note-toggle">✎ Nota</button>
         ${b.status !== 'cancelled_refunded' ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-editbooking-toggle">✎ Editar cita</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-reschedule-toggle">Reprogramar</button>' : ''}
+        ${b.status === 'confirmed' && !b.bonoId && client ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-booknext-toggle">🔁 Agendar próxima sesión</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-warn panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
         ${b.status !== 'cancelled_refunded' ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">${b.bonoId ? '↩ No se hizo — devolver sesión' : '🗑 Eliminar'}</button>` : ''}
@@ -2071,6 +2089,22 @@
     const reschedBtn = el.querySelector('.panel-reschedule-toggle');
     if (reschedBtn) {
       reschedBtn.addEventListener('click', () => toggleReschedule(el, b, client));
+    }
+
+    const bookNextBtn = el.querySelector('.panel-booknext-toggle');
+    if (bookNextBtn) {
+      bookNextBtn.addEventListener('click', () => {
+        // Tratamientos sueltos que compartían hueco con este (misma visita
+        // combinada) se precargan también, para no tener que volver a
+        // elegirlos uno a uno — se pueden quitar los que no toque repetir.
+        const siblings = (client.bookings || []).filter((x) => x.bookingId !== b.bookingId
+          && x.status === 'confirmed' && !x.bonoId && x.date === b.date && x.time === b.time && x.employeeId === b.employeeId);
+        const group = [b, ...siblings];
+        const vbSlot = wrap.querySelector('.panel-visitbuilder-slot');
+        vbSlot.innerHTML = '';
+        renderVisitBuilder(vbSlot, client, { addServiceIds: group.map((g) => g.serviceId), employeeId: b.employeeId });
+        vbSlot.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
     }
 
     const noShowBtn = el.querySelector('.panel-noshow-btn');

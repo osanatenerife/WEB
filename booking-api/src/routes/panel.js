@@ -800,7 +800,6 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     const additionalServices = Array.isArray(extraServiceIds)
       ? extraServiceIds.map((id) => services.find((s) => s.id === id)).filter(Boolean)
       : [];
-    const combinedServiceId = [serviceId, ...additionalServices.map((s) => s.id)].join(',');
     const combinedServiceName = [service.name, ...additionalServices.map((s) => s.name)].join(' + ');
 
     const timeNorm = time ? (time.length === 5 ? time : `${time}:00`) : '12:00';
@@ -849,8 +848,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     }
     let bonoId = '';
     let sessionNumberOut = '';
-    let serviceIdOut = combinedServiceId;
-    let serviceName = combinedServiceName;
+    let primaryServiceName = service.name;
     let paidOnlineForLoyalty = 0; // el importe del bono en sí, si lo hay — ver más abajo
     const defaultPrice = service.price + additionalServices.reduce((sum, s) => sum + s.price, 0);
     let bookingPrice = price !== undefined && price !== '' ? Number(price) : defaultPrice;
@@ -895,11 +893,10 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
 
       sessionNumberOut = current;
       // El precio del bono en sí ya queda registrado arriba (en su propia
-      // fila de SessionBono) — lo que se guarda aquí, en la reserva, es
+      // fila de SessionBono) — lo que se guarda en la fila de esta cita es
       // solo el precio de los tratamientos EXTRA añadidos a esta sesión
       // (si los hay), para no duplicar el importe del bono.
-      const bonoLabel = `${service.name} (${current}/${total})`;
-      serviceName = [bonoLabel, ...additionalServices.map((s) => s.name)].join(' + ');
+      primaryServiceName = `${service.name} (${current}/${total})`;
       const extrasDefaultPrice = additionalServices.reduce((sum, s) => sum + s.price, 0);
       bookingPrice = price !== undefined && price !== '' ? Number(price) : (extrasDefaultPrice || '');
       bookingAmountPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : 0;
@@ -915,37 +912,66 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     const extrasFullyPaidNow = bookingPrice !== '' && Number(bookingPrice) > 0
       && bookingAmountPaid > 0 && round2(Number(bookingPrice) - bookingAmountPaid) <= 0;
 
-    const bookingId = crypto.randomUUID();
-    await appendBooking({
-      bookingId,
-      createdAt: new Date().toISOString(),
-      status: 'confirmed',
-      name, phone, email,
-      serviceId: serviceIdOut, serviceName,
-      employeeId: employeeId || '', employeeName: employee ? employee.name : '',
-      calendarId: employee ? employee.calendarId : '',
-      eventId,
-      date, time: timeNorm,
-      durationMinutes,
-      price: bookingPrice,
-      amountPaid: bookingAmountPaid,
-      paymentType,
-      paymentIntentId: '',
-      lang: 'es',
-      reminderSent: '',
-      birthdate: birthdate || '',
-      bonoId,
-      sessionNumber: sessionNumberOut,
-      notes: notes || 'Alta manual de cita ya existente.',
-      depositPaidHow: paidHow || '',
-      ...(extrasFullyPaidNow && paidHow ? { finalAmount: bookingAmountPaid, remainderPaidHow: paidHow } : {}),
-    });
+    // Cada tratamiento de la visita (el principal + los añadidos) se guarda
+    // en su PROPIA fila — comparten fecha/hora/profesional/evento (es la
+    // misma visita), pero así cada uno se puede reprogramar, marcar como
+    // no-show o eliminar por separado (igual que ya pasa con varios bonos
+    // combinados en /panel/book-combined-sessions), en vez de quedar
+    // encajonados como un único texto "A + B + C" imposible de tocar por
+    // partes.
+    const rowSpecs = [
+      { svc: service, isPrimary: true },
+      ...additionalServices.map((svc) => ({ svc, isPrimary: false })),
+    ];
+    // El precio/importe pagado de la visita se registra en una sola fila
+    // (la del tratamiento principal si no es bono, o si no, la del primer
+    // extra) para no contarlo varias veces al sumar todas las filas de la
+    // clienta — el bono en sí, si lo hay, ya lleva su propio precio en su
+    // fila de SessionBono, aparte.
+    const priceRowIdx = isBono ? (additionalServices.length ? 1 : -1) : 0;
+
+    const bookingIds = [];
+    let primaryBookingId = '';
+    let priceBookingId = '';
+    let priceServiceId = '';
+    for (let i = 0; i < rowSpecs.length; i++) {
+      const { svc, isPrimary } = rowSpecs[i];
+      const bookingId = crypto.randomUUID();
+      const carriesPrice = i === priceRowIdx;
+      await appendBooking({
+        bookingId,
+        createdAt: new Date().toISOString(),
+        status: 'confirmed',
+        name, phone, email,
+        serviceId: svc.id, serviceName: isPrimary ? primaryServiceName : svc.name,
+        employeeId: employeeId || '', employeeName: employee ? employee.name : '',
+        calendarId: employee ? employee.calendarId : '',
+        eventId,
+        date, time: timeNorm,
+        durationMinutes: svc.durationMinutes,
+        price: carriesPrice ? bookingPrice : (isPrimary && isBono ? '' : 0),
+        amountPaid: carriesPrice ? bookingAmountPaid : 0,
+        paymentType: isPrimary ? paymentType : '',
+        paymentIntentId: '',
+        lang: 'es',
+        reminderSent: '',
+        birthdate: isPrimary ? (birthdate || '') : '',
+        bonoId: isPrimary ? bonoId : '',
+        sessionNumber: isPrimary ? sessionNumberOut : '',
+        notes: isPrimary ? (notes || 'Alta manual de cita ya existente.') : '',
+        depositPaidHow: carriesPrice ? (paidHow || '') : '',
+        ...(carriesPrice && extrasFullyPaidNow && paidHow ? { finalAmount: bookingAmountPaid, remainderPaidHow: paidHow } : {}),
+      });
+      bookingIds.push(bookingId);
+      if (isPrimary) primaryBookingId = bookingId;
+      if (carriesPrice) { priceBookingId = bookingId; priceServiceId = svc.id; }
+    }
 
     // El importe del bono en sí (si lo hay) no vuelve a pasar por
     // /panel/close — se gana siempre aquí, al momento.
     if (paidOnlineForLoyalty > 0 && paidHow) {
       await earnLoyalty({
-        booking: { serviceId, phone, email, name, bookingId },
+        booking: { serviceId, phone, email, name, bookingId: primaryBookingId },
         portionAmount: paidOnlineForLoyalty,
         paidHow,
       });
@@ -955,15 +981,15 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     // resto pendiente, se gana más tarde al cerrar la cita, junto con ese
     // resto y con una sola tasa para el conjunto — igual que una cita con
     // seña pagada online — para no contarla dos veces.
-    if (extrasFullyPaidNow && paidHow && phone) {
+    if (extrasFullyPaidNow && paidHow && phone && priceBookingId) {
       await earnLoyalty({
-        booking: { serviceId: serviceIdOut, phone, email, name, bookingId },
+        booking: { serviceId: priceServiceId, phone, email, name, bookingId: priceBookingId },
         portionAmount: bookingAmountPaid,
         paidHow,
       });
     }
 
-    res.json({ ok: true, bookingId, bonoId: bonoId || undefined });
+    res.json({ ok: true, bookingId: primaryBookingId, bookingIds, bonoId: bonoId || undefined });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo dar de alta la reserva.' });
