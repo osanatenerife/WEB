@@ -36,6 +36,7 @@
     connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…' },
     addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
+    noShowForgivenNote: { es: 'No pudiste venir a esta cita — no te la cobramos ni cuenta como falta. Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make this appointment — no charge and it doesn't count against you. Pick a new day and time whenever you like." },
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
@@ -104,6 +105,10 @@
       </div>
       ${pointsFromPaid > 0 ? `<div class="mybooking-points-note">${t('pointsFromPaid')(pointsFromPaid.toFixed(2))}</div>` : ''}
     ` : '';
+    // Una ausencia perdonada la 1ª vez no admite cancelar (ya pasó, no hay
+    // nada que reembolsar) ni añadir tratamiento (eso es para sumar algo a
+    // una visita que todavía va a ocurrir en su hora original) — solo se
+    // puede elegir un nuevo día y hora.
     return `
       <div class="mybooking-card" data-booking-id="${b.bookingId}">
         <div class="mybooking-top">
@@ -113,14 +118,14 @@
           </div>
           <div class="mybooking-price">${b.amountPaid > 0 ? b.amountPaid.toFixed(0) + ' €' : t('free')}</div>
         </div>
-        ${breakdownHtml}
+        ${b.noShowForgiven ? `<div class="mybooking-status-note ok">${t('noShowForgivenNote')}</div>` : breakdownHtml}
         <div class="mybooking-actions">
-          <button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>
+          ${!b.noShowForgiven ? `<button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>` : ''}
           <button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>
-          <button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>
+          ${!b.noShowForgiven ? `<button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>` : ''}
         </div>
         <div class="mybooking-reschedule-panel"></div>
-        <div class="mybooking-addtreatment-panel"></div>
+        ${!b.noShowForgiven ? '<div class="mybooking-addtreatment-panel"></div>' : ''}
       </div>
     `;
   }
@@ -168,7 +173,8 @@
   function wireCard(b) {
     const card = resultsEl.querySelector(`[data-booking-id="${b.bookingId}"]`);
     if (!card) return;
-    card.querySelector('.mybooking-cancel-btn').addEventListener('click', () => handleCancel(b, card));
+    const cancelBtn = card.querySelector('.mybooking-cancel-btn');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => handleCancel(b, card));
     const rescheduleBtn = card.querySelector('.mybooking-reschedule-btn');
     const panel = card.querySelector('.mybooking-reschedule-panel');
     rescheduleBtn.addEventListener('click', () => {
@@ -181,14 +187,16 @@
     });
     const addBtn = card.querySelector('.mybooking-addtreatment-btn');
     const addPanel = card.querySelector('.mybooking-addtreatment-panel');
-    addBtn.addEventListener('click', () => {
-      const willOpen = !addPanel.classList.contains('open');
-      addPanel.classList.toggle('open', willOpen);
-      if (willOpen && !addPanel.dataset.wired) {
-        wireAddTreatmentPanel(b, addPanel);
-        addPanel.dataset.wired = '1';
-      }
-    });
+    if (addBtn && addPanel) {
+      addBtn.addEventListener('click', () => {
+        const willOpen = !addPanel.classList.contains('open');
+        addPanel.classList.toggle('open', willOpen);
+        if (willOpen && !addPanel.dataset.wired) {
+          wireAddTreatmentPanel(b, addPanel);
+          addPanel.dataset.wired = '1';
+        }
+      });
+    }
   }
 
   // ── Añadir un tratamiento a una cita ya confirmada ──

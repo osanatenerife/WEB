@@ -2301,6 +2301,7 @@
     const statusPill = {
       confirmed: '<span class="panel-pill panel-pill-ok"><span class="dot"></span>Confirmada</span>',
       no_show: '<span class="panel-pill panel-pill-crit"><span class="dot"></span>No-show</span>',
+      no_show_forgiven: '<span class="panel-pill panel-pill-warn"><span class="dot"></span>No-show (perdonado, reprogramable)</span>',
       cancelled_refunded: '<span class="panel-pill panel-pill-warn"><span class="dot"></span>Cancelada (reembolsada)</span>',
       cancelled_no_refund: '<span class="panel-pill panel-pill-warn"><span class="dot"></span>Cancelada (sin reembolso)</span>',
     }[b.status] || `<span class="panel-pill panel-pill-warn"><span class="dot"></span>${b.status || ''}</span>`;
@@ -2402,7 +2403,11 @@
         noShowBtn.disabled = true;
         try {
           const result = await panelFetch('/panel/no-show', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
-          alert(result.isFirstTime ? 'Marcada. Primera falta: se ha perdonado y avisado por email.' : 'Marcada. Ya tenía una falta anterior: se ha descontado la sesión y avisado por email.');
+          alert(result.isFirstTime
+            ? (b.bonoId
+              ? 'Marcada. Primera falta: se ha perdonado, la sesión se ha devuelto al bono y se ha avisado por email.'
+              : 'Marcada. Primera falta: se ha perdonado — la clienta puede reprogramarla ella misma desde "Mis reservas" sin coste, y se le ha avisado por email.')
+            : 'Marcada. Ya tenía una falta anterior: se ha descontado la sesión y avisado por email.');
           doSearch();
         } catch (e) {
           alert(e.message);

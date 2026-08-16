@@ -45,6 +45,7 @@ function isOwner(booking, phone, email) {
 
 function toPublicBooking(b) {
   const hrs = hoursUntil(b);
+  const forgiven = b.status === 'no_show_forgiven';
   return {
     bookingId: b.bookingId,
     serviceName: b.serviceName,
@@ -56,12 +57,21 @@ function toPublicBooking(b) {
     amountPaid: Number(b.amountPaid) || 0,
     paymentType: b.paymentType,
     status: b.status,
-    canCancelFree: hrs >= FREE_CANCEL_HOURS,
-    canReschedule: hrs >= FREE_CANCEL_HOURS,
+    // Una ausencia perdonada la primera vez ya pasó (su fecha es del
+    // pasado) — no tiene sentido pedirle 48h de antelación sobre una cita
+    // que ya no existe, así que se puede reprogramar siempre, sin las
+    // condiciones normales de antelación. No se ofrece cancelarla (no hay
+    // reembolso que tenga sentido dar por una cita a la que no se vino):
+    // solo se puede reprogramar sin coste, o dejarla así.
+    canCancelFree: !forgiven && hrs >= FREE_CANCEL_HOURS,
+    canReschedule: forgiven || hrs >= FREE_CANCEL_HOURS,
+    noShowForgiven: forgiven,
   };
 }
 
-// ── Listar reservas futuras de un cliente ──
+// ── Listar reservas futuras de un cliente (incluye las ausencias
+// perdonadas la 1ª vez, aunque su fecha ya haya pasado — siguen "activas"
+// a efectos de poder reprogramarlas sin coste) ──
 router.get('/my-bookings', async (req, res) => {
   const { phone, email } = req.query;
   if (!phone || !email) {
@@ -71,9 +81,11 @@ router.get('/my-bookings', async (req, res) => {
     const all = await getAllBookings();
     const now = Date.now();
     const mine = all.filter((b) => (
-      b.status === 'confirmed'
-      && isOwner(b, phone, email)
-      && appointmentDateTime(b).getTime() > now
+      isOwner(b, phone, email)
+      && (
+        (b.status === 'confirmed' && appointmentDateTime(b).getTime() > now)
+        || b.status === 'no_show_forgiven'
+      )
     ));
     mine.sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
 
@@ -274,12 +286,18 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     if (!booking || !isOwner(booking, phone, email)) {
       return res.status(404).json({ error: 'No se ha encontrado esa reserva con esos datos.' });
     }
-    if (booking.status !== 'confirmed') {
+    const forgiven = booking.status === 'no_show_forgiven';
+    if (booking.status !== 'confirmed' && !forgiven) {
       return res.status(409).json({ error: 'Esta reserva ya no está activa.' });
     }
-    const hrs = hoursUntil(booking);
-    if (hrs < FREE_CANCEL_HOURS) {
-      return res.status(409).json({ error: 'Para reprogramar hace falta avisar con al menos 48h de antelación. Escríbenos por WhatsApp si es más urgente.' });
+    // La ausencia perdonada la 1ª vez ya es de una fecha pasada por
+    // definición — la condición de "avisar con 48h" no aplica, solo a
+    // citas que todavía no han pasado.
+    if (!forgiven) {
+      const hrs = hoursUntil(booking);
+      if (hrs < FREE_CANCEL_HOURS) {
+        return res.status(409).json({ error: 'Para reprogramar hace falta avisar con al menos 48h de antelación. Escríbenos por WhatsApp si es más urgente.' });
+      }
     }
 
     const daysAhead = Math.floor((new Date(`${newDate}T12:00:00Z`) - new Date()) / 86400000);
@@ -319,7 +337,12 @@ router.post('/my-bookings/reschedule', async (req, res) => {
       newEventId = event.id;
     }
 
-    await updateBookingRow(booking._sheetRow, booking, { date: newDate, time: newTime, eventId: newEventId });
+    await updateBookingRow(booking._sheetRow, booking, {
+      date: newDate, time: newTime, eventId: newEventId,
+      // Una ausencia perdonada vuelve a ser una cita normal en cuanto se le
+      // pone nueva fecha — ya cumplió su papel de "comodín".
+      ...(forgiven ? { status: 'confirmed' } : {}),
+    });
 
     res.json({ ok: true, date: newDate, time: newTime });
     });

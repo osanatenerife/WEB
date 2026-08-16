@@ -1745,14 +1745,12 @@ router.post('/panel/no-show', async (req, res) => {
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
     // Evita que un doble clic o un reintento cuente la misma ausencia dos
     // veces (segundo strike / segunda restauración de sesión de bono).
-    if (booking.status === 'no_show') {
+    if (booking.status === 'no_show' || booking.status === 'no_show_forgiven') {
       return res.json({ ok: true, alreadyMarked: true });
     }
     if (booking.status !== 'confirmed') {
       return res.status(409).json({ error: 'Esta cita ya está cancelada — no tiene sentido marcarla como falta.' });
     }
-
-    await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
 
     const phoneN = normalizePhone(booking.phone);
     const emailN = normalizeEmail(booking.email);
@@ -1766,12 +1764,20 @@ router.post('/panel/no-show', async (req, res) => {
     }
 
     if (isFirstTime) {
-      // Se perdona: si había bono, se restaura la sesión para que se pueda volver a agendar sin coste
+      // Se perdona: si había bono, se restaura la sesión para que se pueda
+      // volver a agendar sin coste (desde el panel, como cualquier sesión
+      // de bono). Si NO había bono, no hay ninguna sesión que restaurar —
+      // en su lugar dejamos la propia cita en un estado "perdonada" que la
+      // clienta puede reprogramar ella misma desde "Mis reservas" sin que
+      // cuente como falta ni se le cobre nada de nuevo.
       if (bono) {
         const sessionsUsed = Math.max(0, (Number(bono.sessionsUsed) || 0) - 1);
         const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) + 1;
         await updateSessionBonoRow(bono._sheetRow, bono, { sessionsUsed, sessionsRemaining, status: 'active' });
         bono = { ...bono, sessionsUsed, sessionsRemaining };
+        await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
+      } else {
+        await updateBookingRow(booking._sheetRow, booking, { status: 'no_show_forgiven' });
       }
       await upsertStrikeRecord({
         phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
@@ -1779,6 +1785,7 @@ router.post('/panel/no-show', async (req, res) => {
       }, existing);
     } else {
       // No se restaura nada — la sesión queda gastada
+      await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
       await upsertStrikeRecord({
         phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
         strikeCount: (Number(existing.strikeCount) || 0) + 1, lastStrikeDate: new Date().toISOString().slice(0, 10),
