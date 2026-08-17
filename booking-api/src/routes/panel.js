@@ -1741,6 +1741,12 @@ router.post('/panel/no-show', async (req, res) => {
   const { bookingId } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   try {
+    // El aviso de "1ª falta" implica varias lecturas y escrituras seguidas
+    // (bono, contador de faltas, estado de la cita) — sin bloqueo, un doble
+    // clic o dos pestañas podrían leer status="confirmed" las dos antes de
+    // que ninguna escriba, y contar la misma ausencia dos veces (doble
+    // restauración de sesión de bono, o strikeCount subiendo de más).
+    return await withLock(`booking:${bookingId}`, async () => {
     const booking = await findBookingById(bookingId);
     if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
     // Evita que un doble clic o un reintento cuente la misma ausencia dos
@@ -1805,6 +1811,7 @@ router.post('/panel/no-show', async (req, res) => {
     }
 
     res.json({ ok: true, isFirstTime, sessionsRemaining: bono ? bono.sessionsRemaining : null });
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo marcar la ausencia.' });

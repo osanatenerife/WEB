@@ -193,7 +193,7 @@
     els.paymentsSlot.innerHTML = `
       <div class="panel-new-appt">
         <div class="panel-label">Comprobar cobros (cuadre de caja)</div>
-        <p class="panel-status" style="margin-bottom:10px;">Todo lo cobrado en el rango de fechas, con su forma de pago — para comparar con lo que tienes en caja, Bizum o datáfono. La seña pagada online (Stripe) no cuenta en los totales porque no pasa por el centro; se muestra solo como referencia junto a cada cita.</p>
+        <p class="panel-status" style="margin-bottom:10px;">Todo lo cobrado en el rango de fechas, con su forma de pago — para comparar con lo que tienes en caja, Bizum o datáfono. La seña pagada online (Stripe) se cuenta como tarjeta, en el día de la cita, aunque no pase físicamente por el centro.</p>
         <div class="panel-field-row">
           <div class="panel-field"><label>Desde</label><input type="date" class="pp-from" value="${today}"></div>
           <div class="panel-field"><label>Hasta</label><input type="date" class="pp-to" value="${today}"></div>
