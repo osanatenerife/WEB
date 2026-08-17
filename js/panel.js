@@ -216,7 +216,8 @@
         const data = await panelFetch(`/panel/payments-log?from=${fromInput.value}&to=${toInput.value}`, { method: 'GET' });
         const totalsEntries = Object.entries(data.totals || {});
         const totalsHtml = totalsEntries.length
-          ? `<p class="panel-status" style="margin:10px 0;"><b>Totales del rango:</b> ${totalsEntries.map(([k, v]) => `${k}: <b>${v.toFixed(2)} €</b>`).join(' · ')}</p>`
+          ? `<p class="panel-status" style="margin:10px 0;"><b>Totales del rango:</b> ${totalsEntries.map(([k, v]) => `${k}: <b>${v.toFixed(2)} €</b>`).join(' · ')}</p>
+             <p class="line-item-meta" style="margin:-6px 0 10px;">Incluye las señas pagadas online (siempre como tarjeta), sumadas al día de la cita — no hace falta añadirlas aparte del extracto de Stripe.</p>`
           : '<p class="panel-status">No hay cobros registrados en ese rango.</p>';
 
         // Cuántas líneas tienen la forma de pago sin asignar — antes había

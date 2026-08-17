@@ -2400,11 +2400,12 @@ router.get('/panel/payments-log', async (req, res) => {
           serviceName: b.serviceName, finalAmount, onlinePaid, redeemed, remainder,
           // Si "onlinePaid" en realidad se cobró en persona (reserva manual
           // con pago por adelantado), depositPaidHow dice cómo — si viene
-          // vacío es un pago online real por Stripe, que nunca pasa por caja.
-          // Ese importe NO se suma aquí a los totales del rango (ver
-          // advanceDeposits más abajo): se cobró el día que se dio de alta
-          // la cita, no el día de la cita en sí, así que contarlo aquí
-          // haría que apareciera en la fecha equivocada al cuadrar caja.
+          // vacío es un pago online real por Stripe. Ese pago de verdad no
+          // pasa nunca por la caja física (no hay que cuadrarlo con
+          // efectivo/datáfono), pero SÍ forma parte del importe real del
+          // tratamiento del día de la cita, así que se suma a los totales
+          // como tarjeta (ver más abajo) para que el total del día cuadre
+          // con lo que se le pasa al asesor.
           depositPaidHow: b.depositPaidHow || '',
           remainderPaidHow: b.remainderPaidHow || '',
           remainderAmount2: Number(b.remainderAmount2) || 0,
@@ -2413,20 +2414,29 @@ router.get('/panel/payments-log', async (req, res) => {
       })
       .sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`));
 
-    // Señas/pagos por adelantado cobrados en persona (efectivo/tarjeta/bizum
+    // Señas/pagos por adelantado cobrados EN PERSONA (efectivo/tarjeta/bizum
     // al dar de alta la cita, no un pago online por Stripe): se cuentan por
-    // el día en que se cobraron de verdad (createdAt de la cita), no por el
-    // día de la cita — si no, un pago de hoy para una cita dentro de tres
-    // semanas no aparecería en caja hasta esa fecha futura, y ese día
-    // parecería que se cobró algo que en realidad ya se cobró hace tiempo.
-    // Independiente de si la cita ya se cerró o no.
+    // el día en que se cobraron de verdad — normalmente el de creación de la
+    // fila (createdAt), para que un pago de hoy de una cita dentro de tres
+    // semanas no aparezca en caja hasta esa fecha futura.
+    //
+    // Pero si la cita ya era del pasado en el momento de darla de alta (se
+    // está registrando a mano una visita antigua, con "Ya pasó — solo
+    // registrar"), createdAt es solo el momento en que alguien se puso a
+    // teclearla, no un cobro real de ese día — en ese caso se usa la fecha
+    // de la propia cita, igual que el resto de su importe.
     const advanceDeposits = bookings
-      .filter((b) => b.depositPaidHow && Number(b.amountPaid) > 0 && b.createdAt && inRange(String(b.createdAt).slice(0, 10)))
-      .map((b) => ({
-        bookingId: b.bookingId, date: String(b.createdAt).slice(0, 10), name: b.name, phone: b.phone,
-        serviceName: b.serviceName, amount: Number(b.amountPaid) || 0, paidHow: b.depositPaidHow,
-        apptDate: b.date, apptTime: b.time,
-      }))
+      .filter((b) => b.depositPaidHow && Number(b.amountPaid) > 0 && b.createdAt)
+      .map((b) => {
+        const createdDate = String(b.createdAt).slice(0, 10);
+        const loggedAfterTheFact = b.date && b.date < createdDate;
+        return {
+          bookingId: b.bookingId, date: loggedAfterTheFact ? b.date : createdDate, name: b.name, phone: b.phone,
+          serviceName: b.serviceName, amount: Number(b.amountPaid) || 0, paidHow: b.depositPaidHow,
+          apptDate: b.date, apptTime: b.time,
+        };
+      })
+      .filter((d) => inRange(d.date))
       .sort((a, b) => a.date.localeCompare(b.date));
 
     const extraLines = sales
@@ -2444,6 +2454,11 @@ router.get('/panel/payments-log', async (req, res) => {
       totals[key] = round2((totals[key] || 0) + amount);
     };
     closedBookings.forEach((b) => {
+      // El pago online (Stripe) es siempre tarjeta/Klarna — se suma aquí,
+      // en el día de la cita, junto con el resto pagado en el centro, para
+      // que el total del día refleje el importe completo del tratamiento
+      // tal y como se pagó de verdad (y no solo la parte cobrada en persona).
+      if (!b.depositPaidHow && b.onlinePaid > 0) addTotal('tarjeta', b.onlinePaid);
       const part1 = round2(b.remainder - b.remainderAmount2);
       addTotal(b.remainderPaidHow, part1);
       addTotal(b.remainderPaidHow2, b.remainderAmount2);
