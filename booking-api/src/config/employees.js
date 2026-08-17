@@ -77,7 +77,7 @@ module.exports = [
     services: [
       ...especialidadesAnna,
       'radiofrecuencia-facial', 'radiofrecuencia-corporal', 'limpieza-profunda',
-      'hollywood-peel', 'dermapen', 'exosomas-dermapen',
+      'hollywood-peel', 'dermapen', 'exosomas-dermapen', 'limpieza-facial-premium',
       'ritual-basic-skin', 'ritual-relaxing', 'ritual-flash-lifting',
     ],
     weekly: {
