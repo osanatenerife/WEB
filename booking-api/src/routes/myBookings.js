@@ -11,6 +11,7 @@ const { computeLoyaltyBalance } = require('../config/loyalty');
 const { sendEmail } = require('../lib/email');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
 const { withLock } = require('../lib/asyncLock');
+const { canDo } = require('./services');
 
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
@@ -18,11 +19,6 @@ function escapeHtml(str) {
   return String(str || '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
-function weeklyScheduleFor(booking) {
-  const employee = employees.find((e) => e.id === booking.employeeId);
-  return employee && employee.weekly;
 }
 
 const router = express.Router();
@@ -48,7 +44,9 @@ function toPublicBooking(b) {
   const forgiven = b.status === 'no_show_forgiven';
   return {
     bookingId: b.bookingId,
+    serviceId: b.serviceId,
     serviceName: b.serviceName,
+    employeeId: b.employeeId,
     employeeName: b.employeeName,
     date: b.date,
     time: b.time,
@@ -156,9 +154,10 @@ router.get('/my-bookings/history', async (req, res) => {
   }
 });
 
-// ── Huecos libres para reprogramar (misma duración y profesional de la reserva original) ──
+// ── Huecos libres para reprogramar (misma duración de la reserva original;
+// misma profesional salvo que se pida explícitamente otra) ──
 router.get('/my-bookings/slots', async (req, res) => {
-  const { bookingId, phone, email, date } = req.query;
+  const { bookingId, phone, email, date, employeeId } = req.query;
   if (!bookingId || !phone || !email || !date) {
     return res.status(400).json({ error: 'Faltan datos para consultar huecos.' });
   }
@@ -167,8 +166,17 @@ router.get('/my-bookings/slots', async (req, res) => {
     if (!booking || !isOwner(booking, phone, email)) {
       return res.status(404).json({ error: 'No se ha encontrado esa reserva con esos datos.' });
     }
+    let targetEmployee = employees.find((e) => e.id === booking.employeeId);
+    if (employeeId && employeeId !== booking.employeeId) {
+      const candidate = employees.find((e) => e.id === employeeId);
+      if (!candidate || !canDo(candidate, booking.serviceId)) {
+        return res.status(400).json({ error: 'Esa profesional no puede realizar este tratamiento.' });
+      }
+      targetEmployee = candidate;
+    }
+    if (!targetEmployee) return res.status(404).json({ error: 'No se ha encontrado la profesional de esta cita.' });
     const duration = Number(booking.durationMinutes) || 60;
-    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking));
+    const slots = await getAvailableSlots(date, targetEmployee.calendarId, duration, targetEmployee.weekly);
     res.json({ slots });
   } catch (err) {
     console.error(err);
@@ -271,9 +279,11 @@ router.post('/my-bookings/cancel', async (req, res) => {
   }
 });
 
-// ── Reprogramar ──
+// ── Reprogramar (opcionalmente con otra profesional, si "newEmployeeId"
+// viene y es distinta de la actual — p.ej. la clienta prefiere adelantar
+// la cita y le da igual quién se la haga) ──
 router.post('/my-bookings/reschedule', async (req, res) => {
-  const { bookingId, phone, email, newDate, newTime } = req.body || {};
+  const { bookingId, phone, email, newDate, newTime, newEmployeeId } = req.body || {};
   if (!bookingId || !phone || !email || !newDate || !newTime) {
     return res.status(400).json({ error: 'Faltan datos para reprogramar la reserva.' });
   }
@@ -305,8 +315,19 @@ router.post('/my-bookings/reschedule', async (req, res) => {
       return res.status(400).json({ error: 'Esa fecha no está disponible para reservar.' });
     }
 
+    let targetEmployee = employees.find((e) => e.id === booking.employeeId);
+    const changingEmployee = !!newEmployeeId && newEmployeeId !== booking.employeeId;
+    if (changingEmployee) {
+      const candidate = employees.find((e) => e.id === newEmployeeId);
+      if (!candidate || !canDo(candidate, booking.serviceId)) {
+        return res.status(400).json({ error: 'Esa profesional no puede realizar este tratamiento.' });
+      }
+      targetEmployee = candidate;
+    }
+    if (!targetEmployee) return res.status(404).json({ error: 'No se ha encontrado la profesional de esta cita.' });
+
     const duration = Number(booking.durationMinutes) || 60;
-    const freeSlots = await getAvailableSlots(newDate, booking.calendarId, duration, weeklyScheduleFor(booking));
+    const freeSlots = await getAvailableSlots(newDate, targetEmployee.calendarId, duration, targetEmployee.weekly);
     if (!freeSlots.includes(newTime)) {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
@@ -319,11 +340,25 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     // cita entera para esos otros tratamientos sin actualizar sus filas.
     // En ese caso (o si el evento original ya no es usable, p.ej. quedó
     // "cancelado" en Google tras un borrado anterior) creamos un evento
-    // nuevo solo para este tratamiento.
+    // nuevo solo para este tratamiento. Si además cambia de profesional, el
+    // evento tiene que pasar de calendario — eso no se puede "mover" con un
+    // simple update, así que directamente se borra el de la profesional
+    // antigua (si no queda ningún otro tratamiento activo en él) y se crea
+    // uno nuevo en el calendario de la profesional nueva.
     const allBookingsForCheck = await getAllBookings();
     const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
     let newEventId = booking.eventId;
-    if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
+    if (changingEmployee) {
+      if (!hasActiveSiblings && booking.calendarId && booking.eventId) {
+        await deleteEvent(booking.calendarId, booking.eventId).catch(() => {}); // no bloquear si ya no existía
+      }
+      const event = await createBookingEvent(targetEmployee.calendarId, {
+        summary: booking.serviceName || 'Cita Osana',
+        description: `Clienta: ${booking.name || ''} · ${booking.phone || ''}`,
+        startISO, endISO,
+      });
+      newEventId = event.id;
+    } else if (!hasActiveSiblings && await isEventUsable(booking.calendarId, booking.eventId)) {
       await updateEvent(booking.calendarId, booking.eventId, {
         start: { dateTime: startISO },
         end: { dateTime: endISO },
@@ -339,12 +374,13 @@ router.post('/my-bookings/reschedule', async (req, res) => {
 
     await updateBookingRow(booking._sheetRow, booking, {
       date: newDate, time: newTime, eventId: newEventId,
+      ...(changingEmployee ? { employeeId: targetEmployee.id, employeeName: targetEmployee.name, calendarId: targetEmployee.calendarId } : {}),
       // Una ausencia perdonada vuelve a ser una cita normal en cuanto se le
       // pone nueva fecha — ya cumplió su papel de "comodín".
       ...(forgiven ? { status: 'confirmed' } : {}),
     });
 
-    res.json({ ok: true, date: newDate, time: newTime });
+    res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name });
     });
   } catch (err) {
     console.error(err);

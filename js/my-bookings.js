@@ -38,6 +38,7 @@
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
     noShowForgivenNote: { es: 'No pudiste venir a esta cita — no te la cobramos ni cuenta como falta. Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make this appointment — no charge and it doesn't count against you. Pick a new day and time whenever you like." },
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
+    chooseTherapist: { es: 'Profesional (opcional, si te da igual quién)', en: 'Specialist (optional, if you don\'t mind who)' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
@@ -76,6 +77,12 @@
     },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || key; }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
 
   let currentPhone = '';
   let currentEmail = '';
@@ -332,21 +339,45 @@
     }
   }
 
-  function wireReschedulePanel(b, panel) {
+  async function wireReschedulePanel(b, panel) {
+    panel.innerHTML = `<p class="booking-slot-message">${t('loading')}</p>`;
+    let employeeOptionsHtml = '';
+    if (b.serviceId) {
+      try {
+        const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(b.serviceId)}`);
+        const data = await res.json();
+        const emps = data.employees || [];
+        // Solo tiene sentido el selector si hay más de una profesional que
+        // pueda con este tratamiento — si solo hay una (la de siempre), no
+        // se ofrece elegir para no complicar la pantalla sin motivo.
+        if (emps.length > 1) {
+          employeeOptionsHtml = emps.map((e) => `<option value="${e.id}"${e.id === b.employeeId ? ' selected' : ''}>${escapeHtml(e.name)}</option>`).join('');
+        }
+      } catch (e) {
+        // si falla, simplemente no se ofrece cambiar de profesional — se sigue pudiendo reprogramar con la misma
+      }
+    }
     panel.innerHTML = `
+      ${employeeOptionsHtml ? `
+      <div class="booking-field">
+        <label>${t('chooseTherapist')}</label>
+        <select class="mb-employee-input">${employeeOptionsHtml}</select>
+      </div>` : ''}
       <div class="booking-field">
         <label>${t('chooseNewDate')}</label>
         <input type="date" class="mb-date-input" min="${minDateStr()}">
       </div>
       <div class="booking-slot-grid mb-slots"></div>
     `;
+    const employeeInput = panel.querySelector('.mb-employee-input');
     const dateInput = panel.querySelector('.mb-date-input');
     const slotsEl = panel.querySelector('.mb-slots');
-    dateInput.addEventListener('change', async () => {
+    async function searchSlots() {
       if (!dateInput.value) return;
       slotsEl.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
       try {
         const params = new URLSearchParams({ bookingId: b.bookingId, phone: currentPhone, email: currentEmail, date: dateInput.value });
+        if (employeeInput && employeeInput.value) params.set('employeeId', employeeInput.value);
         const res = await fetch(`${BOOKING_API_BASE}/my-bookings/slots?${params}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || t('genericError'));
@@ -359,24 +390,29 @@
           const slot = document.createElement('div');
           slot.className = 'booking-slot';
           slot.textContent = time;
-          slot.addEventListener('click', () => confirmReschedule(b, dateInput.value, time));
+          slot.addEventListener('click', () => confirmReschedule(b, dateInput.value, time, employeeInput ? employeeInput.value : ''));
           slotsEl.appendChild(slot);
         });
       } catch (e) {
         slotsEl.innerHTML = '';
         alert(e.message);
       }
-    });
+    }
+    dateInput.addEventListener('change', searchSlots);
+    if (employeeInput) employeeInput.addEventListener('change', searchSlots);
   }
 
-  async function confirmReschedule(b, date, time) {
+  async function confirmReschedule(b, date, time, newEmployeeId) {
     const msg = t('confirmReschedule').replace('{date}', date).replace('{time}', time);
     if (!confirm(msg)) return;
     try {
       const res = await fetch(`${BOOKING_API_BASE}/my-bookings/reschedule`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bookingId: b.bookingId, phone: currentPhone, email: currentEmail, newDate: date, newTime: time }),
+        body: JSON.stringify({
+          bookingId: b.bookingId, phone: currentPhone, email: currentEmail, newDate: date, newTime: time,
+          ...(newEmployeeId ? { newEmployeeId } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));

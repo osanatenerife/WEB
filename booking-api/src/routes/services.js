@@ -51,3 +51,4 @@ router.get('/extras', (req, res) => {
 });
 
 module.exports = router;
+module.exports.canDo = canDo;
