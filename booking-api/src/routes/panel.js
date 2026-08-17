@@ -2378,9 +2378,10 @@ router.get('/panel/agenda-summary', async (req, res) => {
 // ── Registro de cobros: para un rango de fechas, todo lo cerrado (citas +
 // extras) con su forma de pago, más un total por forma de pago — para poder
 // cuadrar caja/Bizum/tarjeta a mano antes de la facturación, sin tener que
-// abrir clienta por clienta. La seña pagada online (Stripe) NO se cuenta en
-// los totales por forma de pago porque nunca pasó por caja física — solo se
-// muestra como referencia junto a cada cita.
+// abrir clienta por clienta. La seña pagada online (Stripe) SÍ se cuenta en
+// los totales por forma de pago (siempre como tarjeta, en el día de la
+// cita) aunque nunca haya pasado por caja física — así el total del día
+// refleja el importe completo del tratamiento, no solo lo cobrado en persona.
 router.get('/panel/payments-log', async (req, res) => {
   const from = req.query.from || new Date().toISOString().slice(0, 10);
   const to = req.query.to || from;
