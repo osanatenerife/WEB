@@ -441,7 +441,7 @@
           </div>
           <div class="mybooking-price">${t('free')}</div>
         </div>
-        <div class="line-item-meta" style="padding:0 0 8px;">${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</div>
+        <div class="mybooking-points-note">${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</div>
         <div class="mybooking-actions">
           <button type="button" class="mybooking-reschedule-btn">${t('bookThisSession')}</button>
         </div>
