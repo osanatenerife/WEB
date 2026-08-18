@@ -1114,12 +1114,14 @@
           <button type="button" class="panel-link-btn panel-clientsale-toggle">🛍️ Vender producto</button>
           <button type="button" class="panel-link-btn panel-followup-toggle">🔔 Marcar seguimiento</button>
           <button type="button" class="panel-link-btn panel-editclient-toggle">✎ Editar datos</button>
+          <button type="button" class="panel-link-btn panel-editstrikes-toggle">✎ Corregir faltas</button>
         </div>
         <div class="panel-redeem-slot"></div>
         <div class="panel-addloyalty-slot"></div>
         <div class="panel-clientsale-slot"></div>
         <div class="panel-followup-slot"></div>
         <div class="panel-editclient-slot"></div>
+        <div class="panel-editstrikes-slot"></div>
         <div class="panel-visitbuilder-slot"></div>
         ${unclosedHtml}
       </div>
@@ -1217,6 +1219,7 @@
     wrap.querySelector('.panel-followup-toggle').addEventListener('click', () => toggleFollowup(wrap, client));
 
     wrap.querySelector('.panel-editclient-toggle').addEventListener('click', () => toggleEditClient(wrap, client));
+    wrap.querySelector('.panel-editstrikes-toggle').addEventListener('click', () => toggleEditStrikes(wrap, client));
 
     wrap.querySelector('.panel-visitbuilder-toggle').addEventListener('click', () => {
       const vbSlot = wrap.querySelector('.panel-visitbuilder-slot');
@@ -2072,6 +2075,46 @@
         // con el dato nuevo antes de recargar, o la búsqueda anterior ya no
         // encontraría a esta clienta.
         els.searchInput.value = phoneInput.value.trim();
+        doSearch();
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        ev.target.disabled = false;
+      }
+    });
+  }
+
+  // Corrige a mano el nº de faltas registradas — p.ej. una visita con varios
+  // tratamientos se marcó línea a línea antes de este arreglo y contó de
+  // más, o el equipo decide perdonar una falta ya puesta.
+  function toggleEditStrikes(clientEl, client) {
+    const slot = clientEl.querySelector('.panel-editstrikes-slot');
+    if (slot.innerHTML) { slot.innerHTML = ''; return; }
+    slot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Corregir nº de faltas registradas</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Faltas</label><input type="number" min="0" step="1" class="es-count" value="${client.strikeCount || 0}"></div>
+          <div class="panel-field"><button type="button" class="panel-btn panel-btn-primary es-confirm">Guardar corrección</button></div>
+        </div>
+        <p class="panel-error" style="display:none;"></p>
+        <p class="panel-status" style="display:none;"></p>
+      </div>
+    `;
+    const countInput = slot.querySelector('.es-count');
+    const errorEl = slot.querySelector('.panel-error');
+    const statusEl = slot.querySelector('.panel-status');
+    slot.querySelector('.es-confirm').addEventListener('click', async (ev) => {
+      errorEl.style.display = 'none';
+      statusEl.style.display = 'none';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/edit-strikes', {
+          method: 'POST',
+          body: JSON.stringify({ phone: client.phone, strikeCount: countInput.value }),
+        });
+        statusEl.textContent = 'Corregido ✓';
+        statusEl.style.display = 'block';
         doSearch();
       } catch (e) {
         errorEl.textContent = e.message;

@@ -2528,6 +2528,33 @@ router.post('/panel/edit-bono', async (req, res) => {
   }
 });
 
+// ── Corregir a mano el nº de faltas registradas de una clienta (p.ej. una
+// visita con varios tratamientos se marcó línea a línea por error y contó
+// de más, o simplemente el equipo decide perdonar una falta ya puesta) ──
+router.post('/panel/edit-strikes', async (req, res) => {
+  const { phone, strikeCount } = req.body || {};
+  if (!phone) return res.status(400).json({ error: 'Falta el teléfono de la clienta.' });
+  const count = Number(strikeCount);
+  if (!Number.isFinite(count) || count < 0) return res.status(400).json({ error: 'El nº de faltas no es válido.' });
+  try {
+    const phoneN = normalizePhone(phone);
+    const allStrikes = await getAllStrikeRecords();
+    const existing = allStrikes.find((s) => s.phoneNormalized === phoneN);
+    if (!existing && count === 0) return res.json({ ok: true, strikeCount: 0 }); // nada que corregir
+    await upsertStrikeRecord({
+      phoneNormalized: phoneN,
+      emailNormalized: existing ? existing.emailNormalized : '',
+      name: existing ? existing.name : '',
+      strikeCount: count,
+      lastStrikeDate: existing ? existing.lastStrikeDate : new Date().toISOString().slice(0, 10),
+    }, existing);
+    res.json({ ok: true, strikeCount: count });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo corregir el nº de faltas.' });
+  }
+});
+
 // ── Agendar de golpe la siguiente sesión de VARIOS bonos de la misma
 // clienta en un único hueco de calendario (p.ej. pierna + axila + íntimo a
 // la vez) — antes había que abrir cada bono por separado, agendar, guardar
