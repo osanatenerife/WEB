@@ -21,8 +21,15 @@ router.get('/availability', async (req, res) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({ error: 'Formato de fecha inválido, usa YYYY-MM-DD' });
     }
+    // El límite de "hasta X días vista" es para que una clienta no reserve
+    // por la web con años de antelación — no tiene sentido aplicárselo
+    // también al equipo agendando a mano desde el panel (p.ej. la 3ª sesión
+    // de un bono, que puede caer más adelante de lo normal por separación
+    // entre sesiones). skipGapHeuristic ya es la señal de "esto es el panel"
+    // que usa el resto de esta misma ruta.
+    const isPanelRequest = skipGapHeuristic === 'true';
     const daysAhead = Math.floor((new Date(`${date}T12:00:00Z`) - new Date()) / 86400000);
-    if (daysAhead < 0 || daysAhead > hours.bookingWindowDays) {
+    if (daysAhead < 0 || (!isPanelRequest && daysAhead > hours.bookingWindowDays)) {
       return res.json({ slots: [] });
     }
 
