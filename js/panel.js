@@ -3143,15 +3143,33 @@
       function updateRemainderPreview() {
         const total = Number(amountInput.value) || 0;
         const remainder = Math.max(0, round2ForDisplay(total - alreadyPaid));
-        remainderPreview.textContent = remainder > 0
-          ? `Queda por cobrar en el centro: ${remainder.toFixed(2)} €`
-          : '✓ Ya está pagado del todo — no queda nada más por cobrar en el centro.';
+        if (remainder <= 0) {
+          remainderPreview.textContent = '✓ Ya está pagado del todo — no queda nada más por cobrar en el centro.';
+          return;
+        }
+        const payLabel = { efectivo: 'Efectivo', tarjeta: 'Tarjeta', bizum: 'Bizum', 'bonos archipiélago': 'Bonos Archipiélago', 'bono adeje': 'Bono Adeje' };
+        if (splitToggle.checked) {
+          // Con el reparto en dos formas de pago, la 1ª forma ("Resto pagado
+          // en centro con") nunca lleva un importe propio en el formulario —
+          // se calcula sola como "lo que sobra" de la 2ª. Sin esto no hay
+          // manera de ver ese importe en ningún sitio, así que parece que no
+          // hay dónde poner "tanto en efectivo, tanto en tarjeta".
+          const part2 = Math.max(0, Math.min(remainder, round2ForDisplay(Number(amount2Input.value) || 0)));
+          const part1 = round2ForDisplay(remainder - part2);
+          remainderPreview.innerHTML = `Queda por cobrar en el centro: <b>${remainder.toFixed(2)} €</b> → ${payLabel[paidHowSelect.value] || paidHowSelect.value}: <b>${part1.toFixed(2)} €</b> + ${payLabel[paidHow2Select.value] || paidHow2Select.value}: <b>${part2.toFixed(2)} €</b>`;
+        } else {
+          remainderPreview.textContent = `Queda por cobrar en el centro: ${remainder.toFixed(2)} €`;
+        }
       }
       function round2ForDisplay(n) { return Math.round(n * 100) / 100; }
       amountInput.addEventListener('input', updateRemainderPreview);
+      paidHowSelect.addEventListener('change', updateRemainderPreview);
+      amount2Input.addEventListener('input', updateRemainderPreview);
+      paidHow2Select.addEventListener('change', updateRemainderPreview);
       updateRemainderPreview();
       splitToggle.addEventListener('change', () => {
         splitRow.style.display = splitToggle.checked ? 'grid' : 'none';
+        updateRemainderPreview();
       });
       closeBox.addEventListener('click', async (ev) => {
         pfErrorEl.style.display = 'none';
