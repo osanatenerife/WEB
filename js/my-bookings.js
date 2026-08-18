@@ -13,6 +13,7 @@
   const historyWrapEl = document.getElementById('mb-history-wrap');
   const historyEl = document.getElementById('mb-history');
   const loyaltyEl = document.getElementById('mb-loyalty');
+  const pendingBonosEl = document.getElementById('mb-pending-bonos');
 
   const STR = {
     loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…' },
@@ -37,6 +38,12 @@
     addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
     noShowForgivenNote: { es: 'No pudiste venir a esta cita — no te la cobramos ni cuenta como falta. Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make this appointment — no charge and it doesn't count against you. Pick a new day and time whenever you like." },
+    pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book' },
+    pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}` },
+    pendingBonoSessionsLeft: { es: (n) => `Ya pagada — te queda${n === 1 ? '' : 'n'} ${n} ${n === 1 ? 'sesión' : 'sesiones'} en el bono`, en: (n) => `Already paid — ${n} session${n === 1 ? '' : 's'} left on your package` },
+    bookThisSession: { es: 'Reservar esta sesión', en: 'Book this session' },
+    confirmBonoBooking: { es: '¿Reservar esta sesión para el {date} a las {time}?', en: 'Book this session for {date} at {time}?' },
+    bonoBooked: { es: '✓ Sesión reservada.', en: '✓ Session booked.' },
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
     chooseTherapist: { es: 'Profesional (opcional, si te da igual quién)', en: 'Specialist (optional, if you don\'t mind who)' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
@@ -422,6 +429,130 @@
     }
   }
 
+  // ── Sesiones de bono todavía sin cita puesta: la clienta puede reservarse
+  // ella misma la siguiente sesión (ya pagada, sin coste extra) ──
+  function pendingBonoCardHtml(bo) {
+    return `
+      <div class="mybooking-card" data-bono-id="${bo.bonoId}">
+        <div class="mybooking-top">
+          <div>
+            <div class="mybooking-service">${escapeHtml(bo.serviceName)}</div>
+            <div class="mybooking-meta">${t('pendingBonoSessionOf')(bo.sessionsUsed, bo.totalSessions)}</div>
+          </div>
+          <div class="mybooking-price">${t('free')}</div>
+        </div>
+        <div class="line-item-meta" style="padding:0 0 8px;">${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</div>
+        <div class="mybooking-actions">
+          <button type="button" class="mybooking-reschedule-btn">${t('bookThisSession')}</button>
+        </div>
+        <div class="mybooking-reschedule-panel"></div>
+      </div>
+    `;
+  }
+
+  function renderPendingBonos(list) {
+    if (!pendingBonosEl) return;
+    if (!list || !list.length) { pendingBonosEl.style.display = 'none'; pendingBonosEl.innerHTML = ''; return; }
+    pendingBonosEl.innerHTML = `
+      <h2 class="booking-step-title" style="margin-bottom:16px;">${t('pendingBonoTitle')}</h2>
+      <div class="mybooking-list">${list.map(pendingBonoCardHtml).join('')}</div>
+    `;
+    pendingBonosEl.style.display = 'block';
+    list.forEach((bo) => {
+      const card = pendingBonosEl.querySelector(`[data-bono-id="${bo.bonoId}"]`);
+      if (!card) return;
+      const btn = card.querySelector('.mybooking-reschedule-btn');
+      const panel = card.querySelector('.mybooking-reschedule-panel');
+      btn.addEventListener('click', () => {
+        const willOpen = !panel.classList.contains('open');
+        panel.classList.toggle('open', willOpen);
+        if (willOpen && !panel.dataset.wired) {
+          wireBonoBookingPanel(bo, panel);
+          panel.dataset.wired = '1';
+        }
+      });
+    });
+  }
+
+  async function wireBonoBookingPanel(bo, panel) {
+    panel.innerHTML = `<p class="booking-slot-message">${t('loading')}</p>`;
+    let employeeOptionsHtml = '';
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(bo.serviceId)}`);
+      const data = await res.json();
+      const emps = data.employees || [];
+      employeeOptionsHtml = emps.map((e) => `<option value="${e.id}"${e.id === bo.employeeId ? ' selected' : ''}>${escapeHtml(e.name)}</option>`).join('');
+    } catch (e) {
+      panel.innerHTML = `<p class="mybooking-status-note">${t('genericError')}</p>`;
+      return;
+    }
+    if (!employeeOptionsHtml) {
+      panel.innerHTML = `<p class="mybooking-status-note">${t('genericError')}</p>`;
+      return;
+    }
+    panel.innerHTML = `
+      <div class="booking-field">
+        <label>${t('chooseTherapist')}</label>
+        <select class="mb-employee-input">${employeeOptionsHtml}</select>
+      </div>
+      <div class="booking-field">
+        <label>${t('chooseNewDate')}</label>
+        <input type="date" class="mb-date-input" min="${minDateStr()}">
+      </div>
+      <div class="booking-slot-grid mb-slots"></div>
+    `;
+    const employeeInput = panel.querySelector('.mb-employee-input');
+    const dateInput = panel.querySelector('.mb-date-input');
+    const slotsEl = panel.querySelector('.mb-slots');
+    async function searchSlots() {
+      if (!dateInput.value) return;
+      slotsEl.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
+      try {
+        const params = new URLSearchParams({
+          bonoId: bo.bonoId, phone: currentPhone, email: currentEmail,
+          date: dateInput.value, employeeId: employeeInput.value,
+        });
+        const res = await fetch(`${BOOKING_API_BASE}/my-bookings/bono-slots?${params}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t('genericError'));
+        slotsEl.innerHTML = '';
+        if (!data.slots || !data.slots.length) {
+          slotsEl.innerHTML = `<p class="booking-slot-message">${t('noSlots')}</p>`;
+          return;
+        }
+        data.slots.forEach((time) => {
+          const slot = document.createElement('div');
+          slot.className = 'booking-slot';
+          slot.textContent = time;
+          slot.addEventListener('click', () => confirmBonoBooking(bo, dateInput.value, time, employeeInput.value));
+          slotsEl.appendChild(slot);
+        });
+      } catch (e) {
+        slotsEl.innerHTML = '';
+        alert(e.message);
+      }
+    }
+    dateInput.addEventListener('change', searchSlots);
+    employeeInput.addEventListener('change', searchSlots);
+  }
+
+  async function confirmBonoBooking(bo, date, time, employeeId) {
+    const msg = t('confirmBonoBooking').replace('{date}', date).replace('{time}', time);
+    if (!confirm(msg)) return;
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/book-bono-session`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bonoId: bo.bonoId, phone: currentPhone, email: currentEmail, employeeId, date, time }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('genericError'));
+      await loadBookings();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
   function renderLoyalty(balance, history) {
     if (!loyaltyEl) return;
     const hasHistory = Array.isArray(history) && history.length > 0;
@@ -468,6 +599,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));
       renderBookings(data.bookings);
+      renderPendingBonos(data.pendingBonoSessions);
       renderLoyalty(data.loyaltyBalance, data.loyaltyHistory);
     } catch (e) {
       resultsEl.innerHTML = '';

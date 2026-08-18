@@ -1,11 +1,13 @@
 const express = require('express');
-const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone, findSessionBonoById, updateSessionBonoRow } = require('../lib/sheets');
+const crypto = require('crypto');
+const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone, findSessionBonoById, updateSessionBonoRow, getAllSessionBonos, appendBooking } = require('../lib/sheets');
 const { deleteEvent, updateEvent, createBookingEvent, isEventUsable } = require('../lib/googleCalendar');
 const { refundPayment } = require('../lib/stripeClient');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const hours = require('../config/hours');
 const employees = require('../config/employees');
+const services = require('../config/services');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance } = require('../config/loyalty');
 const { sendEmail } = require('../lib/email');
@@ -37,6 +39,11 @@ function hoursUntil(booking) {
 function isOwner(booking, phone, email) {
   return normalizePhone(booking.phone) === normalizePhone(phone)
     && normalizeEmail(booking.email) === normalizeEmail(email);
+}
+
+function isOwnerBono(bono, phone, email) {
+  return normalizePhone(bono.clientPhone) === normalizePhone(phone)
+    && normalizeEmail(bono.clientEmail) === normalizeEmail(email);
 }
 
 function toPublicBooking(b) {
@@ -76,7 +83,7 @@ router.get('/my-bookings', async (req, res) => {
     return res.status(400).json({ error: 'Introduce tu teléfono y tu email para buscar tus reservas.' });
   }
   try {
-    const all = await getAllBookings();
+    const [all, allBonos] = await Promise.all([getAllBookings(), getAllSessionBonos()]);
     const now = Date.now();
     const mine = all.filter((b) => (
       isOwner(b, phone, email)
@@ -86,6 +93,25 @@ router.get('/my-bookings', async (req, res) => {
       )
     ));
     mine.sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
+
+    // Bonos suyos con sesiones por agendar y sin ninguna cita futura ya
+    // puesta para esa sesión — para que pueda reservarse ella misma la
+    // siguiente sesión desde aquí (mismo criterio que usa el panel para
+    // avisar al equipo de "sesiones pendientes de agendar").
+    const pendingBonoSessions = allBonos
+      .filter((bo) => bo.status === 'active' && Number(bo.sessionsRemaining) > 0
+        && isOwnerBono(bo, phone, email)
+        && services.find((s) => s.id === bo.serviceId)
+        && !all.some((b) => b.bonoId === bo.bonoId && b.status === 'confirmed' && appointmentDateTime(b).getTime() >= now))
+      .map((bo) => ({
+        bonoId: bo.bonoId,
+        serviceId: bo.serviceId,
+        serviceName: bo.serviceName,
+        employeeId: bo.employeeId || '',
+        sessionsUsed: Number(bo.sessionsUsed) || 0,
+        sessionsRemaining: Number(bo.sessionsRemaining) || 0,
+        totalSessions: Number(bo.totalSessions) || 0,
+      }));
 
     // El saldo de fidelización solo se calcula/devuelve si el teléfono+email
     // coinciden con al menos una reserva real (mismo criterio que isOwner
@@ -111,7 +137,7 @@ router.get('/my-bookings', async (req, res) => {
         }));
     }
 
-    res.json({ bookings: mine.map(toPublicBooking), loyaltyBalance, loyaltyHistory });
+    res.json({ bookings: mine.map(toPublicBooking), pendingBonoSessions, loyaltyBalance, loyaltyHistory });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudieron consultar tus reservas.' });
@@ -181,6 +207,140 @@ router.get('/my-bookings/slots', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo consultar la disponibilidad.' });
+  }
+});
+
+// ── Huecos libres para reservar ella misma la siguiente sesión de un bono
+// que todavía no tiene cita puesta (mismo criterio de profesional que el
+// resto: la habitual por defecto, o cualquiera que pueda con el tratamiento) ──
+router.get('/my-bookings/bono-slots', async (req, res) => {
+  const { bonoId, phone, email, date, employeeId } = req.query;
+  if (!bonoId || !phone || !email || !date || !employeeId) {
+    return res.status(400).json({ error: 'Faltan datos para consultar huecos.' });
+  }
+  try {
+    const bono = await findSessionBonoById(bonoId);
+    if (!bono || !isOwnerBono(bono, phone, email)) {
+      return res.status(404).json({ error: 'No se ha encontrado ese bono con esos datos.' });
+    }
+    if (bono.status !== 'active' || Number(bono.sessionsRemaining) <= 0) {
+      return res.status(409).json({ error: 'Este bono no tiene sesiones pendientes.' });
+    }
+    const service = services.find((s) => s.id === bono.serviceId);
+    if (!service) return res.status(404).json({ error: 'No se ha encontrado el tratamiento de este bono.' });
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee || !canDo(employee, bono.serviceId)) {
+      return res.status(400).json({ error: 'Esa profesional no puede realizar este tratamiento.' });
+    }
+    const slots = await getAvailableSlots(date, employee.calendarId, service.durationMinutes, employee.weekly);
+    res.json({ slots });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo consultar la disponibilidad.' });
+  }
+});
+
+// ── Reservar ella misma la siguiente sesión de un bono — misma lógica que
+// /panel/book-session (descuenta la sesión, crea el evento y la fila de
+// reserva ya pagada como parte del bono) pero sin las opciones de solo
+// equipo (agrupar varias sesiones, cambiar el tratamiento del día, forzar
+// un hueco pasado, notas internas). ──
+router.post('/my-bookings/book-bono-session', async (req, res) => {
+  const { bonoId, phone, email, employeeId, date, time } = req.body || {};
+  if (!bonoId || !phone || !email || !employeeId || !date || !time) {
+    return res.status(400).json({ error: 'Faltan datos para reservar la sesión.' });
+  }
+  try {
+    return await withLock(`bono:${bonoId}`, async () => {
+    const bono = await findSessionBonoById(bonoId);
+    if (!bono || !isOwnerBono(bono, phone, email)) {
+      return res.status(404).json({ error: 'No se ha encontrado ese bono con esos datos.' });
+    }
+    const remaining = Number(bono.sessionsRemaining) || 0;
+    if (bono.status !== 'active' || remaining <= 0) {
+      return res.status(409).json({ error: 'Este bono no tiene sesiones pendientes.' });
+    }
+    const service = services.find((s) => s.id === bono.serviceId);
+    if (!service) return res.status(404).json({ error: 'No se ha encontrado el tratamiento de este bono.' });
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee || !canDo(employee, bono.serviceId)) {
+      return res.status(400).json({ error: 'Esa profesional no puede realizar este tratamiento.' });
+    }
+
+    const daysAhead = Math.floor((new Date(`${date}T12:00:00Z`) - new Date()) / 86400000);
+    if (daysAhead < 0 || daysAhead > hours.bookingWindowDays) {
+      return res.status(400).json({ error: 'Esa fecha no está disponible para reservar.' });
+    }
+
+    const durationMinutes = service.durationMinutes;
+    const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
+    const endISO = addMinutes(startISO, durationMinutes);
+    const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
+    const sessionLabel = `${fromSession}/${bono.totalSessions}`;
+
+    // Revalidar disponibilidad y crear el evento dentro del mismo bloqueo en
+    // memoria por profesional+día que usa el panel — evita que esto choque
+    // con el equipo agendándole la misma sesión casi a la vez.
+    const newEventId = await withLock(`slot:${employeeId}:${date}`, async () => {
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly);
+      if (!freeSlots.includes(time)) return null;
+      const event = await createBookingEvent(employee.calendarId, {
+        summary: `✅ Bono (${sessionLabel}) — ${service.name} — ${bono.clientName}`,
+        description: [
+          `Cliente: ${bono.clientName}`,
+          `Teléfono: ${bono.clientPhone}`,
+          `Bono: ${bono.serviceName} — sesión ${sessionLabel}`,
+          'Ya pagada como parte del bono.',
+          'Reservada por la clienta desde Mis Reservas.',
+        ].join('\n'),
+        startISO, endISO,
+      });
+      return event.id;
+    });
+    if (!newEventId) {
+      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+    }
+
+    const bookingId = crypto.randomUUID();
+    await appendBooking({
+      bookingId,
+      createdAt: new Date().toISOString(),
+      status: 'confirmed',
+      name: bono.clientName,
+      phone: bono.clientPhone,
+      email: bono.clientEmail,
+      serviceId: bono.serviceId,
+      serviceName: `${service.name} (${sessionLabel})`,
+      employeeId,
+      employeeName: employee.name,
+      calendarId: employee.calendarId,
+      eventId: newEventId,
+      date, time,
+      durationMinutes,
+      price: '',
+      amountPaid: 0,
+      paymentType: 'bono',
+      paymentIntentId: '',
+      lang: bono.lang || 'es',
+      reminderSent: '',
+      birthdate: '',
+      bonoId,
+      sessionNumber: fromSession,
+      notes: '',
+    });
+
+    const sessionsRemaining = remaining - 1;
+    await updateSessionBonoRow(bono._sheetRow, bono, {
+      sessionsUsed: fromSession,
+      sessionsRemaining,
+      status: sessionsRemaining <= 0 ? 'completed' : 'active',
+    });
+
+    res.json({ ok: true, bookingId, date, time });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo reservar la sesión.' });
   }
 });
 
