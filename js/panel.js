@@ -2400,15 +2400,16 @@
     const noShowBtn = el.querySelector('.panel-noshow-btn');
     if (noShowBtn) {
       noShowBtn.addEventListener('click', async () => {
-        if (!confirm(`¿Marcar como no-show la cita de ${b.serviceName} el ${b.date}?`)) return;
+        if (!confirm(`¿Marcar como no-show la cita de ${b.serviceName} el ${b.date}? Si es una visita con varios tratamientos a la misma hora, se marcan todos juntos como UNA sola falta.`)) return;
         noShowBtn.disabled = true;
         try {
           const result = await panelFetch('/panel/no-show', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
+          const groupNote = result.affectedBookingIds && result.affectedBookingIds.length > 1 ? ` (los ${result.affectedBookingIds.length} tratamientos de esta visita)` : '';
           alert(result.isFirstTime
             ? (b.bonoId
-              ? 'Marcada. Primera falta: se ha perdonado, la sesión se ha devuelto al bono y se ha avisado por email.'
-              : 'Marcada. Primera falta: se ha perdonado — la clienta puede reprogramarla ella misma desde "Mis reservas" sin coste, y se le ha avisado por email.')
-            : 'Marcada. Ya tenía una falta anterior: se ha descontado la sesión y avisado por email.');
+              ? `Marcada${groupNote}. Primera falta: se ha perdonado, la sesión se ha devuelto al bono y se ha avisado por email.`
+              : `Marcada${groupNote}. Primera falta: se ha perdonado — la clienta puede reprogramarla ella misma desde "Mis reservas" sin coste, y se le ha avisado por email.`)
+            : `Marcada${groupNote}. Ya tenía una falta anterior: se ha descontado la sesión y avisado por email.`);
           doSearch();
         } catch (e) {
           alert(e.message);

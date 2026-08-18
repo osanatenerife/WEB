@@ -1758,40 +1758,55 @@ router.post('/panel/no-show', async (req, res) => {
       return res.status(409).json({ error: 'Esta cita ya está cancelada — no tiene sentido marcarla como falta.' });
     }
 
+    // Una "visita conjunta" (varios tratamientos en el mismo hueco) está
+    // repartida en varias filas de reserva que comparten el mismo evento de
+    // calendario — es UNA sola ausencia, no una por tratamiento. Se marcan
+    // todas juntas, con un solo strike y una sola restauración por bono
+    // (si no, marcar cada línea por separado sumaba una falta de más por
+    // cada tratamiento de una misma cita, aunque la clienta solo faltó una
+    // vez).
+    const allBookings = await getAllBookings();
+    const group = (booking.calendarId && booking.eventId)
+      ? allBookings.filter((b) => b.calendarId === booking.calendarId && b.eventId === booking.eventId && b.status === 'confirmed')
+      : [booking];
+
     const phoneN = normalizePhone(booking.phone);
     const emailN = normalizeEmail(booking.email);
     const allStrikes = await getAllStrikeRecords();
     const existing = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
     const isFirstTime = !existing || Number(existing.strikeCount) === 0;
 
-    let bono = null;
-    if (booking.bonoId) {
-      bono = await findSessionBonoById(booking.bonoId);
+    const bonosRestored = [];
+    for (const line of group) {
+      if (isFirstTime) {
+        // Se perdona: si esta línea tenía bono, se restaura la sesión para
+        // que se pueda volver a agendar sin coste. Si NO tenía bono, no hay
+        // ninguna sesión que restaurar — en su lugar queda "perdonada" y
+        // reprogramable ella misma desde "Mis reservas" sin coste.
+        if (line.bonoId) {
+          const bono = await findSessionBonoById(line.bonoId);
+          if (bono) {
+            const sessionsUsed = Math.max(0, (Number(bono.sessionsUsed) || 0) - 1);
+            const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) + 1;
+            await updateSessionBonoRow(bono._sheetRow, bono, { sessionsUsed, sessionsRemaining, status: 'active' });
+            bonosRestored.push({ ...bono, sessionsUsed, sessionsRemaining });
+          }
+          await updateBookingRow(line._sheetRow, line, { status: 'no_show' });
+        } else {
+          await updateBookingRow(line._sheetRow, line, { status: 'no_show_forgiven' });
+        }
+      } else {
+        // No se restaura nada — la sesión (si había) queda gastada
+        await updateBookingRow(line._sheetRow, line, { status: 'no_show' });
+      }
     }
 
     if (isFirstTime) {
-      // Se perdona: si había bono, se restaura la sesión para que se pueda
-      // volver a agendar sin coste (desde el panel, como cualquier sesión
-      // de bono). Si NO había bono, no hay ninguna sesión que restaurar —
-      // en su lugar dejamos la propia cita en un estado "perdonada" que la
-      // clienta puede reprogramar ella misma desde "Mis reservas" sin que
-      // cuente como falta ni se le cobre nada de nuevo.
-      if (bono) {
-        const sessionsUsed = Math.max(0, (Number(bono.sessionsUsed) || 0) - 1);
-        const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) + 1;
-        await updateSessionBonoRow(bono._sheetRow, bono, { sessionsUsed, sessionsRemaining, status: 'active' });
-        bono = { ...bono, sessionsUsed, sessionsRemaining };
-        await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
-      } else {
-        await updateBookingRow(booking._sheetRow, booking, { status: 'no_show_forgiven' });
-      }
       await upsertStrikeRecord({
         phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
         strikeCount: 1, lastStrikeDate: new Date().toISOString().slice(0, 10),
       }, existing);
     } else {
-      // No se restaura nada — la sesión queda gastada
-      await updateBookingRow(booking._sheetRow, booking, { status: 'no_show' });
       await upsertStrikeRecord({
         phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
         strikeCount: (Number(existing.strikeCount) || 0) + 1, lastStrikeDate: new Date().toISOString().slice(0, 10),
@@ -1803,14 +1818,14 @@ router.post('/panel/no-show', async (req, res) => {
         await sendEmail({
           to: booking.email,
           subject: booking.lang === 'en' ? 'Update on your appointment — Osana' : 'Actualización de tu cita — Osana',
-          html: noShowEmailHtml({ isFirstTime, booking, bono, lang: booking.lang }),
+          html: noShowEmailHtml({ isFirstTime, booking, bono: bonosRestored[0] || null, lang: booking.lang }),
         });
       } catch (emailErr) {
         console.error('No se pudo enviar el email de no-show:', emailErr);
       }
     }
 
-    res.json({ ok: true, isFirstTime, sessionsRemaining: bono ? bono.sessionsRemaining : null });
+    res.json({ ok: true, isFirstTime, affectedBookingIds: group.map((b) => b.bookingId), sessionsRemaining: bonosRestored[0] ? bonosRestored[0].sessionsRemaining : null });
     });
   } catch (err) {
     console.error(err);
