@@ -2591,6 +2591,7 @@
               ${!isBonoCore ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-bono-toggle">🎟 Bono</button>` : ''}
               ${canBookNext ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-next-session-toggle">+ Siguiente sesión</button>` : ''}
               ${idParts.length > 1 ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-remove-btn">🗑 Quitar</button>` : ''}
+              ${idParts.length === 1 ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm li-cancel-appt-btn">${isBonoCore ? '↩ No se hizo — devolver sesión' : '🗑 Cancelar cita'}</button>` : ''}
             </div>
           </div>
           <div class="line-item-edit" style="display:none;">
@@ -3035,6 +3036,30 @@
               method: 'POST',
               body: JSON.stringify({ bookingId: b.bookingId, removeServiceId: id }),
             });
+            doSearch();
+          } catch (e) {
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+            ev.target.disabled = false;
+          }
+        });
+      }
+
+      // Solo aparece cuando esta línea es el único tratamiento de la cita
+      // (idParts.length === 1) — quitarla no dejaría nada, así que en vez de
+      // eso cancela la cita entera. Igual que el "🗑 Eliminar" de arriba del
+      // todo, pero a mano aquí mismo para no tener que ir a buscarlo.
+      const cancelApptBtn = lineEl.querySelector('.li-cancel-appt-btn');
+      if (cancelApptBtn) {
+        cancelApptBtn.addEventListener('click', async (ev) => {
+          const confirmMsg = isBonoCore
+            ? `¿"${b.serviceName}" no se hizo o ya no la quiere? Se le devuelve la sesión al bono (no se cuenta como usada) y esta cita desaparece.`
+            : `¿Cancelar la cita de ${b.serviceName} el ${b.date}? Libera el hueco del calendario y deja de contar como facturación. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`;
+          if (!confirm(confirmMsg)) return;
+          errorEl.style.display = 'none';
+          ev.target.disabled = true;
+          try {
+            await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
             doSearch();
           } catch (e) {
             errorEl.textContent = e.message;

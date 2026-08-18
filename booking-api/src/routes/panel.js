@@ -262,6 +262,12 @@ router.post('/panel/edit-booking', async (req, res) => {
     let newService = null;
     let newDurationForCalendar = null; // si cambia, se intenta ajustar el evento real más abajo
     let restoredBonoSession = false;
+    // Una cita ya pasada no puede "chocar" con nada real — la hora ya
+    // ocurrió, así que no tiene sentido bloquear el cambio de tratamiento
+    // (o su ampliación) solo porque en teoría no cabría de haberse reservado
+    // hoy. Esto es sobre todo para corregir al cerrar: la clienta decidió
+    // en el sitio hacerse otra cosa distinta a lo reservado.
+    const isPast = appointmentDateTime(booking).getTime() <= Date.now();
 
     if (serviceId) {
       newService = services.find((s) => s.id === serviceId);
@@ -339,7 +345,8 @@ router.post('/panel/edit-booking', async (req, res) => {
 
         // Antes de dar por hecho que cabe, comprobamos que el tiempo extra
         // está libre justo después de la cita — igual que "Ampliar tiempo".
-        if (booking.calendarId && booking.date && booking.time) {
+        // Salvo que la cita ya haya pasado: no hay nada real que comprobar.
+        if (!isPast && booking.calendarId && booking.date && booking.time) {
           const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
           const startISO = localToISO(booking.date, time, hours.timezone);
           const currentEndISO = addMinutes(startISO, oldDuration);
@@ -381,7 +388,10 @@ router.post('/panel/edit-booking', async (req, res) => {
 
       // Si el cambio alarga la cita, hay que comprobar que sigue habiendo
       // hueco libre justo después — igual que al añadir un tratamiento.
-      if (durationDelta > 0 && booking.calendarId && booking.date && booking.time) {
+      // Salvo que la cita ya haya pasado: no hay nada real que comprobar
+      // (p.ej. al cerrar, la clienta decidió en el sitio otra cosa distinta
+      // a lo que había reservado).
+      if (!isPast && durationDelta > 0 && booking.calendarId && booking.date && booking.time) {
         const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
         const startISO = localToISO(booking.date, time, hours.timezone);
         const currentEndISO = addMinutes(startISO, oldDuration);
