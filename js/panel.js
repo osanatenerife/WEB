@@ -2602,6 +2602,7 @@
               <button type="button" class="panel-btn panel-btn-primary panel-btn-sm li-save-btn">Guardar línea</button>
               <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm li-cancel-btn">Cancelar</button>
             </div>
+            <p class="panel-error li-error" style="display:none;margin-top:8px;"></p>
           </div>
           ${!isBonoCore ? bonoFormHtml(id, name) : ''}
           ${canBookNext ? '<div class="li-next-session-slot" style="display:none;"><div class="panel-new-appt-slot"></div></div>' : ''}
@@ -2905,7 +2906,9 @@
       lineEl.querySelector('.li-save-btn').addEventListener('click', async (ev) => {
         const newId = lineEl.querySelector('.li-swap-service').value;
         const sessionInput = lineEl.querySelector('.li-session-number');
+        const lineErrorEl = lineEl.querySelector('.li-error');
         errorEl.style.display = 'none';
+        if (lineErrorEl) lineErrorEl.style.display = 'none';
         ev.target.disabled = true;
         try {
           if (newId && newId !== id) {
@@ -2922,8 +2925,18 @@
           }
           doSearch();
         } catch (e) {
-          errorEl.textContent = e.message;
-          errorEl.style.display = 'block';
+          // El error se pone JUNTO al botón que se acaba de pulsar (no solo
+          // en el aviso general de abajo del todo, que puede quedar fuera de
+          // la vista si la cita tiene varias líneas/campos) — si no, parece
+          // que "Guardar línea" no hace nada cuando en realidad sí avisó,
+          // solo que lejos de donde se estaba mirando.
+          if (lineErrorEl) {
+            lineErrorEl.textContent = e.message;
+            lineErrorEl.style.display = 'block';
+          } else {
+            errorEl.textContent = e.message;
+            errorEl.style.display = 'block';
+          }
           ev.target.disabled = false;
         }
       });
