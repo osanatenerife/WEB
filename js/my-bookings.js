@@ -40,7 +40,7 @@
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
     noShowForgivenNote: { es: 'Falta sin penalización — puedes reprogramar sin coste.', en: 'No-show without penalty — you can reschedule at no cost.' },
     noShowNoticeForgiven: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session." },
-    noShowNoticePenalized: { es: 'Falta con penalización — se ha descontado el importe de la reserva o la sesión del bono correspondiente. Avisa con 48h la próxima vez.', en: 'No-show with penalty — the booking fee or package session has been deducted. Give 48h notice next time.' },
+    noShowNoticePenalized: { es: 'Falta con penalización — se ha descontado el importe de la reserva o la sesión del bono correspondiente. Para la próxima, te pedimos avisar con 48h de antelación.', en: 'No-show with penalty — the booking fee or package session has been deducted. For next time, please give us at least 48h notice.' },
     pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book' },
     pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.' },
     pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}` },
