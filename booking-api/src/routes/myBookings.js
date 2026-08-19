@@ -47,19 +47,9 @@ function isOwnerBono(bono, phone, email) {
     && normalizeEmail(bono.clientEmail) === normalizeEmail(email);
 }
 
-// Cuánto tiempo, tras marcar una falta, se le sigue mostrando el aviso en
-// "Mis reservas" — pasado esto deja de listarse (es solo para que se entere,
-// no un historial permanente).
-const RECENT_NO_SHOW_DAYS = 30;
-
 function toPublicBooking(b) {
   const hrs = hoursUntil(b);
-  const reschedulableForgiven = b.status === 'no_show_forgiven';
-  const isNoShow = b.status === 'no_show' || b.status === 'no_show_forgiven';
-  // Filas de antes de que existiera la columna "noShowForgiven": todas las
-  // de status 'no_show_forgiven' eran forzosamente sin bono (perdonadas),
-  // así que el status por sí solo ya basta para ellas.
-  const wasForgiven = b.noShowForgiven === '1' || reschedulableForgiven;
+  const forgiven = b.status === 'no_show_forgiven';
   return {
     bookingId: b.bookingId,
     serviceId: b.serviceId,
@@ -80,39 +70,41 @@ function toPublicBooking(b) {
     // condiciones normales de antelación. No se ofrece cancelarla (no hay
     // reembolso que tenga sentido dar por una cita a la que no se vino):
     // solo se puede reprogramar sin coste, o dejarla así.
-    canCancelFree: !reschedulableForgiven && hrs >= FREE_CANCEL_HOURS,
-    canReschedule: reschedulableForgiven || hrs >= FREE_CANCEL_HOURS,
-    // noShowForgiven: mantiene su significado de siempre (reprogramable sin
-    // coste). noShow/noShowWasForgiven son informativos — para el aviso que
-    // se le muestra SIEMPRE que se le marca una falta, la haya perdonado o
-    // no, tenga bono o no (antes solo se avisaba en el caso sin bono).
-    noShowForgiven: reschedulableForgiven,
-    noShow: isNoShow,
-    noShowWasForgiven: wasForgiven,
+    canCancelFree: !forgiven && hrs >= FREE_CANCEL_HOURS,
+    canReschedule: forgiven || hrs >= FREE_CANCEL_HOURS,
+    noShowForgiven: forgiven,
   };
 }
 
 // ── Listar reservas futuras de un cliente (incluye las ausencias
 // perdonadas la 1ª vez, aunque su fecha ya haya pasado — siguen "activas"
-// a efectos de poder reprogramarlas sin coste — y cualquier falta reciente,
-// perdonada o no, para que le llegue el aviso de la política) ──
+// a efectos de poder reprogramarlas sin coste) ──
 router.get('/my-bookings', async (req, res) => {
   const { phone, email } = req.query;
   if (!phone || !email) {
     return res.status(400).json({ error: 'Introduce tu teléfono y tu email para buscar tus reservas.' });
   }
   try {
-    const [all, allBonos] = await Promise.all([getAllBookings(), getAllSessionBonos()]);
+    const [all, allBonos, allStrikes] = await Promise.all([getAllBookings(), getAllSessionBonos(), getAllStrikeRecords()]);
     const now = Date.now();
     const mine = all.filter((b) => (
       isOwner(b, phone, email)
       && (
         (b.status === 'confirmed' && appointmentDateTime(b).getTime() > now)
         || b.status === 'no_show_forgiven'
-        || (b.status === 'no_show' && appointmentDateTime(b).getTime() > now - RECENT_NO_SHOW_DAYS * 86400000)
       )
     ));
     mine.sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
+
+    // Un único aviso general de faltas (no uno por cada línea de una visita
+    // combinada, que podía dar a entender que se habían penalizado varios
+    // tratamientos por separado en vez de una sola ausencia) — se basa en el
+    // registro agregado de faltas de la clienta, no en una reserva concreta.
+    const phoneN = normalizePhone(phone);
+    const emailN = normalizeEmail(email);
+    const myStrike = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
+    const myStrikeCount = effectiveStrikeCount(myStrike);
+    const noShowNotice = myStrikeCount > 0 ? { count: myStrikeCount, forgiven: myStrikeCount === 1, lastDate: myStrike.lastStrikeDate } : null;
 
     // Bonos suyos con sesiones por agendar — para que pueda reservarse ella
     // misma la siguiente sesión desde aquí. sessionsRemaining ya baja en
@@ -158,7 +150,7 @@ router.get('/my-bookings', async (req, res) => {
         }));
     }
 
-    res.json({ bookings: mine.map(toPublicBooking), pendingBonoSessions, loyaltyBalance, loyaltyHistory });
+    res.json({ bookings: mine.map(toPublicBooking), pendingBonoSessions, loyaltyBalance, loyaltyHistory, noShowNotice });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudieron consultar tus reservas.' });

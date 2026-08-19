@@ -14,6 +14,7 @@
   const historyEl = document.getElementById('mb-history');
   const loyaltyEl = document.getElementById('mb-loyalty');
   const pendingBonosEl = document.getElementById('mb-pending-bonos');
+  const noShowNoticeEl = document.getElementById('mb-noshow-notice');
 
   const STR = {
     loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…' },
@@ -37,10 +38,9 @@
     connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…' },
     addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
-    noShowForgivenNote: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session." },
-    noShowForgivenBonoNote: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session." },
-    noShowPenalizedBonoNote: { es: 'Falta con penalización — se ha descontado la sesión del bono.', en: 'No-show with penalty — the package session has been deducted.' },
-    noShowPenalizedNote: { es: 'Falta con penalización — se ha descontado el importe de la reserva.', en: 'No-show with penalty — the booking fee has been deducted.' },
+    noShowForgivenNote: { es: 'Falta sin penalización — puedes reprogramar sin coste.', en: 'No-show without penalty — you can reschedule at no cost.' },
+    noShowNoticeForgiven: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session." },
+    noShowNoticePenalized: { es: 'Falta con penalización — se ha descontado el importe de la reserva o la sesión del bono correspondiente. Avisa con 48h la próxima vez.', en: 'No-show with penalty — the booking fee or package session has been deducted. Give 48h notice next time.' },
     pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book' },
     pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.' },
     pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}` },
@@ -148,21 +148,11 @@
       </div>
       ${pointsFromPaid > 0 ? `<div class="mybooking-points-note">${t('pointsFromPaid')(pointsFromPaid.toFixed(2))}</div>` : ''}
     ` : '';
-    // Una falta ya pasó — no admite cancelar (no hay nada que reembolsar) ni
-    // añadir tratamiento (eso es para sumar algo a una visita que todavía va
-    // a ocurrir en su hora original). Si además no tiene bono y fue la 1ª
-    // vez, sí se puede reprogramar sin coste; en cualquier otro caso (con
-    // bono, o penalizada) es solo un aviso informativo, sin acciones.
-    const isInformationalNoShow = b.status === 'no_show';
-    let noShowNoteHtml = '';
-    if (b.noShowForgiven) {
-      noShowNoteHtml = `<div class="mybooking-status-note ok">${t('noShowForgivenNote')}</div>`;
-    } else if (isInformationalNoShow) {
-      noShowNoteHtml = b.noShowWasForgiven
-        ? `<div class="mybooking-status-note ok">${t('noShowForgivenBonoNote')}</div>`
-        : `<div class="mybooking-status-note warn">${b.bonoId ? t('noShowPenalizedBonoNote') : t('noShowPenalizedNote')}</div>`;
-    }
-    const showActions = !b.noShowForgiven && !isInformationalNoShow;
+    // Una ausencia perdonada la 1ª vez no admite cancelar (ya pasó, no hay
+    // nada que reembolsar) ni añadir tratamiento (eso es para sumar algo a
+    // una visita que todavía va a ocurrir en su hora original) — solo se
+    // puede elegir un nuevo día y hora. El aviso general de la política de
+    // faltas se muestra una sola vez arriba de la página, no aquí.
     return `
       <div class="mybooking-card" data-booking-id="${b.bookingId}">
         <div class="mybooking-top">
@@ -172,14 +162,14 @@
           </div>
           <div class="mybooking-price">${priceBadgeHtml}</div>
         </div>
-        ${b.noShowForgiven || isInformationalNoShow ? noShowNoteHtml : breakdownHtml}
+        ${b.noShowForgiven ? `<div class="mybooking-status-note ok">${t('noShowForgivenNote')}</div>` : breakdownHtml}
         <div class="mybooking-actions">
-          ${showActions ? `<button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>` : ''}
-          ${!isInformationalNoShow ? `<button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>` : ''}
-          ${showActions ? `<button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>` : ''}
+          ${!b.noShowForgiven ? `<button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>` : ''}
+          <button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>
+          ${!b.noShowForgiven ? `<button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>` : ''}
         </div>
-        ${!isInformationalNoShow ? '<div class="mybooking-reschedule-panel"></div>' : ''}
-        ${showActions ? '<div class="mybooking-addtreatment-panel"></div>' : ''}
+        <div class="mybooking-reschedule-panel"></div>
+        ${!b.noShowForgiven ? '<div class="mybooking-addtreatment-panel"></div>' : ''}
       </div>
     `;
   }
@@ -668,6 +658,21 @@
     }
   }
 
+  // ── Aviso general de faltas: uno solo arriba de la página, no repetido
+  // por cada tratamiento de una visita combinada (eso daba a entender que
+  // se habían penalizado varios tratamientos por separado). Se basa en el
+  // registro agregado de faltas de la clienta, no en una reserva concreta.
+  function renderNoShowNotice(notice) {
+    if (!noShowNoticeEl) return;
+    if (!notice) { noShowNoticeEl.style.display = 'none'; noShowNoticeEl.innerHTML = ''; return; }
+    noShowNoticeEl.innerHTML = `
+      <div class="mybooking-card mb-noshow-card ${notice.forgiven ? 'ok' : 'warn'}">
+        ${t(notice.forgiven ? 'noShowNoticeForgiven' : 'noShowNoticePenalized')}
+      </div>
+    `;
+    noShowNoticeEl.style.display = 'block';
+  }
+
   // ── Sesiones de bono todavía sin cita puesta: la clienta puede reservarse
   // ella misma la siguiente sesión (ya pagada, sin coste extra). Si tiene
   // varias sesiones pendientes que siempre hace juntas en la misma visita
@@ -851,6 +856,7 @@
       renderBookings(data.bookings);
       renderPendingBonos(data.pendingBonoSessions);
       renderLoyalty(data.loyaltyBalance, data.loyaltyHistory);
+      renderNoShowNotice(data.noShowNotice);
     } catch (e) {
       resultsEl.innerHTML = '';
       showError(e.message);
