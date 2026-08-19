@@ -335,6 +335,19 @@ body.reserva-page .page-offset { padding-top: 92px; }
 .mybooking-actions button.mybooking-addtreatment-btn { border-color: var(--gold); background: var(--gold); color: var(--dark); font-weight: 700; }
 .mybooking-actions button.mybooking-addtreatment-btn:hover { background: var(--dark); color: var(--gold); border-color: var(--dark); }
 .mybooking-actions button:disabled { opacity: 0.4; cursor: default; transform: none; box-shadow: none; }
+
+/* Sesión de bono pendiente de reservar — destacada frente a una cita normal */
+.mybooking-card-bono { position: relative; border-left: 3px solid var(--gold); padding-top: 36px; }
+.mybooking-bono-badge {
+  position: absolute; top: 14px; left: 32px; font-family: 'Raleway', sans-serif; font-size: 10px;
+  font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dark);
+  background: var(--gold); padding: 4px 10px; border-radius: 2px;
+}
+.mybooking-price-paid { color: #2d6a2d; }
+.mybooking-actions button.mybooking-book-bono-btn {
+  border-color: var(--brown); background: var(--brown); color: #fff; font-weight: 700;
+}
+.mybooking-actions button.mybooking-book-bono-btn:hover { background: var(--dark); border-color: var(--dark); }
 .mybooking-reschedule-panel { margin-top: 8px; padding-top: 18px; border-top: 1px solid var(--line); display: none; }
 .mybooking-reschedule-panel.open { display: block; }
 .mybooking-reschedule-panel input[type="date"] {

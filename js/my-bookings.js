@@ -45,7 +45,8 @@
     confirmBonoBooking: { es: '¿Reservar esta sesión para el {date} a las {time}?', en: 'Book this session for {date} at {time}?' },
     bonoBooked: { es: '✓ Sesión reservada.', en: '✓ Session booked.' },
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
-    chooseTherapist: { es: 'Profesional (opcional, si te da igual quién)', en: 'Specialist (optional, if you don\'t mind who)' },
+    chooseTherapist: { es: 'Elige profesional disponible', en: 'Choose an available specialist' },
+    bonoBadge: { es: 'Bono activo', en: 'Active package' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
@@ -433,17 +434,18 @@
   // ella misma la siguiente sesión (ya pagada, sin coste extra) ──
   function pendingBonoCardHtml(bo) {
     return `
-      <div class="mybooking-card" data-bono-id="${bo.bonoId}">
+      <div class="mybooking-card mybooking-card-bono" data-bono-id="${bo.bonoId}">
+        <span class="mybooking-bono-badge">🎁 ${t('bonoBadge')}</span>
         <div class="mybooking-top">
           <div>
             <div class="mybooking-service">${escapeHtml(bo.serviceName)}</div>
             <div class="mybooking-meta">${t('pendingBonoSessionOf')(bo.sessionsUsed, bo.totalSessions)}</div>
           </div>
-          <div class="mybooking-price">${t('free')}</div>
+          <div class="mybooking-price mybooking-price-paid">✓ ${t('free')}</div>
         </div>
         <div class="mybooking-points-note">${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</div>
         <div class="mybooking-actions">
-          <button type="button" class="mybooking-reschedule-btn">${t('bookThisSession')}</button>
+          <button type="button" class="mybooking-book-bono-btn">${t('bookThisSession')}</button>
         </div>
         <div class="mybooking-reschedule-panel"></div>
       </div>
@@ -461,7 +463,7 @@
     list.forEach((bo) => {
       const card = pendingBonosEl.querySelector(`[data-bono-id="${bo.bonoId}"]`);
       if (!card) return;
-      const btn = card.querySelector('.mybooking-reschedule-btn');
+      const btn = card.querySelector('.mybooking-book-bono-btn');
       const panel = card.querySelector('.mybooking-reschedule-panel');
       btn.addEventListener('click', () => {
         const willOpen = !panel.classList.contains('open');
