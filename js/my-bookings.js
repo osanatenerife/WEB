@@ -52,6 +52,8 @@
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
+    lateStrikeFirstTime: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — esta vez no pasa nada, pero la próxima vez avisa con más tiempo si puedes.', en: "✓ Appointment changed. It was less than 48h in advance — this time it's fine, but please give us more notice next time if you can." },
+    lateStrikeRepeat: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — al ser un aviso tardío, queda registrado.', en: '✓ Appointment changed. It was less than 48h in advance — as a late notice, this has been recorded.' },
     with: { es: 'Con', en: 'With' },
     free: { es: 'Gratis', en: 'Free' },
     totalLabel: { es: 'Total', en: 'Total' },
@@ -443,6 +445,9 @@
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));
+      if (data.lateStrike) {
+        alert(data.lateStrike.isFirstTime ? t('lateStrikeFirstTime') : t('lateStrikeRepeat'));
+      }
       await loadBookings();
     } catch (e) {
       alert(e.message);

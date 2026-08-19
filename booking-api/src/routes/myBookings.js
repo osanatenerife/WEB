@@ -1,6 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
-const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone, findSessionBonoById, updateSessionBonoRow, getAllSessionBonos, appendBooking } = require('../lib/sheets');
+const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone, findSessionBonoById, updateSessionBonoRow, getAllSessionBonos, appendBooking, getAllStrikeRecords, upsertStrikeRecord } = require('../lib/sheets');
 const { deleteEvent, updateEvent, createBookingEvent, isEventUsable } = require('../lib/googleCalendar');
 const { refundPayment } = require('../lib/stripeClient');
 const { getAvailableSlots } = require('../lib/availability');
@@ -471,10 +471,29 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     // La ausencia perdonada la 1ª vez ya es de una fecha pasada por
     // definición — la condición de "avisar con 48h" no aplica, solo a
     // citas que todavía no han pasado.
+    //
+    // Reprogramar con menos de 48h ya no se bloquea del todo — se deja
+    // hacer, pero cuenta como una falta (mismo contador que un no-show,
+    // ver /panel/no-show): la 1ª vez se perdona sin más, a partir de la 2ª
+    // queda registrada. No afecta a ningún bono (no se pierde ninguna
+    // sesión — la cita simplemente cambia de hora), solo al historial de
+    // faltas de la clienta, que si ya tenía una falta anterior deja de
+    // perdonarle la siguiente ausencia/aviso tardío de verdad.
+    let lateStrike = null;
     if (!forgiven) {
       const hrs = hoursUntil(booking);
       if (hrs < FREE_CANCEL_HOURS) {
-        return res.status(409).json({ error: 'Para reprogramar hace falta avisar con al menos 48h de antelación. Escríbenos por WhatsApp si es más urgente.' });
+        const phoneN = normalizePhone(phone);
+        const emailN = normalizeEmail(email);
+        const allStrikes = await getAllStrikeRecords();
+        const existing = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
+        const isFirstTime = !existing || Number(existing.strikeCount) === 0;
+        await upsertStrikeRecord({
+          phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
+          strikeCount: isFirstTime ? 1 : (Number(existing.strikeCount) || 0) + 1,
+          lastStrikeDate: new Date().toISOString().slice(0, 10),
+        }, existing);
+        lateStrike = { isFirstTime };
       }
     }
 
@@ -548,7 +567,7 @@ router.post('/my-bookings/reschedule', async (req, res) => {
       ...(forgiven ? { status: 'confirmed' } : {}),
     });
 
-    res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name });
+    res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name, lateStrike });
     });
   } catch (err) {
     console.error(err);
