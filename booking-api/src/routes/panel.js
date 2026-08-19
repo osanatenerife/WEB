@@ -245,7 +245,7 @@ router.post('/panel/note', async (req, res) => {
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
   const {
-    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, depositPaidHow, sessionNumber,
+    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, depositPaidHow, sessionNumber, durationMinutes,
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
@@ -542,17 +542,49 @@ router.post('/panel/edit-booking', async (req, res) => {
       }
     }
 
+    // Corregir a mano la duración real de la cita (p.ej. la clienta reservó
+    // varios tratamientos combinados que suman 80min según el catálogo,
+    // pero en la práctica se hace en 60 — o al revés, hace falta más
+    // tiempo del de catálogo). Solo tiene sentido si no se ha tocado ya el
+    // tratamiento en esta misma edición (eso ya recalcula su propia
+    // duración arriba).
+    if (durationMinutes !== undefined && durationMinutes !== '' && newDurationForCalendar === null) {
+      const newDur = Math.round(Number(durationMinutes));
+      if (!Number.isFinite(newDur) || newDur < 5) {
+        return res.status(400).json({ error: 'La duración no es un número de minutos válido.' });
+      }
+      const oldDur = Number(booking.durationMinutes) || 0;
+      if (newDur !== oldDur) {
+        // Si se alarga, comprobamos que el tiempo extra está libre justo
+        // después — igual que al añadir un tratamiento. Si se acorta, no
+        // hace falta comprobar nada (libera hueco, nunca lo invade).
+        if (!isPast && newDur > oldDur && booking.calendarId && booking.date && booking.time) {
+          const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
+          const startISO = localToISO(booking.date, time, hours.timezone);
+          const currentEndISO = addMinutes(startISO, oldDur);
+          const newEndISO = addMinutes(startISO, newDur);
+          const free = await isRangeFree(booking.date, booking.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(booking.employeeId), { ignoreClosingTime: true });
+          if (!free) {
+            return res.status(409).json({ error: 'No hay hueco libre justo después de esta cita para alargarla tanto tiempo.' });
+          }
+        }
+        updates.durationMinutes = newDur;
+        newDurationForCalendar = newDur;
+      }
+    }
+
     // Si cambia la duración total (por cambiar el tratamiento, quitar uno de
-    // varios combinados o añadir uno nuevo), ajustamos también el bloqueo
-    // real en Google Calendar — SIEMPRE que sea posible, no solo "si es
-    // fácil": antes, cuando el evento no era usable (p.ej. quedó cancelado
-    // tras un borrado anterior), este bloque no hacía nada en absoluto,
-    // dejando la Sheet con una duración mayor de la que el calendario
-    // realmente bloqueaba — eso hacía que, al buscar hueco para otra cosa
-    // más tarde, el sistema pensara que esta cita ocupaba más tiempo del
-    // que de verdad bloqueaba en Google, y escondiera huecos libres de
-    // verdad. Ahora, si no se puede parchear el evento, se crea uno nuevo
-    // que cubra la duración correcta (igual que ya hace "Ampliar tiempo").
+    // varios combinados o añadir uno nuevo, o corregirla a mano), ajustamos
+    // también el bloqueo real en Google Calendar — SIEMPRE que sea posible,
+    // no solo "si es fácil": antes, cuando el evento no era usable (p.ej.
+    // quedó cancelado tras un borrado anterior), este bloque no hacía nada
+    // en absoluto, dejando la Sheet con una duración mayor de la que el
+    // calendario realmente bloqueaba — eso hacía que, al buscar hueco para
+    // otra cosa más tarde, el sistema pensara que esta cita ocupaba más
+    // tiempo del que de verdad bloqueaba en Google, y escondiera huecos
+    // libres de verdad. Ahora, si no se puede parchear el evento, se crea
+    // uno nuevo que cubra la duración correcta (igual que ya hace "Ampliar
+    // tiempo").
     if (newDurationForCalendar !== null && booking.calendarId && booking.date && booking.time) {
       const oldDuration = Number(booking.durationMinutes) || 0;
       if (newDurationForCalendar !== oldDuration) {

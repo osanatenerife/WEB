@@ -2707,6 +2707,12 @@
           <div class="panel-field"><select class="eb-employee"><option value="">No cambiar</option>${employeeOptions}</select></div>
         </div>
 
+        <div class="panel-section-label">Duración del hueco reservado</div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Minutos reales</label><input type="number" min="5" step="5" class="eb-duration" value="${b.durationMinutes || ''}"></div>
+        </div>
+        <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">Por si el catálogo calcula más (o menos) tiempo del que en la práctica hace falta — acórtala o alárgala aquí y se ajusta el hueco real en el calendario.</p>
+
         <div class="panel-section-label">Cobro</div>
         ${closedNote}
         ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b>${b.depositPaidHow ? ` (${b.depositPaidHow})` : ''} · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
@@ -2814,6 +2820,7 @@
           const paidInput = slot.querySelector('.eb-paid');
           const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
           const notesInput = slot.querySelector('.eb-notes');
+          const durationInput = slot.querySelector('.eb-duration');
           await panelFetch('/panel/edit-booking', {
             method: 'POST',
             body: JSON.stringify({
@@ -2822,6 +2829,7 @@
               price: priceInput.value,
               amountPaid: paidInput.value,
               depositPaidHow: depositPaidHowSelect.value,
+              durationMinutes: durationInput.value,
             }),
           });
           if (notesInput.value !== (b.notes || '')) {
@@ -3201,6 +3209,7 @@
           const paidInput = slot.querySelector('.eb-paid');
           const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
           const notesInput = slot.querySelector('.eb-notes');
+          const durationInput = slot.querySelector('.eb-duration');
           await panelFetch('/panel/edit-booking', {
             method: 'POST',
             body: JSON.stringify({
@@ -3209,6 +3218,7 @@
               price: priceInput.value,
               amountPaid: paidInput.value,
               depositPaidHow: depositPaidHowSelect.value,
+              durationMinutes: durationInput.value,
             }),
           });
           if (notesInput.value !== (b.notes || '')) {
