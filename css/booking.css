@@ -344,6 +344,7 @@ body.reserva-page .page-offset { padding-top: 92px; }
   background: var(--gold); padding: 4px 10px; border-radius: 2px;
 }
 .mybooking-price-paid { color: #2d6a2d; }
+.mybooking-price-pending { color: #a3661f; }
 .mybooking-actions button.mybooking-book-bono-btn {
   border-color: var(--brown); background: var(--brown); color: #fff; font-weight: 700;
 }

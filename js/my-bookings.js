@@ -47,6 +47,8 @@
     chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
     chooseTherapist: { es: 'Elige profesional disponible', en: 'Choose an available specialist' },
     bonoBadge: { es: 'Bono activo', en: 'Active package' },
+    paidBadge: { es: 'Pagada', en: 'Paid' },
+    pendingPaymentBadge: { es: 'Pendiente de pago', en: 'Payment pending' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
@@ -112,6 +114,20 @@
   function cardHtml(b) {
     const pending = round2(Math.max(0, (Number(b.price) || 0) - (Number(b.amountPaid) || 0)));
     const pointsFromPaid = round2((Number(b.amountPaid) || 0) * 0.04);
+    // "Gratis" solo tiene sentido si de verdad no cuesta nada — una sesión
+    // de bono con 0€ cobrados hoy ya está pagada (se pagó al comprar el
+    // bono), y un tratamiento suelto con precio pero nada cobrado todavía
+    // está pendiente de pago, no gratis.
+    let priceBadgeHtml;
+    if (b.bonoId || (b.price > 0 && b.amountPaid >= b.price)) {
+      priceBadgeHtml = `<span class="mybooking-price-paid">✓ ${t('paidBadge')}</span>`;
+    } else if (b.amountPaid > 0) {
+      priceBadgeHtml = `${b.amountPaid.toFixed(0)} €`;
+    } else if (b.price > 0) {
+      priceBadgeHtml = `<span class="mybooking-price-pending">${t('pendingPaymentBadge')}</span>`;
+    } else {
+      priceBadgeHtml = t('free');
+    }
     const breakdownHtml = b.price > 0 ? `
       <div class="mybooking-breakdown">
         <span>${t('totalLabel')}: <strong>${b.price.toFixed(2)} €</strong></span>
@@ -131,7 +147,7 @@
             <div class="mybooking-service">${b.serviceName}</div>
             <div class="mybooking-meta">${b.date} · ${b.time} · ${t('with')} ${b.employeeName}</div>
           </div>
-          <div class="mybooking-price">${b.amountPaid > 0 ? b.amountPaid.toFixed(0) + ' €' : t('free')}</div>
+          <div class="mybooking-price">${priceBadgeHtml}</div>
         </div>
         ${b.noShowForgiven ? `<div class="mybooking-status-note ok">${t('noShowForgivenNote')}</div>` : breakdownHtml}
         <div class="mybooking-actions">
@@ -146,6 +162,9 @@
   }
 
   function historyCardHtml(b) {
+    const priceBadgeHtml = b.bonoId
+      ? `<span class="mybooking-price-paid">✓ ${t('paidBadge')}</span>`
+      : (b.price > 0 ? b.price.toFixed(0) + ' €' : t('free'));
     return `
       <div class="mybooking-card">
         <div class="mybooking-top">
@@ -153,7 +172,7 @@
             <div class="mybooking-service">${b.serviceName}</div>
             <div class="mybooking-meta">${b.date} · ${b.time} · ${t('with')} ${b.employeeName}</div>
           </div>
-          <div class="mybooking-price">${b.price > 0 ? b.price.toFixed(0) + ' €' : t('free')}</div>
+          <div class="mybooking-price">${priceBadgeHtml}</div>
         </div>
       </div>
     `;

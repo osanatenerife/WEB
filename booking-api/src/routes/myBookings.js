@@ -55,6 +55,7 @@ function toPublicBooking(b) {
     serviceName: b.serviceName,
     employeeId: b.employeeId,
     employeeName: b.employeeName,
+    bonoId: b.bonoId || '',
     date: b.date,
     time: b.time,
     durationMinutes: Number(b.durationMinutes) || 0,
@@ -94,15 +95,16 @@ router.get('/my-bookings', async (req, res) => {
     ));
     mine.sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
 
-    // Bonos suyos con sesiones por agendar y sin ninguna cita futura ya
-    // puesta para esa sesión — para que pueda reservarse ella misma la
-    // siguiente sesión desde aquí (mismo criterio que usa el panel para
-    // avisar al equipo de "sesiones pendientes de agendar").
+    // Bonos suyos con sesiones por agendar — para que pueda reservarse ella
+    // misma la siguiente sesión desde aquí. sessionsRemaining ya baja en
+    // cuanto se agenda una sesión (no cuando se hace de verdad), así que
+    // esto no depende de si la sesión anterior ya se realizó o se cerró:
+    // si le quedan sesiones por agendar, puede pedir la siguiente aunque la
+    // de antes siga pendiente (p.ej. adelantar ya la 3ª sin esperar a la 2ª).
     const pendingBonoSessions = allBonos
       .filter((bo) => bo.status === 'active' && Number(bo.sessionsRemaining) > 0
         && isOwnerBono(bo, phone, email)
-        && services.find((s) => s.id === bo.serviceId)
-        && !all.some((b) => b.bonoId === bo.bonoId && b.status === 'confirmed' && appointmentDateTime(b).getTime() >= now))
+        && services.find((s) => s.id === bo.serviceId))
       .map((bo) => ({
         bonoId: bo.bonoId,
         serviceId: bo.serviceId,
@@ -162,6 +164,11 @@ router.get('/my-bookings/history', async (req, res) => {
       b.status === 'confirmed'
       && isOwner(b, phone, email)
       && appointmentDateTime(b).getTime() <= now
+      // Y solo si el equipo ya la ha cerrado — su hora puede haber pasado
+      // sin que la clienta haya venido de verdad todavía, o sin que el
+      // equipo haya confirmado cómo fue; hasta entonces sigue "pendiente
+      // de realizar", no aparece como una visita ya hecha.
+      && b.finalAmount !== undefined && b.finalAmount !== ''
     ));
     past.sort((a, b) => appointmentDateTime(b) - appointmentDateTime(a)); // más reciente primero
     res.json({
@@ -171,6 +178,7 @@ router.get('/my-bookings/history', async (req, res) => {
         date: b.date,
         time: b.time,
         price: Number(b.price) || 0,
+        bonoId: b.bonoId || '',
         status: b.status,
       })),
     });
