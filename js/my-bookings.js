@@ -37,7 +37,10 @@
     connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…' },
     addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
-    noShowForgivenNote: { es: 'No pudiste venir a esta cita — esta primera vez no se te cobra ni se descuenta nada. A partir de ahora, faltar sin avisar o cambiar tu cita con menos de 48h de antelación descontará la sesión de tu bono (o el importe de la reserva, si no tienes bono). Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make this appointment — this first time, nothing was charged or deducted. From now on, a no-show or a change made less than 48h before your appointment will deduct the session from your package (or the booking fee, if you don't have a package). Pick a new day and time whenever you like." },
+    noShowForgivenNote: { es: 'No pudiste venir a esta cita — tranquila, esta primera vez no te cobramos nada ni te penalizamos por ello. Eso sí, a partir de ahora te pedimos avisarnos con al menos 48h si necesitas cambiar o cancelar una cita: la próxima vez que faltes sin avisar (o cambies con menos de 48h), se descontará la sesión de tu bono, o el importe de la reserva si no tienes bono. Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make it to this appointment — don't worry, this first time there's no charge and no penalty. From now on, please give us at least 48h notice if you need to change or cancel an appointment: next time you miss one without notice (or change it with less than 48h notice), the session from your package will be deducted, or the booking fee if you don't have one. Pick a new day and time whenever you like." },
+    noShowForgivenBonoNote: { es: 'No pudiste venir a esta cita — tranquila, esta primera vez no se te descuenta la sesión: ya la tienes disponible de nuevo para reservar cuando quieras, arriba en «Sesiones de bono pendientes». A partir de ahora te pedimos avisarnos con al menos 48h si necesitas cambiar o cancelar, para no perderla la próxima vez.', en: 'You weren\'t able to make it to this appointment — don\'t worry, this first time the session hasn\'t been deducted: it\'s available again to book whenever you like, above in "Package sessions ready to book". From now on, please give us at least 48h notice if you need to change or cancel, so you don\'t lose it next time.' },
+    noShowPenalizedBonoNote: { es: 'No pudiste venir a esta cita. Al ser sin aviso (o con menos de 48h de antelación), esta vez sí se ha descontado la sesión de tu bono. Recuerda avisarnos con al menos 48h si necesitas cambiar o cancelar una próxima cita.', en: 'You weren\'t able to make it to this appointment. Since there was no notice (or less than 48h), the session has been deducted from your package this time. Please remember to give us at least 48h notice if you need to change or cancel a future appointment.' },
+    noShowPenalizedNote: { es: 'No pudiste venir a esta cita. Al ser sin aviso (o con menos de 48h de antelación), esta vez sí se ha descontado el importe de la reserva. Recuerda avisarnos con al menos 48h si necesitas cambiar o cancelar una próxima cita.', en: 'You weren\'t able to make it to this appointment. Since there was no notice (or less than 48h), the booking fee has been deducted this time. Please remember to give us at least 48h notice if you need to change or cancel a future appointment.' },
     pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book' },
     pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.' },
     pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}` },
@@ -145,10 +148,21 @@
       </div>
       ${pointsFromPaid > 0 ? `<div class="mybooking-points-note">${t('pointsFromPaid')(pointsFromPaid.toFixed(2))}</div>` : ''}
     ` : '';
-    // Una ausencia perdonada la 1ª vez no admite cancelar (ya pasó, no hay
-    // nada que reembolsar) ni añadir tratamiento (eso es para sumar algo a
-    // una visita que todavía va a ocurrir en su hora original) — solo se
-    // puede elegir un nuevo día y hora.
+    // Una falta ya pasó — no admite cancelar (no hay nada que reembolsar) ni
+    // añadir tratamiento (eso es para sumar algo a una visita que todavía va
+    // a ocurrir en su hora original). Si además no tiene bono y fue la 1ª
+    // vez, sí se puede reprogramar sin coste; en cualquier otro caso (con
+    // bono, o penalizada) es solo un aviso informativo, sin acciones.
+    const isInformationalNoShow = b.status === 'no_show';
+    let noShowNoteHtml = '';
+    if (b.noShowForgiven) {
+      noShowNoteHtml = `<div class="mybooking-status-note ok">${t('noShowForgivenNote')}</div>`;
+    } else if (isInformationalNoShow) {
+      noShowNoteHtml = b.noShowWasForgiven
+        ? `<div class="mybooking-status-note ok">${t('noShowForgivenBonoNote')}</div>`
+        : `<div class="mybooking-status-note warn">${b.bonoId ? t('noShowPenalizedBonoNote') : t('noShowPenalizedNote')}</div>`;
+    }
+    const showActions = !b.noShowForgiven && !isInformationalNoShow;
     return `
       <div class="mybooking-card" data-booking-id="${b.bookingId}">
         <div class="mybooking-top">
@@ -158,14 +172,14 @@
           </div>
           <div class="mybooking-price">${priceBadgeHtml}</div>
         </div>
-        ${b.noShowForgiven ? `<div class="mybooking-status-note ok">${t('noShowForgivenNote')}</div>` : breakdownHtml}
+        ${b.noShowForgiven || isInformationalNoShow ? noShowNoteHtml : breakdownHtml}
         <div class="mybooking-actions">
-          ${!b.noShowForgiven ? `<button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>` : ''}
-          <button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>
-          ${!b.noShowForgiven ? `<button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>` : ''}
+          ${showActions ? `<button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>` : ''}
+          ${!isInformationalNoShow ? `<button type="button" class="mybooking-reschedule-btn">${t('reschedule')}</button>` : ''}
+          ${showActions ? `<button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>` : ''}
         </div>
-        <div class="mybooking-reschedule-panel"></div>
-        ${!b.noShowForgiven ? '<div class="mybooking-addtreatment-panel"></div>' : ''}
+        ${!isInformationalNoShow ? '<div class="mybooking-reschedule-panel"></div>' : ''}
+        ${showActions ? '<div class="mybooking-addtreatment-panel"></div>' : ''}
       </div>
     `;
   }
@@ -208,9 +222,12 @@
   // reservados juntos) llegan como reservas independientes, una por
   // tratamiento — se agrupan aquí por fecha+hora+profesional para que la
   // clienta las vea y las reprograme como una sola sesión, no una por una.
+  // Las faltas (perdonadas o no) no se agrupan: son solo informativas, cada
+  // línea lleva su propio aviso y no hay nada conjunto que reprogramar.
   function groupBookings(bookings) {
     const byKey = new Map();
     bookings.forEach((b) => {
+      if (b.status !== 'confirmed') { byKey.set(`solo:${b.bookingId}`, [b]); return; }
       const key = `${b.date}|${b.time}|${b.employeeId}`;
       if (!byKey.has(key)) byKey.set(key, []);
       byKey.get(key).push(b);
@@ -235,14 +252,16 @@
     if (cancelBtn) cancelBtn.addEventListener('click', () => handleCancel(b, card));
     const rescheduleBtn = card.querySelector('.mybooking-reschedule-btn');
     const panel = card.querySelector('.mybooking-reschedule-panel');
-    rescheduleBtn.addEventListener('click', () => {
-      const willOpen = !panel.classList.contains('open');
-      panel.classList.toggle('open', willOpen);
-      if (willOpen && !panel.dataset.wired) {
-        wireReschedulePanel(b, panel);
-        panel.dataset.wired = '1';
-      }
-    });
+    if (rescheduleBtn && panel) {
+      rescheduleBtn.addEventListener('click', () => {
+        const willOpen = !panel.classList.contains('open');
+        panel.classList.toggle('open', willOpen);
+        if (willOpen && !panel.dataset.wired) {
+          wireReschedulePanel(b, panel);
+          panel.dataset.wired = '1';
+        }
+      });
+    }
     const addBtn = card.querySelector('.mybooking-addtreatment-btn');
     const addPanel = card.querySelector('.mybooking-addtreatment-panel');
     if (addBtn && addPanel) {

@@ -1718,8 +1718,8 @@ router.post('/panel/edit-client', async (req, res) => {
 // Aviso breve y general de la política de faltas — el mismo texto se usa
 // aquí (email) y en el panel/Mis Reservas, para que nadie pueda decir luego
 // que no lo sabía o que no lo leyó.
-const NO_SHOW_POLICY_NOTE_ES = 'A partir de ahora, faltar sin avisar o cambiar tu cita con menos de 48h de antelación descontará la sesión de tu bono (o el importe de la reserva, si no tienes bono).';
-const NO_SHOW_POLICY_NOTE_EN = 'From now on, a no-show or a change made less than 48h before your appointment will deduct the session from your package (or the booking fee, if you don\'t have a package).';
+const NO_SHOW_POLICY_NOTE_ES = 'A partir de ahora te pedimos avisarnos con al menos 48h si necesitas cambiar o cancelar una cita: la próxima vez que faltes sin avisar (o cambies con menos de 48h), se descontará la sesión de tu bono, o el importe de la reserva si no tienes bono.';
+const NO_SHOW_POLICY_NOTE_EN = 'From now on, please give us at least 48h notice if you need to change or cancel an appointment: next time you miss one without notice (or change it with less than 48h notice), the session from your package will be deducted, or the booking fee if you don\'t have one.';
 
 function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
   const isEn = lang === 'en';
@@ -1746,7 +1746,7 @@ function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
         <p><b>Treatment:</b> ${booking.serviceName}<br><b>Date:</b> ${booking.date}<br><b>Status:</b> No-show</p>
         <p><b>Session deducted: Yes (1 session)</b></p>
         ${remainingLineEn}
-        <p>Your no-show allowance was already used previously.</p>
+        <p>Your free first-time pass was already used on a previous no-show, so this one counts. Please give us at least 48h notice next time if you need to change or cancel an appointment.</p>
         <p>Want to reschedule? Go to My Bookings or message us on WhatsApp.</p>
       </div>`
     : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
@@ -1754,7 +1754,7 @@ function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
         <p><b>Cita:</b> ${booking.serviceName}<br><b>Fecha:</b> ${booking.date}<br><b>Estado:</b> Ausencia sin preaviso</p>
         <p><b>Sesión descontada: Sí (1 sesión)</b></p>
         ${remainingLine}
-        <p>Tu comodín de falta ya fue utilizado anteriormente.</p>
+        <p>Ya usaste tu comodín de la primera falta en una ausencia anterior, así que esta sí cuenta. Te pedimos avisarnos con al menos 48h la próxima vez que necesites cambiar o cancelar una cita.</p>
         <p>¿Quieres reprogramar? Entra en Mis Reservas o escríbenos por WhatsApp.</p>
       </div>`;
 }
@@ -1839,13 +1839,13 @@ router.post('/panel/no-show', async (req, res) => {
             await updateSessionBonoRow(bono._sheetRow, bono, { sessionsUsed, sessionsRemaining, status: 'active' });
             bonosRestored.push({ ...bono, sessionsUsed, sessionsRemaining });
           }
-          await updateBookingRow(line._sheetRow, line, { status: 'no_show' });
+          await updateBookingRow(line._sheetRow, line, { status: 'no_show', noShowForgiven: '1' });
         } else {
-          await updateBookingRow(line._sheetRow, line, { status: 'no_show_forgiven' });
+          await updateBookingRow(line._sheetRow, line, { status: 'no_show_forgiven', noShowForgiven: '1' });
         }
       } else {
         // No se restaura nada — la sesión (si había) queda gastada
-        await updateBookingRow(line._sheetRow, line, { status: 'no_show' });
+        await updateBookingRow(line._sheetRow, line, { status: 'no_show', noShowForgiven: '' });
       }
     }
 

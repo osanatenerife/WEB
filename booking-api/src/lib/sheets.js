@@ -79,6 +79,14 @@ const COLUMNS = [
   // para poder comprobar cobros en efectivo/bizum aunque la cita en sí
   // todavía no se haya "cerrado" (porque el tratamiento aún no ha pasado).
   'depositPaidHow',
+  // Al marcar una falta: '1' si esta ausencia en concreto se perdonó (1ª
+  // vez, con o sin bono), vacío si se penalizó de verdad — así la clienta
+  // puede ver en "Mis reservas" el mensaje correcto según cuál fue su caso,
+  // sin tener que adivinarlo a partir del status (que por sí solo es
+  // ambiguo: tanto una falta perdonada con bono como una penalizada con
+  // bono se guardan igual, como 'no_show' — la diferencia está en si se le
+  // devolvió o no la sesión al bono).
+  'noShowForgiven',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 
