@@ -2685,16 +2685,18 @@
     });
 
     // ── Eliminar / devolver sesión, solo de los tratamientos marcados —
-    // los que se dejen sin marcar no se tocan ──
+    // los que se dejen sin marcar no se tocan. Es para corregir un error al
+    // registrarlos: desaparecen del todo de la ficha, no se quedan como
+    // "Cancelada" en su historial. ──
     el.querySelector('.pag-delete-btn').addEventListener('click', async (ev) => {
       const items = checkedItems();
       if (!items.length) { alert('Marca al menos un tratamiento para eliminar.'); return; }
       const names = items.map((x) => x.serviceName).join(', ');
-      if (!confirm(`¿Eliminar de esta visita: ${names}? Libera su hueco de calendario y deja de contar como facturación. No borra ningún cobro ya hecho en Stripe.`)) return;
+      if (!confirm(`¿Se registraron por error estos tratamientos de la visita: ${names}? Se liberan sus huecos de calendario y desaparecen por completo de la ficha de la clienta. No borra ningún cobro ya hecho en Stripe.`)) return;
       ev.target.disabled = true;
       try {
         for (const x of items) {
-          await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId }) });
+          await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId, asMistake: true }) });
         }
         doSearch();
       } catch (e) {
@@ -2760,7 +2762,7 @@
         ${b.status === 'confirmed' && !b.bonoId && client ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-booknext-toggle">🔁 Agendar próxima sesión</button>' : ''}
         ${b.status === 'confirmed' && !b.isPast ? '<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-extend-toggle">⏱ Ampliar tiempo</button>' : ''}
         ${b.status === 'confirmed' ? '<button type="button" class="panel-btn panel-btn-warn panel-btn-sm panel-noshow-btn">Marcar como no-show</button>' : ''}
-        ${b.status !== 'cancelled_refunded' ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">${b.bonoId ? '↩ No se hizo — devolver sesión' : '🗑 Eliminar'}</button>` : ''}
+        ${b.status !== 'cancelled_refunded' ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm panel-delete-btn">${b.bonoId ? '🗑 Eliminar (devuelve la sesión)' : '🗑 Eliminar'}</button>` : ''}
       </div>
       <div class="panel-editbooking-slot"></div>
       <div class="panel-reschedule-slot"></div>
@@ -2832,13 +2834,18 @@
     const deleteBtn = el.querySelector('.panel-delete-btn');
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async () => {
+        // "Eliminar" desde el panel es para corregir un error al registrar
+        // la cita — desaparece del todo de la ficha de la clienta (no se
+        // queda como "Cancelada" en su historial). Si de verdad se hizo
+        // pero la clienta canceló, esa es otra acción (Mis Reservas, o
+        // marcar como no-show) — esto es para "esto no debería existir".
         const confirmMsg = b.bonoId
-          ? `¿"${b.serviceName}" no se hizo el ${b.date} (${client && client.name ? client.name : ''})? Se le devuelve la sesión al bono (no se cuenta como usada) y esta línea desaparece de la cita — el resto de tratamientos de la misma visita, si los hay, no se tocan.`
-          : `¿Eliminar la cita de ${b.serviceName} el ${b.date} (${client && client.name ? client.name : ''})? Libera el hueco del calendario y deja de contar como facturación. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`;
+          ? `¿"${b.serviceName}" del ${b.date} (${client && client.name ? client.name : ''}) se registró por error? Se le devuelve la sesión al bono (no cuenta como usada) y desaparece por completo de su ficha — el resto de tratamientos de la misma visita, si los hay, no se tocan.`
+          : `¿Eliminar la cita de ${b.serviceName} el ${b.date} (${client && client.name ? client.name : ''}) porque se registró por error? Libera el hueco del calendario y desaparece por completo de la ficha de la clienta. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`;
         if (!confirm(confirmMsg)) return;
         deleteBtn.disabled = true;
         try {
-          await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
+          await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, asMistake: true }) });
           doSearch();
         } catch (e) {
           alert(e.message);
@@ -2959,7 +2966,7 @@
               ${!isBonoCore ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-bono-toggle">🎟 Bono</button>` : ''}
               ${canBookNext ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-next-session-toggle">+ Siguiente sesión</button>` : ''}
               ${idParts.length > 1 ? `<button type="button" class="panel-btn panel-btn-accent panel-btn-sm li-remove-btn">🗑 Quitar</button>` : ''}
-              ${idParts.length === 1 ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm li-cancel-appt-btn">${isBonoCore ? '↩ No se hizo — devolver sesión' : '🗑 Cancelar cita'}</button>` : ''}
+              ${idParts.length === 1 ? `<button type="button" class="panel-btn panel-btn-noshow panel-btn-sm li-cancel-appt-btn">${isBonoCore ? '🗑 Eliminar (devuelve la sesión)' : '🗑 Eliminar cita'}</button>` : ''}
             </div>
           </div>
           <div class="line-item-edit" style="display:none;">
@@ -3429,13 +3436,13 @@
       if (cancelApptBtn) {
         cancelApptBtn.addEventListener('click', async (ev) => {
           const confirmMsg = isBonoCore
-            ? `¿"${b.serviceName}" no se hizo o ya no la quiere? Se le devuelve la sesión al bono (no se cuenta como usada) y esta cita desaparece.`
-            : `¿Cancelar la cita de ${b.serviceName} el ${b.date}? Libera el hueco del calendario y deja de contar como facturación. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`;
+            ? `¿"${b.serviceName}" se registró por error? Se le devuelve la sesión al bono (no se cuenta como usada) y esta cita desaparece por completo de la ficha de la clienta.`
+            : `¿Eliminar la cita de ${b.serviceName} el ${b.date} porque se registró por error? Libera el hueco del calendario y desaparece por completo de la ficha de la clienta. Esta acción no borra ningún cobro ya hecho en Stripe — eso, si hiciera falta, se reembolsa aparte.`;
           if (!confirm(confirmMsg)) return;
           errorEl.style.display = 'none';
           ev.target.disabled = true;
           try {
-            await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId }) });
+            await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: b.bookingId, asMistake: true }) });
             doSearch();
           } catch (e) {
             errorEl.textContent = e.message;

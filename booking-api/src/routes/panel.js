@@ -118,6 +118,10 @@ router.get('/panel/search', async (req, res) => {
       const qLower = q.toLowerCase();
       matches = allBookings.filter((b) => (b.name || '').toLowerCase().includes(qLower));
     }
+    // Las eliminadas marcando "fue un error al registrarla" no deben
+    // aparecer aquí — es como si nunca hubieran existido, no una cita
+    // cancelada de verdad que tenga sentido seguir viendo en el historial.
+    matches = matches.filter((b) => b.deletedAsMistake !== '1');
 
     // Agrupamos solo por teléfono (siempre obligatorio en la reserva) — el email
     // es opcional, así que agrupar también por email fragmentaría el historial
@@ -1985,7 +1989,7 @@ router.post('/panel/no-show', async (req, res) => {
 // reembolso en Stripe si la cita se había pagado de verdad online — eso
 // sigue haciéndose a mano desde el Dashboard de Stripe si hace falta.
 router.post('/panel/delete-booking', async (req, res) => {
-  const { bookingId } = req.body || {};
+  const { bookingId, asMistake } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   try {
     const booking = await findBookingById(bookingId);
@@ -2008,7 +2012,9 @@ router.post('/panel/delete-booking', async (req, res) => {
       }
     }
 
-    const deletedNote = `Eliminada manualmente desde el panel el ${new Date().toISOString().slice(0, 10)}.`;
+    const deletedNote = asMistake
+      ? `Eliminada del todo desde el panel el ${new Date().toISOString().slice(0, 10)} — se registró por error.`
+      : `Eliminada manualmente desde el panel el ${new Date().toISOString().slice(0, 10)}.`;
     // Si ya estaba "cancelled_no_refund" (la clienta canceló tarde y se
     // quedó el importe), no lo reetiquetamos como "reembolsada" — eso
     // borraría ese ingreso real del informe trimestral, que solo excluye
@@ -2017,6 +2023,10 @@ router.post('/panel/delete-booking', async (req, res) => {
     await updateBookingRow(booking._sheetRow, booking, {
       status: newStatus,
       notes: booking.notes ? `${booking.notes}\n${deletedNote}` : deletedNote,
+      // "Fue un error al registrarla" — se oculta por completo de la ficha
+      // de la clienta en vez de quedarse ahí como "Cancelada" (ver
+      // /panel/search, que filtra por esto).
+      ...(asMistake ? { deletedAsMistake: '1' } : {}),
     });
 
     // Si era la sesión de un bono (p.ej. una de varias tratamientos de una

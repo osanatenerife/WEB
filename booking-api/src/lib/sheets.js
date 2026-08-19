@@ -87,6 +87,13 @@ const COLUMNS = [
   // bono se guardan igual, como 'no_show' — la diferencia está en si se le
   // devolvió o no la sesión al bono).
   'noShowForgiven',
+  // '1' si al eliminarla desde el panel el equipo marcó que fue un error
+  // al registrarla (no una cancelación real) — esas se ocultan por
+  // completo de la ficha de la clienta en "Todas las citas" en vez de
+  // quedarse ahí como "Cancelada", para que no ensucien su historial con
+  // algo que nunca debió existir. La fila se conserva (no se borra de la
+  // Sheet) por si hiciera falta auditar más adelante.
+  'deletedAsMistake',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 
