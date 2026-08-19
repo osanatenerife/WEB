@@ -1246,7 +1246,9 @@
     client.bonos.forEach((bono) => bonosContainer.appendChild(renderBono(bono)));
 
     const apptsContainer = wrap.querySelector('.panel-appts');
-    client.bookings.forEach((b) => apptsContainer.appendChild(renderAppt(b, client, wrap)));
+    groupApptsForRender(client.bookings).forEach((group) => {
+      apptsContainer.appendChild(group.length > 1 ? renderApptGroup(group, client, wrap) : renderAppt(group[0], client, wrap));
+    });
 
     // El botón "Cerrar y cobrar" de arriba abre el mismo panel de "Editar
     // cita" que ya existe abajo, en vez de duplicar el flujo de cobro —
@@ -2351,6 +2353,357 @@
         ev.target.disabled = false;
       }
     });
+  }
+
+  // Varios tratamientos de la MISMA visita (comparten calendarId+eventId)
+  // se agrupan en una sola tarjeta ancha en vez de una por tratamiento —
+  // antes había que repetir profesional/duración/importe/pago en cada
+  // tarjeta suelta, aunque fuera la misma visita.
+  function groupApptsForRender(bookings) {
+    const byKey = new Map();
+    bookings.forEach((b) => {
+      if (b.status !== 'confirmed' || !b.calendarId || !b.eventId) {
+        byKey.set(`solo:${b.bookingId}`, [b]);
+        return;
+      }
+      const key = `${b.calendarId}|${b.eventId}`;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(b);
+    });
+    return Array.from(byKey.values());
+  }
+
+  function pagLineBadge(x) {
+    if (x.finalAmount !== null && x.finalAmount !== undefined) return `✓ Cobrado ${Number(x.finalAmount).toFixed(2)} €`;
+    if (!x.bonoId && x.price === '0' && Number(x.amountPaid) === 0) return 'Incluido en otra línea';
+    if (x.bonoId) return '🎟 Bono';
+    const pending = Math.max(0, (Number(x.price) || 0) - (Number(x.amountPaid) || 0));
+    return pending > 0 ? `Pendiente: ${pending.toFixed(2)} €` : '✓ Pagado';
+  }
+
+  function renderApptGroup(group, client, wrap) {
+    const el = document.createElement('div');
+    el.className = 'panel-appt panel-appt-group';
+    const first = group[0];
+    el.dataset.groupKey = `${first.calendarId}|${first.eventId}`;
+
+    const linesHtml = group.map((x) => `
+      <div class="panel-appt-group-line" data-booking-id="${x.bookingId}">
+        <label class="pag-check-label">
+          <input type="checkbox" class="pag-check" value="${x.bookingId}" checked>
+          <span class="pag-line-name">${escapeHtml(x.serviceName)}</span>
+          <span class="pag-line-price">${pagLineBadge(x)}</span>
+        </label>
+        <div class="pag-line-actions">
+          <button type="button" class="panel-link-btn pag-line-note-toggle">✎ Nota</button>
+          <button type="button" class="panel-link-btn pag-line-edit-toggle">✎ Editar tratamiento</button>
+        </div>
+        <div class="panel-appt-note-view" style="${x.notes ? '' : 'display:none;'}"><span class="tag">Nota:</span><span class="note-text">${escapeHtml(x.notes)}</span></div>
+        <div class="panel-appt-note-edit" style="display:none;">
+          <textarea placeholder="Ej. potencia del láser, observaciones…">${escapeHtml(x.notes)}</textarea>
+        </div>
+        <div class="panel-editbooking-slot"></div>
+      </div>
+    `).join('');
+
+    el.innerHTML = `
+      <div class="panel-appt-top">
+        <div class="panel-appt-date">${fmtDateParts(first.date).month}<span class="day">${fmtDateParts(first.date).day}</span></div>
+        <div class="panel-appt-body">
+          <div class="client">${escapeHtml(client && client.name ? client.name : '')}${client && client.phone ? ` · ${escapeHtml(client.phone)}` : ''}</div>
+          <div class="svc">${group.length} tratamientos combinados</div>
+          <div class="with">Con ${escapeHtml(first.employeeName) || '—'} · ${first.time}</div>
+        </div>
+        <div><span class="panel-pill panel-pill-ok"><span class="dot"></span>Confirmada</span></div>
+      </div>
+      <div class="panel-appt-group-list">${linesHtml}</div>
+      <div class="panel-appt-group-summary"></div>
+      <div class="panel-appt-actions panel-appt-group-actions">
+        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pag-professional-btn">👤 Profesional</button>
+        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pag-reschedule-btn">Reprogramar</button>
+        <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pag-duration-btn">⏱ Ampliar/recortar tiempo</button>
+        <button type="button" class="panel-btn panel-btn-primary panel-btn-sm pag-close-btn">💶 Cobrar / Cerrar</button>
+        <button type="button" class="panel-btn panel-btn-warn panel-btn-sm pag-noshow-btn">Marcar como no-show</button>
+        <button type="button" class="panel-btn panel-btn-noshow panel-btn-sm pag-delete-btn">🗑 Eliminar seleccionados</button>
+      </div>
+      <div class="pag-slot"></div>
+    `;
+
+    const checkboxes = Array.from(el.querySelectorAll('.pag-check'));
+    const summaryEl = el.querySelector('.panel-appt-group-summary');
+    const slot = el.querySelector('.pag-slot');
+
+    // Los 4 paneles de acción (profesional, reprogramar, duración, cobrar)
+    // comparten este mismo hueco — pulsar el botón que ya está abierto lo
+    // cierra; pulsar OTRO cambia de panel directamente, en vez de tener que
+    // cerrar el actual primero y pulsar dos veces.
+    function togglePanel(name, render) {
+      if (slot.dataset.open === name) {
+        slot.innerHTML = '';
+        delete slot.dataset.open;
+        return;
+      }
+      slot.dataset.open = name;
+      render();
+    }
+
+    function checkedItems() {
+      const ids = checkboxes.filter((c) => c.checked).map((c) => c.value);
+      return group.filter((x) => ids.includes(x.bookingId));
+    }
+
+    function updateSummary() {
+      const items = checkedItems();
+      if (!items.length) {
+        summaryEl.textContent = 'No hay ningún tratamiento marcado.';
+        return;
+      }
+      const anyClosed = items.some((x) => x.finalAmount !== null && x.finalAmount !== undefined);
+      if (anyClosed) {
+        const totalClosed = items.reduce((s, x) => s + (x.finalAmount !== null && x.finalAmount !== undefined ? Number(x.finalAmount) : 0), 0);
+        summaryEl.textContent = `Seleccionado: ${items.length} tratamiento${items.length > 1 ? 's' : ''} · Cobrado: ${totalClosed.toFixed(2)} €`;
+      } else {
+        const totalPrice = items.reduce((s, x) => s + (Number(x.price) || 0), 0);
+        const totalPaid = items.reduce((s, x) => s + (Number(x.amountPaid) || 0), 0);
+        const pending = Math.max(0, totalPrice - totalPaid);
+        summaryEl.textContent = `Seleccionado: ${items.length} tratamiento${items.length > 1 ? 's' : ''} · Total: ${totalPrice.toFixed(2)} € · Pagado: ${totalPaid.toFixed(2)} € · Pendiente: ${pending.toFixed(2)} €`;
+      }
+    }
+    updateSummary();
+    checkboxes.forEach((c) => c.addEventListener('change', updateSummary));
+
+    // ── Nota y edición por línea (reutiliza el mismo panel de "Editar cita"
+    // de siempre, pero solo para ese tratamiento) ──
+    group.forEach((x) => {
+      const lineEl = el.querySelector(`.panel-appt-group-line[data-booking-id="${x.bookingId}"]`);
+      const noteEdit = lineEl.querySelector('.panel-appt-note-edit');
+      const noteView = lineEl.querySelector('.panel-appt-note-view');
+      lineEl.querySelector('.pag-line-note-toggle').addEventListener('click', () => {
+        const isOpen = noteEdit.style.display !== 'none';
+        noteEdit.style.display = isOpen ? 'none' : 'block';
+        if (!isOpen) return;
+        const textarea = noteEdit.querySelector('textarea');
+        panelFetch('/panel/note', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId, note: textarea.value }) })
+          .then(() => {
+            noteView.querySelector('.note-text').textContent = textarea.value;
+            noteView.style.display = textarea.value ? 'flex' : 'none';
+          })
+          .catch((e) => alert(e.message));
+      });
+      lineEl.querySelector('.pag-line-edit-toggle').addEventListener('click', () => toggleEditBooking(lineEl, x, client));
+    });
+
+    // ── Profesional para toda la visita (aplica a los tratamientos marcados) ──
+    el.querySelector('.pag-professional-btn').addEventListener('click', () => togglePanel('professional', async () => {
+      slot.innerHTML = '<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>';
+      const allEmployees = await loadAllEmployeesOnce();
+      slot.innerHTML = `
+        <div class="panel-new-appt">
+          <div class="panel-label">Cambiar profesional de los tratamientos marcados</div>
+          <div class="panel-field-row">
+            <div class="panel-field"><select class="pag-employee-select">${allEmployees.map((e) => `<option value="${e.id}"${e.id === first.employeeId ? ' selected' : ''}>${e.name}</option>`).join('')}</select></div>
+            <div class="panel-field"><button type="button" class="panel-btn panel-btn-primary pag-confirm-professional">Guardar</button></div>
+          </div>
+          <p class="panel-error" style="display:none;"></p>
+        </div>
+      `;
+      const errorEl = slot.querySelector('.panel-error');
+      slot.querySelector('.pag-confirm-professional').addEventListener('click', async (ev) => {
+        const items = checkedItems();
+        if (!items.length) { errorEl.textContent = 'Marca al menos un tratamiento.'; errorEl.style.display = 'block'; return; }
+        ev.target.disabled = true;
+        try {
+          const employeeId = slot.querySelector('.pag-employee-select').value;
+          for (const x of items) {
+            await panelFetch('/panel/edit-booking', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId, employeeId }) });
+          }
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    }));
+
+    // ── Reprogramar los tratamientos marcados juntos (busca hueco por la
+    // duración conjunta real) ──
+    el.querySelector('.pag-reschedule-btn').addEventListener('click', () => togglePanel('reschedule', () => {
+      slot.innerHTML = `
+        <div class="panel-new-appt">
+          <div class="panel-label">Reprogramar los tratamientos marcados (ahora: ${first.date} a las ${first.time})</div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Nueva fecha</label><input type="date" class="pf-date"></div>
+            <div class="panel-field"><label>Nueva hora (huecos libres)</label><select class="pf-time"><option>Elige fecha primero</option></select></div>
+            <div class="panel-field"><label>O escribe una hora a mano</label><input type="time" step="300" class="pf-time-manual"></div>
+          </div>
+          <p style="font-size:11.5px;color:var(--ink-soft);margin:-6px 0 10px;">Si escribes la hora a mano, se usa esa en vez del desplegable.</p>
+          <button type="button" class="panel-btn panel-btn-primary pag-confirm-resched">Confirmar cambio</button>
+          <p class="panel-error" style="display:none;"></p>
+        </div>
+      `;
+      const dateInput = slot.querySelector('.pf-date');
+      const timeSelect = slot.querySelector('.pf-time');
+      const timeManualInput = slot.querySelector('.pf-time-manual');
+      const errorEl = slot.querySelector('.panel-error');
+
+      dateInput.addEventListener('change', async () => {
+        const items = checkedItems();
+        if (!items.length) return;
+        timeSelect.innerHTML = '<option>Cargando…</option>';
+        try {
+          const ids = items.map((x) => x.bookingId).join(',');
+          const data = await panelFetch(`/panel/reschedule-slots?bookingIds=${ids}&date=${dateInput.value}`);
+          const slots = data.slots || [];
+          timeSelect.innerHTML = slots.length ? slots.map((t) => `<option value="${t}">${t}</option>`).join('') : '<option value="">Sin huecos ese día</option>';
+        } catch (e) {
+          timeSelect.innerHTML = `<option value="">Error: ${escapeHtml(e.message)}</option>`;
+        }
+      });
+
+      slot.querySelector('.pag-confirm-resched').addEventListener('click', async (ev) => {
+        errorEl.style.display = 'none';
+        const items = checkedItems();
+        if (!items.length) { errorEl.textContent = 'Marca al menos un tratamiento.'; errorEl.style.display = 'block'; return; }
+        const manualTime = timeManualInput.value;
+        const chosenTime = manualTime || timeSelect.value;
+        if (!dateInput.value || !chosenTime) { errorEl.textContent = 'Elige fecha y hora.'; errorEl.style.display = 'block'; return; }
+        if (manualTime && !confirm(`Vas a forzar la cita a las ${manualTime}, aunque el sistema no la vea como libre. ¿Seguro?`)) return;
+        ev.target.disabled = true;
+        try {
+          const ids = items.map((x) => x.bookingId);
+          if (ids.length > 1) {
+            await panelFetch('/panel/reschedule-combined', { method: 'POST', body: JSON.stringify({ bookingIds: ids, date: dateInput.value, time: chosenTime, force: !!manualTime }) });
+          } else {
+            await panelFetch('/panel/reschedule', { method: 'POST', body: JSON.stringify({ bookingId: ids[0], date: dateInput.value, time: chosenTime, force: !!manualTime }) });
+          }
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    }));
+
+    // ── Ampliar/recortar el tiempo bloqueado de TODA la visita — siempre
+    // sobre el grupo completo (no solo los marcados), porque el hueco de
+    // calendario es de la visita entera, no de un tratamiento suelto ──
+    el.querySelector('.pag-duration-btn').addEventListener('click', () => togglePanel('duration', () => {
+      const currentTotal = group.reduce((s, x) => s + (Number(x.durationMinutes) || 0), 0);
+      slot.innerHTML = `
+        <div class="panel-new-appt">
+          <div class="panel-label">Duración total real de esta visita (ahora: ${currentTotal} min)</div>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Minutos totales</label><input type="number" min="5" step="5" class="pag-duration-input" value="${currentTotal}"></div>
+            <div class="panel-field"><button type="button" class="panel-btn panel-btn-primary pag-confirm-duration">Guardar</button></div>
+          </div>
+          <p class="panel-error" style="display:none;"></p>
+        </div>
+      `;
+      const errorEl = slot.querySelector('.panel-error');
+      slot.querySelector('.pag-confirm-duration').addEventListener('click', async (ev) => {
+        errorEl.style.display = 'none';
+        ev.target.disabled = true;
+        try {
+          const durationMinutes = slot.querySelector('.pag-duration-input').value;
+          await panelFetch('/panel/visit-duration', { method: 'POST', body: JSON.stringify({ bookingIds: group.map((x) => x.bookingId), durationMinutes }) });
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    }));
+
+    // ── Cobrar / cerrar de golpe los tratamientos marcados: se pide UN
+    // importe total y UNA forma de pago para todos, se guarda en el
+    // primero de los marcados y los demás quedan como "cobrado" (importe 0,
+    // incluido en el total del primero) — igual que ya se hace hoy con las
+    // visitas combinadas creadas desde "Añadir reserva manual". ──
+    el.querySelector('.pag-close-btn').addEventListener('click', () => togglePanel('close', () => {
+      const items = checkedItems();
+      const suggestedTotal = items.reduce((s, x) => s + (Number(x.price) || 0), 0);
+      const alreadyPaidOnline = items.reduce((s, x) => s + (Number(x.amountPaid) || 0), 0);
+      slot.innerHTML = `
+        <div class="panel-new-appt">
+          <div class="panel-label">Cobrar / cerrar los tratamientos marcados (${items.length})</div>
+          <p class="panel-status" style="margin:-6px 0 10px;">Ya pagado online entre los marcados: <b>${alreadyPaidOnline.toFixed(2)} €</b></p>
+          <div class="panel-field-row">
+            <div class="panel-field"><label>Importe total real (€)</label><input type="number" step="0.01" class="pag-close-total" value="${suggestedTotal || ''}"></div>
+            <div class="panel-field"><label>Resto cobrado con…</label>
+              <select class="pag-close-paidhow">
+                <option value="efectivo">Efectivo</option>
+                <option value="tarjeta">Tarjeta</option>
+                <option value="bizum">Bizum</option>
+              </select>
+            </div>
+          </div>
+          <button type="button" class="panel-btn panel-btn-primary pag-confirm-close">Cerrar y cobrar</button>
+          <p class="panel-error" style="display:none;"></p>
+        </div>
+      `;
+      const errorEl = slot.querySelector('.panel-error');
+      slot.querySelector('.pag-confirm-close').addEventListener('click', async (ev) => {
+        errorEl.style.display = 'none';
+        const freshItems = checkedItems();
+        if (!freshItems.length) { errorEl.textContent = 'Marca al menos un tratamiento.'; errorEl.style.display = 'block'; return; }
+        const totalInput = slot.querySelector('.pag-close-total');
+        if (!confirm(`¿Confirmas el cierre de ${freshItems.length} tratamiento(s) con un total de ${(Number(totalInput.value) || 0).toFixed(2)} €?`)) return;
+        ev.target.disabled = true;
+        try {
+          const paidHow = slot.querySelector('.pag-close-paidhow').value;
+          const [primary, ...rest] = freshItems;
+          await panelFetch('/panel/close', { method: 'POST', body: JSON.stringify({ bookingId: primary.bookingId, finalAmount: totalInput.value, paidHow }) });
+          for (const x of rest) {
+            await panelFetch('/panel/close', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId, finalAmount: 0, paidHow }) });
+          }
+          doSearch();
+        } catch (e) {
+          errorEl.textContent = e.message;
+          errorEl.style.display = 'block';
+          ev.target.disabled = false;
+        }
+      });
+    }));
+
+    // ── Marcar como no-show: siempre afecta a TODA la visita (el backend ya
+    // agrupa por el mismo evento de calendario), un solo clic, sin importar
+    // qué haya marcado con los ticks ──
+    el.querySelector('.pag-noshow-btn').addEventListener('click', async () => {
+      if (!confirm(`¿Marcar como no-show la visita completa (${group.length} tratamientos) del ${first.date}?`)) return;
+      try {
+        const data = await panelFetch('/panel/no-show', { method: 'POST', body: JSON.stringify({ bookingId: first.bookingId }) });
+        alert(data.isFirstTime
+          ? 'Marcada. Primera falta: se ha perdonado y se ha avisado por email.'
+          : 'Marcada. Ya tenía una falta anterior: se ha descontado y avisado por email.');
+        doSearch();
+      } catch (e) {
+        alert(e.message);
+      }
+    });
+
+    // ── Eliminar / devolver sesión, solo de los tratamientos marcados —
+    // los que se dejen sin marcar no se tocan ──
+    el.querySelector('.pag-delete-btn').addEventListener('click', async (ev) => {
+      const items = checkedItems();
+      if (!items.length) { alert('Marca al menos un tratamiento para eliminar.'); return; }
+      const names = items.map((x) => x.serviceName).join(', ');
+      if (!confirm(`¿Eliminar de esta visita: ${names}? Libera su hueco de calendario y deja de contar como facturación. No borra ningún cobro ya hecho en Stripe.`)) return;
+      ev.target.disabled = true;
+      try {
+        for (const x of items) {
+          await panelFetch('/panel/delete-booking', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId }) });
+        }
+        doSearch();
+      } catch (e) {
+        alert(e.message);
+        ev.target.disabled = false;
+      }
+    });
+
+    return el;
   }
 
   function renderAppt(b, client, wrap) {

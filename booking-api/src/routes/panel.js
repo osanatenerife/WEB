@@ -1062,13 +1062,22 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
 
 // ── Huecos libres para reprogramar una cita concreta ──
 router.get('/panel/reschedule-slots', async (req, res) => {
-  const { bookingId, date } = req.query;
-  if (!bookingId || !date) return res.status(400).json({ error: 'Faltan datos para consultar huecos.' });
+  const { bookingId, bookingIds, date } = req.query;
+  if ((!bookingId && !bookingIds) || !date) return res.status(400).json({ error: 'Faltan datos para consultar huecos.' });
   try {
-    const booking = await findBookingById(bookingId);
-    if (!booking) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
-    const duration = Number(booking.durationMinutes) || 60;
-    const slots = await getAvailableSlots(date, booking.calendarId, duration, weeklyScheduleFor(booking.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
+    // bookingIds (varios, separados por coma) es para cuando se van a mover
+    // VARIOS tratamientos de la misma visita a la vez — busca la duración
+    // conjunta real, no la de un tratamiento suelto (ver /panel/reschedule-combined).
+    const ids = bookingIds ? String(bookingIds).split(',').map((s) => s.trim()).filter(Boolean) : [bookingId];
+    const bookings = [];
+    for (const id of ids) {
+      const b = await findBookingById(id);
+      if (!b) return res.status(404).json({ error: 'No se ha encontrado esa cita.' });
+      bookings.push(b);
+    }
+    const first = bookings[0];
+    const duration = bookings.reduce((sum, b) => sum + (Number(b.durationMinutes) || 0), 0) || 60;
+    const slots = await getAvailableSlots(date, first.calendarId, duration, weeklyScheduleFor(first.employeeId), { skipGapHeuristic: true, ignoreClosingTime: true });
     res.json({ slots });
   } catch (err) {
     console.error(err);
@@ -1277,6 +1286,94 @@ router.post('/panel/extend-time', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo ampliar el tiempo de la cita.' });
+  }
+});
+
+// ── Ajustar de una vez la duración TOTAL de una visita combinada (varios
+// tratamientos que comparten el mismo hueco de calendario) — antes, editar
+// la duración de un solo tratamiento de una cita combinada (ver
+// /panel/edit-booking) se guardaba en la Sheet pero NO llegaba a tocar el
+// calendario real, porque esa ruta se niega a parchear un evento que
+// comparte con otros tratamientos activos sin contabilizar (para no
+// descuadrar el hueco de los demás sin querer). Aquí se pasa el grupo
+// COMPLETO de la visita, así que si toca alargar o acortar el hueco de
+// verdad, se puede hacer con seguridad.
+router.post('/panel/visit-duration', async (req, res) => {
+  const { bookingIds, durationMinutes } = req.body || {};
+  if (!Array.isArray(bookingIds) || !bookingIds.length || !durationMinutes) {
+    return res.status(400).json({ error: 'Indica los tratamientos y la nueva duración total.' });
+  }
+  const newTotal = Math.round(Number(durationMinutes));
+  if (!Number.isFinite(newTotal) || newTotal < 5) {
+    return res.status(400).json({ error: 'La duración no es un número de minutos válido.' });
+  }
+  const uniqueIds = [...new Set(bookingIds)];
+  try {
+    return await withLocks(uniqueIds.slice().sort().map((id) => `booking:${id}`), async () => {
+    const bookings = [];
+    for (const id of uniqueIds) {
+      const booking = await findBookingById(id);
+      if (!booking) return res.status(404).json({ error: 'Una de las citas ya no existe.' });
+      if (booking.status !== 'confirmed') return res.status(409).json({ error: `"${booking.serviceName}" ya no está activa.` });
+      bookings.push(booking);
+    }
+    const first = bookings[0];
+    if (!bookings.every((b) => b.calendarId === first.calendarId && b.eventId === first.eventId)) {
+      return res.status(400).json({ error: 'Los tratamientos elegidos no son de la misma visita.' });
+    }
+    // Tienen que venir TODOS los tratamientos activos que comparten ese
+    // evento — si faltara alguno, no sabríamos cuánto de la duración total
+    // real es suyo, y el hueco del calendario se descuadraría para él.
+    const allBookingsForCheck = await getAllBookings();
+    const allSiblings = allBookingsForCheck.filter((b) => b.status === 'confirmed' && b.calendarId === first.calendarId && b.eventId === first.eventId);
+    if (allSiblings.length !== bookings.length) {
+      return res.status(400).json({ error: 'Faltan tratamientos de esta visita por incluir — recarga la página e inténtalo de nuevo.' });
+    }
+
+    const currentTotal = bookings.reduce((sum, b) => sum + (Number(b.durationMinutes) || 0), 0);
+    const delta = newTotal - currentTotal;
+    if (delta === 0) return res.json({ ok: true, durationMinutes: newTotal });
+
+    const time = first.time.length === 5 ? first.time : `${first.time}:00`;
+    const startISO = localToISO(first.date, time, hours.timezone);
+    const currentEndISO = addMinutes(startISO, currentTotal);
+    const newEndISO = addMinutes(startISO, newTotal);
+
+    // Si se alarga, comprobamos que el tiempo extra está libre justo
+    // después — igual que "Ampliar tiempo". Si se acorta, no hace falta
+    // comprobar nada (libera hueco, nunca lo invade).
+    if (delta > 0) {
+      const free = await isRangeFree(first.date, first.calendarId, currentEndISO, newEndISO, weeklyScheduleFor(first.employeeId), { ignoreClosingTime: true });
+      if (!free) {
+        return res.status(409).json({ error: 'No hay hueco libre justo después de esta visita para alargarla tanto tiempo.' });
+      }
+    }
+
+    if (await isEventUsable(first.calendarId, first.eventId)) {
+      await updateEvent(first.calendarId, first.eventId, { end: { dateTime: newEndISO } });
+    } else {
+      const event = await createBookingEvent(first.calendarId, {
+        summary: bookings.map((b) => b.serviceName).join(' + '),
+        description: `Cliente: ${first.name || ''} · ${first.phone || ''}`,
+        startISO, endISO: newEndISO,
+      });
+      for (const b of bookings) {
+        await updateBookingRow(b._sheetRow, b, { eventId: event.id });
+      }
+    }
+
+    // El ajuste (positivo o negativo) se guarda sumado a la duración de la
+    // PRIMERA línea — igual que el criterio de "un total para toda la
+    // visita" en Cerrar cita — así, si más adelante se reprograma el
+    // conjunto, la suma de las líneas sigue reflejando la duración real.
+    const newFirstDuration = Math.max(1, (Number(first.durationMinutes) || 0) + delta);
+    await updateBookingRow(first._sheetRow, first, { durationMinutes: newFirstDuration });
+
+    res.json({ ok: true, durationMinutes: newTotal });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo ajustar la duración de la visita.' });
   }
 });
 

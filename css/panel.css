@@ -21,7 +21,7 @@ body {
 .panel-login-error { color: var(--rose); font-size: 12.5px; margin-top: 12px; }
 
 /* ── App shell ── */
-.panel-app { max-width: 880px; margin: 0 auto; padding: 34px 22px 90px; }
+.panel-app { max-width: 1180px; margin: 0 auto; padding: 34px 22px 90px; }
 .panel-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
 .panel-brand { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; color: var(--clay); text-transform: uppercase; }
 .panel-lock { font-size: 11px; font-weight: 600; color: var(--ink-faint); text-transform: none; letter-spacing: 0; border: 1px solid var(--line); padding: 3px 9px; border-radius: 20px; }
@@ -181,7 +181,24 @@ body {
 .cobro-total-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-top: 1px solid var(--line); margin-top: 6px; font-size: 13.5px; }
 .cobro-total-row b { font-size: 17px; }
 
+/* ── Visita combinada: varios tratamientos de la misma cita en UNA tarjeta,
+   más ancha, con un checklist y acciones compartidas para toda la visita ── */
+.panel-appt-group { padding: 16px 20px 18px; }
+.panel-appt-group-list { margin: 14px 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.panel-appt-group-line { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.panel-appt-group-line:last-child { border-bottom: none; }
+.pag-check-label { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.pag-check { width: 16px; height: 16px; accent-color: var(--clay); cursor: pointer; flex: none; }
+.pag-line-name { flex: 1; font-size: 13.5px; font-weight: 600; }
+.pag-line-price { font-size: 12px; color: var(--ink-soft); white-space: nowrap; }
+.pag-line-actions { display: flex; gap: 14px; margin: 6px 0 0 26px; }
+.pag-line-actions .panel-link-btn { font-size: 11px; }
+.panel-appt-group-summary { font-size: 13px; font-weight: 600; color: var(--clay); background: var(--panel-2); border-radius: 6px; padding: 9px 14px; margin-bottom: 12px; }
+.panel-appt-group-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.panel-appt-group-actions .panel-btn { width: 100%; }
+
 @media (max-width: 560px) {
   .panel-field-row { grid-template-columns: 1fr; }
   .panel-appt-top { grid-template-columns: 1fr; }
+  .panel-appt-group-actions { grid-template-columns: 1fr 1fr; }
 }
