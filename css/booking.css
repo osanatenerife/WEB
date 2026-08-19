@@ -397,3 +397,39 @@ body.reserva-page .page-offset { padding-top: 92px; }
 /* ── Desglose de importe en la tarjeta de reserva ── */
 .mybooking-breakdown { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--txt-mid); margin: 8px 0 2px; }
 .mybooking-points-note { font-size: 11.5px; color: var(--txt-soft); margin-bottom: 4px; }
+
+/* ── Varios tratamientos de una misma visita agrupados en una tarjeta ── */
+.mybooking-card-group { gap: 14px; }
+.mybooking-group-title { font-family: 'Raleway', sans-serif; font-weight: 600; font-size: 15px; color: var(--txt); }
+.mybooking-group-line { padding: 12px 0; border-top: 1px solid var(--line); }
+.mybooking-group-line:first-of-type { border-top: none; padding-top: 0; }
+.mybooking-group-line-top { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.mybooking-group-line-name { font-size: 14px; color: var(--txt); }
+.mybooking-group-line-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.mybooking-group-line-actions button {
+  font-family: 'Raleway', sans-serif; font-size: 9.5px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 9px 16px; border: 1.5px solid var(--brown); background: var(--cream);
+  color: var(--brown); cursor: pointer; border-radius: 2px; transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
+}
+.mybooking-group-line-actions button:hover { background: var(--brown); color: #fff; }
+.mybooking-group-line-actions button.mybooking-cancel-btn { border-color: #a33322; color: #a33322; background: transparent; }
+.mybooking-group-line-actions button.mybooking-cancel-btn:hover { background: #a33322; color: #fff; }
+.mybooking-group-reschedule-panel { margin-top: 4px; padding-top: 18px; border-top: 1px solid var(--line); display: none; }
+.mybooking-group-reschedule-panel.open { display: block; }
+.mybooking-group-reschedule-panel input[type="date"] {
+  font-family: 'Raleway', sans-serif; font-size: 14px; padding: 12px 14px;
+  border: 1px solid var(--line); background: var(--cream); width: 100%; max-width: 220px; margin-bottom: 14px;
+}
+.mb-group-checklist { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.mb-group-check-item {
+  display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--txt);
+  padding: 10px 14px; border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: border-color 0.2s ease;
+}
+.mb-group-check-item:hover { border-color: var(--brown); }
+.mb-group-check-item:has(.mb-group-check:checked) { border-color: var(--gold); background: var(--cream2); }
+.mb-group-check { width: 16px; height: 16px; accent-color: var(--brown); cursor: pointer; }
+
+/* ── Checklist de sesiones de bono pendientes (reservar varias juntas) ── */
+.mb-pendingbono-info { display: flex; flex-direction: column; gap: 2px; }
+.mb-pendingbono-name { font-size: 14px; color: var(--txt); font-weight: 500; }
+.mb-pendingbono-meta { font-size: 11px; color: var(--txt-soft); }

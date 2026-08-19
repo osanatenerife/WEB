@@ -37,8 +37,9 @@
     connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…' },
     addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
     noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
-    noShowForgivenNote: { es: 'No pudiste venir a esta cita — no te la cobramos ni cuenta como falta. Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make this appointment — no charge and it doesn't count against you. Pick a new day and time whenever you like." },
+    noShowForgivenNote: { es: 'No pudiste venir a esta cita — esta primera vez no se te cobra ni se descuenta nada. A partir de ahora, faltar sin avisar o cambiar tu cita con menos de 48h de antelación descontará la sesión de tu bono (o el importe de la reserva, si no tienes bono). Elige un nuevo día y hora cuando quieras.', en: "You weren't able to make this appointment — this first time, nothing was charged or deducted. From now on, a no-show or a change made less than 48h before your appointment will deduct the session from your package (or the booking fee, if you don't have a package). Pick a new day and time whenever you like." },
     pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book' },
+    pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.' },
     pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}` },
     pendingBonoSessionsLeft: { es: (n) => `Ya pagada — te queda${n === 1 ? '' : 'n'} ${n} ${n === 1 ? 'sesión' : 'sesiones'} en el bono`, en: (n) => `Already paid — ${n} session${n === 1 ? '' : 's'} left on your package` },
     bookThisSession: { es: 'Reservar esta sesión', en: 'Book this session' },
@@ -54,6 +55,12 @@
     confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
     lateStrikeFirstTime: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — esta vez no pasa nada, pero la próxima vez avisa con más tiempo si puedes.', en: "✓ Appointment changed. It was less than 48h in advance — this time it's fine, but please give us more notice next time if you can." },
     lateStrikeRepeat: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — al ser un aviso tardío, queda registrado.', en: '✓ Appointment changed. It was less than 48h in advance — as a late notice, this has been recorded.' },
+    groupVisitTitle: {
+      es: (date, time, employeeName) => `Tu sesión del ${date} a las ${time} · Con ${employeeName}`,
+      en: (date, time, employeeName) => `Your session on ${date} at ${time} · With ${employeeName}`,
+    },
+    groupRescheduleNote: { es: 'Elige qué tratamientos de esta sesión quieres mover a la nueva fecha. El tiempo que busquemos será la suma de los que marques.', en: "Choose which treatments from this session you want to move to the new date. We'll search for a slot long enough for everything you select." },
+    chooseAtLeastOne: { es: 'Elige al menos un tratamiento.', en: 'Choose at least one treatment.' },
     with: { es: 'Con', en: 'With' },
     free: { es: 'Gratis', en: 'Free' },
     totalLabel: { es: 'Total', en: 'Total' },
@@ -197,13 +204,28 @@
     }
   }
 
+  // Varios tratamientos de la MISMA visita (p.ej. íntimo + axilas + piernas
+  // reservados juntos) llegan como reservas independientes, una por
+  // tratamiento — se agrupan aquí por fecha+hora+profesional para que la
+  // clienta las vea y las reprograme como una sola sesión, no una por una.
+  function groupBookings(bookings) {
+    const byKey = new Map();
+    bookings.forEach((b) => {
+      const key = `${b.date}|${b.time}|${b.employeeId}`;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(b);
+    });
+    return Array.from(byKey.values());
+  }
+
   function renderBookings(bookings) {
     if (!bookings.length) {
       resultsEl.innerHTML = `<p class="mybooking-empty">${t('noBookings')}</p>`;
       return;
     }
-    resultsEl.innerHTML = `<div class="mybooking-list">${bookings.map(cardHtml).join('')}</div>`;
-    bookings.forEach((b) => wireCard(b));
+    const groups = groupBookings(bookings);
+    resultsEl.innerHTML = `<div class="mybooking-list">${groups.map((g) => (g.length > 1 ? groupCardHtml(g) : cardHtml(g[0]))).join('')}</div>`;
+    groups.forEach((g) => (g.length > 1 ? wireGroupCard(g) : wireCard(g[0])));
   }
 
   function wireCard(b) {
@@ -233,6 +255,72 @@
         }
       });
     }
+  }
+
+  // ── Varios tratamientos de la misma visita agrupados en una sola tarjeta:
+  // cada línea conserva su propio Cancelar/Añadir tratamiento, pero
+  // "Cambiar fecha/hora" es una acción conjunta para toda la sesión ──
+  function groupCardHtml(group) {
+    const first = group[0];
+    const linesHtml = group.map((b) => `
+      <div class="mybooking-group-line" data-booking-id="${b.bookingId}">
+        <div class="mybooking-group-line-top">
+          <span class="mybooking-group-line-name">${b.serviceName}</span>
+          <span class="mybooking-price">${b.bonoId || (b.price > 0 && b.amountPaid >= b.price)
+            ? `<span class="mybooking-price-paid">✓ ${t('paidBadge')}</span>`
+            : (b.amountPaid > 0 ? b.amountPaid.toFixed(0) + ' €' : (b.price > 0 ? `<span class="mybooking-price-pending">${t('pendingPaymentBadge')}</span>` : t('free')))}</span>
+        </div>
+        <div class="mybooking-group-line-actions">
+          <button type="button" class="mybooking-cancel-btn">${t('cancel')}</button>
+          <button type="button" class="mybooking-addtreatment-btn">${t('addTreatment')}</button>
+        </div>
+        <div class="mybooking-addtreatment-panel"></div>
+      </div>
+    `).join('');
+    return `
+      <div class="mybooking-card mybooking-card-group" data-group-key="${first.date}|${first.time}|${first.employeeId}">
+        <div class="mybooking-group-title">${t('groupVisitTitle')(first.date, first.time, first.employeeName)}</div>
+        ${linesHtml}
+        <div class="mybooking-actions">
+          <button type="button" class="mybooking-group-reschedule-btn">${t('reschedule')}</button>
+        </div>
+        <div class="mybooking-group-reschedule-panel"></div>
+      </div>
+    `;
+  }
+
+  function wireGroupCard(group) {
+    const groupKey = `${group[0].date}|${group[0].time}|${group[0].employeeId}`;
+    const card = resultsEl.querySelector(`[data-group-key="${CSS.escape(groupKey)}"]`);
+    if (!card) return;
+    group.forEach((b) => {
+      const line = card.querySelector(`[data-booking-id="${b.bookingId}"]`);
+      if (!line) return;
+      const cancelBtn = line.querySelector('.mybooking-cancel-btn');
+      if (cancelBtn) cancelBtn.addEventListener('click', () => handleCancel(b, line));
+      const addBtn = line.querySelector('.mybooking-addtreatment-btn');
+      const addPanel = line.querySelector('.mybooking-addtreatment-panel');
+      if (addBtn && addPanel) {
+        addBtn.addEventListener('click', () => {
+          const willOpen = !addPanel.classList.contains('open');
+          addPanel.classList.toggle('open', willOpen);
+          if (willOpen && !addPanel.dataset.wired) {
+            wireAddTreatmentPanel(b, addPanel);
+            addPanel.dataset.wired = '1';
+          }
+        });
+      }
+    });
+    const rescheduleBtn = card.querySelector('.mybooking-group-reschedule-btn');
+    const panel = card.querySelector('.mybooking-group-reschedule-panel');
+    rescheduleBtn.addEventListener('click', () => {
+      const willOpen = !panel.classList.contains('open');
+      panel.classList.toggle('open', willOpen);
+      if (willOpen && !panel.dataset.wired) {
+        wireGroupReschedulePanel(group, panel);
+        panel.dataset.wired = '1';
+      }
+    });
   }
 
   // ── Añadir un tratamiento a una cita ya confirmada ──
@@ -454,25 +542,128 @@
     }
   }
 
-  // ── Sesiones de bono todavía sin cita puesta: la clienta puede reservarse
-  // ella misma la siguiente sesión (ya pagada, sin coste extra) ──
-  function pendingBonoCardHtml(bo) {
-    return `
-      <div class="mybooking-card mybooking-card-bono" data-bono-id="${bo.bonoId}">
-        <span class="mybooking-bono-badge">🎁 ${t('bonoBadge')}</span>
-        <div class="mybooking-top">
-          <div>
-            <div class="mybooking-service">${escapeHtml(bo.serviceName)}</div>
-            <div class="mybooking-meta">${t('pendingBonoSessionOf')(bo.sessionsUsed, bo.totalSessions)}</div>
-          </div>
-          <div class="mybooking-price mybooking-price-paid">✓ ${t('free')}</div>
-        </div>
-        <div class="mybooking-points-note">${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</div>
-        <div class="mybooking-actions">
-          <button type="button" class="mybooking-book-bono-btn">${t('bookThisSession')}</button>
-        </div>
-        <div class="mybooking-reschedule-panel"></div>
+  // ── Reprogramar VARIOS tratamientos de la misma visita a la vez —
+  // selecciona cuáles quiere mover (por defecto, todos) y busca el hueco
+  // según la duración conjunta real, no la de un tratamiento suelto. ──
+  async function wireGroupReschedulePanel(group, panel) {
+    panel.innerHTML = `<p class="booking-slot-message">${t('loading')}</p>`;
+    const serviceIds = group.map((b) => b.serviceId).filter(Boolean);
+    let employeeOptionsHtml = '';
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceIds.join(','))}`);
+      const data = await res.json();
+      const emps = data.employees || [];
+      if (emps.length > 1) {
+        employeeOptionsHtml = emps.map((e) => `<option value="${e.id}"${e.id === group[0].employeeId ? ' selected' : ''}>${escapeHtml(e.name)}</option>`).join('');
+      }
+    } catch (e) {
+      // si falla, no se ofrece cambiar de profesional — se sigue pudiendo reprogramar con la misma
+    }
+    const checklistHtml = group.map((b) => `
+      <label class="mb-group-check-item">
+        <input type="checkbox" class="mb-group-check" value="${b.bookingId}" checked>
+        <span>${b.serviceName}</span>
+      </label>
+    `).join('');
+    panel.innerHTML = `
+      <p class="mybooking-addtreatment-note">${t('groupRescheduleNote')}</p>
+      <div class="mb-group-checklist">${checklistHtml}</div>
+      ${employeeOptionsHtml ? `
+      <div class="booking-field">
+        <label>${t('chooseTherapist')}</label>
+        <select class="mb-employee-input">${employeeOptionsHtml}</select>
+      </div>` : ''}
+      <div class="booking-field">
+        <label>${t('chooseNewDate')}</label>
+        <input type="date" class="mb-date-input" min="${minDateStr()}">
       </div>
+      <div class="booking-slot-grid mb-slots"></div>
+    `;
+    const checkboxes = Array.from(panel.querySelectorAll('.mb-group-check'));
+    const employeeInput = panel.querySelector('.mb-employee-input');
+    const dateInput = panel.querySelector('.mb-date-input');
+    const slotsEl = panel.querySelector('.mb-slots');
+    function selectedBookings() {
+      const ids = checkboxes.filter((c) => c.checked).map((c) => c.value);
+      return group.filter((b) => ids.includes(b.bookingId));
+    }
+    async function searchSlots() {
+      const selected = selectedBookings();
+      if (!dateInput.value || !selected.length) {
+        slotsEl.innerHTML = selected.length ? '' : `<p class="booking-slot-message">${t('chooseAtLeastOne')}</p>`;
+        return;
+      }
+      slotsEl.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
+      try {
+        const params = new URLSearchParams({
+          bookingIds: selected.map((b) => b.bookingId).join(','),
+          phone: currentPhone, email: currentEmail, date: dateInput.value,
+        });
+        if (employeeInput && employeeInput.value) params.set('employeeId', employeeInput.value);
+        const res = await fetch(`${BOOKING_API_BASE}/my-bookings/group-slots?${params}`);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || t('genericError'));
+        slotsEl.innerHTML = '';
+        if (!data.slots || !data.slots.length) {
+          slotsEl.innerHTML = `<p class="booking-slot-message">${t('noSlots')}</p>`;
+          return;
+        }
+        data.slots.forEach((time) => {
+          const slot = document.createElement('div');
+          slot.className = 'booking-slot';
+          slot.textContent = time;
+          slot.addEventListener('click', () => confirmGroupReschedule(selectedBookings(), dateInput.value, time, employeeInput ? employeeInput.value : ''));
+          slotsEl.appendChild(slot);
+        });
+      } catch (e) {
+        slotsEl.innerHTML = '';
+        alert(e.message);
+      }
+    }
+    checkboxes.forEach((c) => c.addEventListener('change', searchSlots));
+    dateInput.addEventListener('change', searchSlots);
+    if (employeeInput) employeeInput.addEventListener('change', searchSlots);
+  }
+
+  async function confirmGroupReschedule(selected, date, time, newEmployeeId) {
+    if (!selected.length) return;
+    const msg = t('confirmReschedule').replace('{date}', date).replace('{time}', time);
+    if (!confirm(msg)) return;
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/reschedule-group`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingIds: selected.map((b) => b.bookingId), phone: currentPhone, email: currentEmail, newDate: date, newTime: time,
+          ...(newEmployeeId ? { newEmployeeId } : {}),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t('genericError'));
+      if (data.lateStrike) {
+        alert(data.lateStrike.isFirstTime ? t('lateStrikeFirstTime') : t('lateStrikeRepeat'));
+      }
+      await loadBookings();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  // ── Sesiones de bono todavía sin cita puesta: la clienta puede reservarse
+  // ella misma la siguiente sesión (ya pagada, sin coste extra). Si tiene
+  // varias sesiones pendientes que siempre hace juntas en la misma visita
+  // (p.ej. íntimo + axilas + piernas), las marca todas y se reservan como
+  // UNA sola cita con la duración conjunta — no una por una. ──
+  function pendingBonoItemHtml(bo) {
+    return `
+      <label class="mb-group-check-item">
+        <input type="checkbox" class="mb-pendingbono-check" value="${bo.bonoId}" checked>
+        <span class="mb-pendingbono-info">
+          <span class="mb-pendingbono-name">${escapeHtml(bo.serviceName)}</span>
+          <span class="mb-pendingbono-meta">${t('pendingBonoSessionOf')(bo.sessionsUsed, bo.totalSessions)} · ${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</span>
+        </span>
+        <span class="mybooking-price-paid" style="margin-left:auto;">✓ ${t('paidBadge')}</span>
+      </label>
     `;
   }
 
@@ -481,36 +672,50 @@
     if (!list || !list.length) { pendingBonosEl.style.display = 'none'; pendingBonosEl.innerHTML = ''; return; }
     pendingBonosEl.innerHTML = `
       <h2 class="booking-step-title" style="margin-bottom:16px;">${t('pendingBonoTitle')}</h2>
-      <div class="mybooking-list">${list.map(pendingBonoCardHtml).join('')}</div>
+      <div class="mybooking-card mybooking-card-bono">
+        <span class="mybooking-bono-badge">🎁 ${t('bonoBadge')}</span>
+        <p class="mybooking-addtreatment-note" style="margin-top:26px;">${t('pendingBonoGroupNote')}</p>
+        <div class="mb-group-checklist">${list.map(pendingBonoItemHtml).join('')}</div>
+        <div class="mybooking-actions">
+          <button type="button" class="mybooking-book-bono-btn">${t('bookThisSession')}</button>
+        </div>
+        <div class="mybooking-reschedule-panel mb-pendingbono-panel"></div>
+      </div>
     `;
     pendingBonosEl.style.display = 'block';
-    list.forEach((bo) => {
-      const card = pendingBonosEl.querySelector(`[data-bono-id="${bo.bonoId}"]`);
-      if (!card) return;
-      const btn = card.querySelector('.mybooking-book-bono-btn');
-      const panel = card.querySelector('.mybooking-reschedule-panel');
-      btn.addEventListener('click', () => {
-        const willOpen = !panel.classList.contains('open');
-        panel.classList.toggle('open', willOpen);
-        if (willOpen && !panel.dataset.wired) {
-          wireBonoBookingPanel(bo, panel);
-          panel.dataset.wired = '1';
-        }
-      });
+    const checkboxes = Array.from(pendingBonosEl.querySelectorAll('.mb-pendingbono-check'));
+    const btn = pendingBonosEl.querySelector('.mybooking-book-bono-btn');
+    const panel = pendingBonosEl.querySelector('.mb-pendingbono-panel');
+    function selected() {
+      const ids = checkboxes.filter((c) => c.checked).map((c) => c.value);
+      return list.filter((bo) => ids.includes(bo.bonoId));
+    }
+    // Si cambia la selección con el panel abierto, se cierra — la
+    // profesional y los huecos dependían de qué estaba marcado antes.
+    checkboxes.forEach((c) => c.addEventListener('change', () => {
+      panel.classList.remove('open');
+      panel.innerHTML = '';
+    }));
+    btn.addEventListener('click', () => {
+      const sel = selected();
+      if (!sel.length) { alert(t('chooseAtLeastOne')); return; }
+      const willOpen = !panel.classList.contains('open');
+      panel.classList.toggle('open', willOpen);
+      if (willOpen) wirePendingBonoPanel(sel, panel);
     });
   }
 
-  async function wireBonoBookingPanel(bo, panel) {
+  async function wirePendingBonoPanel(list, panel) {
     panel.innerHTML = `<p class="booking-slot-message">${t('loading')}</p>`;
+    const serviceIds = list.map((bo) => bo.serviceId);
     let employeeOptionsHtml = '';
     try {
-      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(bo.serviceId)}`);
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(serviceIds.join(','))}`);
       const data = await res.json();
       const emps = data.employees || [];
-      employeeOptionsHtml = emps.map((e) => `<option value="${e.id}"${e.id === bo.employeeId ? ' selected' : ''}>${escapeHtml(e.name)}</option>`).join('');
+      employeeOptionsHtml = emps.map((e) => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('');
     } catch (e) {
-      panel.innerHTML = `<p class="mybooking-status-note">${t('genericError')}</p>`;
-      return;
+      // sigue abajo con employeeOptionsHtml vacío → se muestra el error genérico
     }
     if (!employeeOptionsHtml) {
       panel.innerHTML = `<p class="mybooking-status-note">${t('genericError')}</p>`;
@@ -535,10 +740,10 @@
       slotsEl.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
       try {
         const params = new URLSearchParams({
-          bonoId: bo.bonoId, phone: currentPhone, email: currentEmail,
+          bonoIds: list.map((bo) => bo.bonoId).join(','), phone: currentPhone, email: currentEmail,
           date: dateInput.value, employeeId: employeeInput.value,
         });
-        const res = await fetch(`${BOOKING_API_BASE}/my-bookings/bono-slots?${params}`);
+        const res = await fetch(`${BOOKING_API_BASE}/my-bookings/bono-group-slots?${params}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || t('genericError'));
         slotsEl.innerHTML = '';
@@ -550,7 +755,7 @@
           const slot = document.createElement('div');
           slot.className = 'booking-slot';
           slot.textContent = time;
-          slot.addEventListener('click', () => confirmBonoBooking(bo, dateInput.value, time, employeeInput.value));
+          slot.addEventListener('click', () => confirmBonoBooking(list, dateInput.value, time, employeeInput.value));
           slotsEl.appendChild(slot);
         });
       } catch (e) {
@@ -562,14 +767,14 @@
     employeeInput.addEventListener('change', searchSlots);
   }
 
-  async function confirmBonoBooking(bo, date, time, employeeId) {
+  async function confirmBonoBooking(list, date, time, employeeId) {
     const msg = t('confirmBonoBooking').replace('{date}', date).replace('{time}', time);
     if (!confirm(msg)) return;
     try {
-      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/book-bono-session`, {
+      const res = await fetch(`${BOOKING_API_BASE}/my-bookings/book-bono-session-group`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bonoId: bo.bonoId, phone: currentPhone, email: currentEmail, employeeId, date, time }),
+        body: JSON.stringify({ bonoIds: list.map((bo) => bo.bonoId), phone: currentPhone, email: currentEmail, employeeId, date, time }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('genericError'));

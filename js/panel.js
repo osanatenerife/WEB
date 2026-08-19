@@ -515,6 +515,11 @@
     const p = fmtDateParts(dateStr);
     return `${p.day} ${p.month}`;
   }
+  function fmtDateDMY(dateStr) {
+    const d = new Date(`${dateStr}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+  }
 
   function jumpToClient(phone) {
     els.agendaSlot.innerHTML = '';
@@ -1072,6 +1077,15 @@
     const strikeBadge = client.strikeCount > 0
       ? `<span class="panel-pill panel-pill-warn"><span class="dot"></span>${client.strikeCount} falta${client.strikeCount > 1 ? 's' : ''} registrada${client.strikeCount > 1 ? 's' : ''}</span>`
       : `<span class="panel-pill panel-pill-ok"><span class="dot"></span>Sin faltas</span>`;
+    // Detalle de la falta — para que el equipo vea de un vistazo si ya
+    // está avisada de la política (misma nota que recibe por email y ve en
+    // "Mis reservas", así nadie puede decir después que no lo sabía).
+    const strikeDetailHtml = client.strikeCount > 0 ? `
+      <div class="panel-strike-note">
+        <strong>${client.strikeCount === 1 ? 'Falta sin penalización (1)' : `${client.strikeCount} faltas registradas (penalizadas desde la 2ª)`}</strong>${client.lastStrikeDate ? ` · Fecha: ${fmtDateDMY(client.lastStrikeDate)}` : ''}
+        <div>Próxima falta sin avisar o cambio con menos de 48h: se descuenta la sesión del bono, o el importe de la reserva si no tiene bono.</div>
+      </div>
+    ` : '';
     const balance = Number(client.loyaltyBalance) || 0;
 
     // Citas de esta clienta ya pasadas (o de hoy) que todavía no se han
@@ -1104,6 +1118,7 @@
           </div>
           ${strikeBadge}
         </div>
+        ${strikeDetailHtml}
         <div class="panel-client-loyalty">
           <span class="panel-pill">💶 Saldo: ${balance.toFixed(2)} €</span>
           <button type="button" class="panel-btn panel-btn-accent panel-btn-sm panel-visitbuilder-toggle">+ Nueva visita</button>

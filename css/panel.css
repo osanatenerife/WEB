@@ -70,6 +70,11 @@ body {
 .panel-pill-warn { background: var(--amber-bg); color: var(--amber); }
 .panel-pill-crit { background: var(--rose-bg); color: var(--rose); }
 .panel-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.panel-strike-note {
+  margin-top: 10px; padding: 10px 14px; background: var(--amber-bg); color: var(--amber);
+  border-radius: 6px; font-size: 12px; line-height: 1.6;
+}
+.panel-strike-note strong { display: block; margin-bottom: 2px; }
 .panel-client-loyalty { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 .panel-client-loyalty .panel-pill { background: var(--panel-2); color: var(--clay); }
 

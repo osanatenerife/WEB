@@ -12,8 +12,9 @@ const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance } = require('../config/loyalty');
 const { sendEmail } = require('../lib/email');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
-const { withLock } = require('../lib/asyncLock');
+const { withLock, withLocks } = require('../lib/asyncLock');
 const { canDo } = require('./services');
+const { effectiveStrikeCount } = require('../lib/strikes');
 
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
@@ -218,61 +219,67 @@ router.get('/my-bookings/slots', async (req, res) => {
   }
 });
 
-// ── Huecos libres para reservar ella misma la siguiente sesión de un bono
-// que todavía no tiene cita puesta (mismo criterio de profesional que el
-// resto: la habitual por defecto, o cualquiera que pueda con el tratamiento) ──
-router.get('/my-bookings/bono-slots', async (req, res) => {
-  const { bonoId, phone, email, date, employeeId } = req.query;
-  if (!bonoId || !phone || !email || !date || !employeeId) {
+// Carga y valida varios bonos pendientes que se quieren reservar JUNTOS como
+// una sola visita (p.ej. la sesión 3 de "Íntimo completo" + "Axilas" +
+// "Piernas completas" que siempre se hacen a la vez) — todos de la misma
+// clienta, activos y con sesión pendiente.
+async function loadPendingBonoGroup(bonoIds, phone, email) {
+  const bonos = [];
+  for (const id of bonoIds) {
+    const bono = await findSessionBonoById(id);
+    if (!bono || !isOwnerBono(bono, phone, email)) {
+      throw Object.assign(new Error('No se ha encontrado alguno de esos bonos con esos datos.'), { status: 404 });
+    }
+    if (bono.status !== 'active' || Number(bono.sessionsRemaining) <= 0) {
+      throw Object.assign(new Error('Alguno de esos bonos ya no tiene sesiones pendientes.'), { status: 409 });
+    }
+    const service = services.find((s) => s.id === bono.serviceId);
+    if (!service) throw Object.assign(new Error('No se ha encontrado el tratamiento de alguno de esos bonos.'), { status: 404 });
+    bonos.push({ bono, service });
+  }
+  return bonos;
+}
+
+// ── Huecos libres para reservar VARIAS sesiones de bono a la vez, buscando
+// la duración conjunta real (p.ej. 30+20+40=90min) en vez de tratamiento a
+// tratamiento, que es lo que hacía salir menos huecos de los que hay. ──
+router.get('/my-bookings/bono-group-slots', async (req, res) => {
+  const { bonoIds, phone, email, date, employeeId } = req.query;
+  if (!bonoIds || !phone || !email || !date || !employeeId) {
     return res.status(400).json({ error: 'Faltan datos para consultar huecos.' });
   }
   try {
-    const bono = await findSessionBonoById(bonoId);
-    if (!bono || !isOwnerBono(bono, phone, email)) {
-      return res.status(404).json({ error: 'No se ha encontrado ese bono con esos datos.' });
-    }
-    if (bono.status !== 'active' || Number(bono.sessionsRemaining) <= 0) {
-      return res.status(409).json({ error: 'Este bono no tiene sesiones pendientes.' });
-    }
-    const service = services.find((s) => s.id === bono.serviceId);
-    if (!service) return res.status(404).json({ error: 'No se ha encontrado el tratamiento de este bono.' });
+    const ids = String(bonoIds).split(',').map((s) => s.trim()).filter(Boolean);
+    if (!ids.length) return res.status(400).json({ error: 'Elige al menos una sesión.' });
+    const group = await loadPendingBonoGroup(ids, phone, email);
     const employee = employees.find((e) => e.id === employeeId);
-    if (!employee || !canDo(employee, bono.serviceId)) {
-      return res.status(400).json({ error: 'Esa profesional no puede realizar este tratamiento.' });
+    if (!employee || !group.every(({ bono }) => canDo(employee, bono.serviceId))) {
+      return res.status(400).json({ error: 'Esa profesional no puede realizar todos esos tratamientos.' });
     }
-    const slots = await getAvailableSlots(date, employee.calendarId, service.durationMinutes, employee.weekly);
-    res.json({ slots });
+    const duration = group.reduce((sum, { service }) => sum + (Number(service.durationMinutes) || 0), 0) || 60;
+    const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
+    res.json({ slots, duration });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo consultar la disponibilidad.' });
   }
 });
 
-// ── Reservar ella misma la siguiente sesión de un bono — misma lógica que
-// /panel/book-session (descuenta la sesión, crea el evento y la fila de
-// reserva ya pagada como parte del bono) pero sin las opciones de solo
-// equipo (agrupar varias sesiones, cambiar el tratamiento del día, forzar
-// un hueco pasado, notas internas). ──
-router.post('/my-bookings/book-bono-session', async (req, res) => {
-  const { bonoId, phone, email, employeeId, date, time } = req.body || {};
-  if (!bonoId || !phone || !email || !employeeId || !date || !time) {
+// ── Reservar juntas varias sesiones de bono pendientes — mismo evento de
+// calendario para todas, con la duración conjunta, pero cada una descuenta
+// su propia sesión de su propio bono. ──
+router.post('/my-bookings/book-bono-session-group', async (req, res) => {
+  const { bonoIds, phone, email, employeeId, date, time } = req.body || {};
+  if (!Array.isArray(bonoIds) || !bonoIds.length || !phone || !email || !employeeId || !date || !time) {
     return res.status(400).json({ error: 'Faltan datos para reservar la sesión.' });
   }
   try {
-    return await withLock(`bono:${bonoId}`, async () => {
-    const bono = await findSessionBonoById(bonoId);
-    if (!bono || !isOwnerBono(bono, phone, email)) {
-      return res.status(404).json({ error: 'No se ha encontrado ese bono con esos datos.' });
-    }
-    const remaining = Number(bono.sessionsRemaining) || 0;
-    if (bono.status !== 'active' || remaining <= 0) {
-      return res.status(409).json({ error: 'Este bono no tiene sesiones pendientes.' });
-    }
-    const service = services.find((s) => s.id === bono.serviceId);
-    if (!service) return res.status(404).json({ error: 'No se ha encontrado el tratamiento de este bono.' });
+    return await withLocks(bonoIds.slice().sort().map((id) => `bono:${id}`), async () => {
+    const group = await loadPendingBonoGroup(bonoIds, phone, email);
     const employee = employees.find((e) => e.id === employeeId);
-    if (!employee || !canDo(employee, bono.serviceId)) {
-      return res.status(400).json({ error: 'Esa profesional no puede realizar este tratamiento.' });
+    if (!employee || !group.every(({ bono }) => canDo(employee, bono.serviceId))) {
+      return res.status(400).json({ error: 'Esa profesional no puede realizar todos esos tratamientos.' });
     }
 
     const daysAhead = Math.floor((new Date(`${date}T12:00:00Z`) - new Date()) / 86400000);
@@ -280,24 +287,20 @@ router.post('/my-bookings/book-bono-session', async (req, res) => {
       return res.status(400).json({ error: 'Esa fecha no está disponible para reservar.' });
     }
 
-    const durationMinutes = service.durationMinutes;
+    const duration = group.reduce((sum, { service }) => sum + (Number(service.durationMinutes) || 0), 0) || 60;
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
-    const endISO = addMinutes(startISO, durationMinutes);
-    const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
-    const sessionLabel = `${fromSession}/${bono.totalSessions}`;
+    const endISO = addMinutes(startISO, duration);
+    const first = group[0].bono;
 
-    // Revalidar disponibilidad y crear el evento dentro del mismo bloqueo en
-    // memoria por profesional+día que usa el panel — evita que esto choque
-    // con el equipo agendándole la misma sesión casi a la vez.
     const newEventId = await withLock(`slot:${employeeId}:${date}`, async () => {
-      const freeSlots = await getAvailableSlots(date, employee.calendarId, durationMinutes, employee.weekly);
+      const freeSlots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly);
       if (!freeSlots.includes(time)) return null;
       const event = await createBookingEvent(employee.calendarId, {
-        summary: `✅ Bono (${sessionLabel}) — ${service.name} — ${bono.clientName}`,
+        summary: `✅ Bono — ${group.map(({ service }) => service.name).join(' + ')} — ${first.clientName}`,
         description: [
-          `Cliente: ${bono.clientName}`,
-          `Teléfono: ${bono.clientPhone}`,
-          `Bono: ${bono.serviceName} — sesión ${sessionLabel}`,
+          `Cliente: ${first.clientName}`,
+          `Teléfono: ${first.clientPhone}`,
+          ...group.map(({ bono, service }) => `Bono: ${bono.serviceName} — sesión ${(Number(bono.sessionsUsed) || 0) + 1}/${bono.totalSessions}`),
           'Ya pagada como parte del bono.',
           'Reservada por la clienta desde Mis Reservas.',
         ].join('\n'),
@@ -309,44 +312,49 @@ router.post('/my-bookings/book-bono-session', async (req, res) => {
       return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
     }
 
-    const bookingId = crypto.randomUUID();
-    await appendBooking({
-      bookingId,
-      createdAt: new Date().toISOString(),
-      status: 'confirmed',
-      name: bono.clientName,
-      phone: bono.clientPhone,
-      email: bono.clientEmail,
-      serviceId: bono.serviceId,
-      serviceName: `${service.name} (${sessionLabel})`,
-      employeeId,
-      employeeName: employee.name,
-      calendarId: employee.calendarId,
-      eventId: newEventId,
-      date, time,
-      durationMinutes,
-      price: '',
-      amountPaid: 0,
-      paymentType: 'bono',
-      paymentIntentId: '',
-      lang: bono.lang || 'es',
-      reminderSent: '',
-      birthdate: '',
-      bonoId,
-      sessionNumber: fromSession,
-      notes: '',
-    });
+    const bookingIds = [];
+    for (const { bono, service } of group) {
+      const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
+      const sessionLabel = `${fromSession}/${bono.totalSessions}`;
+      const bookingId = crypto.randomUUID();
+      bookingIds.push(bookingId);
+      await appendBooking({
+        bookingId,
+        createdAt: new Date().toISOString(),
+        status: 'confirmed',
+        name: bono.clientName,
+        phone: bono.clientPhone,
+        email: bono.clientEmail,
+        serviceId: bono.serviceId,
+        serviceName: `${service.name} (${sessionLabel})`,
+        employeeId, employeeName: employee.name,
+        calendarId: employee.calendarId,
+        eventId: newEventId,
+        date, time,
+        durationMinutes: service.durationMinutes,
+        price: '',
+        amountPaid: 0,
+        paymentType: 'bono',
+        paymentIntentId: '',
+        lang: bono.lang || 'es',
+        reminderSent: '',
+        birthdate: '',
+        bonoId: bono.bonoId,
+        sessionNumber: fromSession,
+        notes: '',
+      });
+      const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) - 1;
+      await updateSessionBonoRow(bono._sheetRow, bono, {
+        sessionsUsed: fromSession,
+        sessionsRemaining,
+        status: sessionsRemaining <= 0 ? 'completed' : 'active',
+      });
+    }
 
-    const sessionsRemaining = remaining - 1;
-    await updateSessionBonoRow(bono._sheetRow, bono, {
-      sessionsUsed: fromSession,
-      sessionsRemaining,
-      status: sessionsRemaining <= 0 ? 'completed' : 'active',
-    });
-
-    res.json({ ok: true, bookingId, date, time });
+    res.json({ ok: true, bookingIds, date, time });
     });
   } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: 'No se pudo reservar la sesión.' });
   }
@@ -487,10 +495,10 @@ router.post('/my-bookings/reschedule', async (req, res) => {
         const emailN = normalizeEmail(email);
         const allStrikes = await getAllStrikeRecords();
         const existing = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
-        const isFirstTime = !existing || Number(existing.strikeCount) === 0;
+        const isFirstTime = effectiveStrikeCount(existing) === 0;
         await upsertStrikeRecord({
           phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
-          strikeCount: isFirstTime ? 1 : (Number(existing.strikeCount) || 0) + 1,
+          strikeCount: effectiveStrikeCount(existing) + 1,
           lastStrikeDate: new Date().toISOString().slice(0, 10),
         }, existing);
         lateStrike = { isFirstTime };
@@ -570,6 +578,172 @@ router.post('/my-bookings/reschedule', async (req, res) => {
     res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name, lateStrike });
     });
   } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo reprogramar la reserva.' });
+  }
+});
+
+// Carga y valida un grupo de reservas que se van a reprogramar juntas —
+// todas de la misma clienta, activas, y todas la MISMA visita original
+// (mismo día/hora/profesional): si no fuera así no tendría sentido
+// tratarlas como una sola sesión a la hora de cambiarles la fecha.
+async function loadRescheduleGroup(bookingIds, phone, email) {
+  const bookings = [];
+  for (const id of bookingIds) {
+    const booking = await findBookingById(id);
+    if (!booking || !isOwner(booking, phone, email)) {
+      throw Object.assign(new Error('No se ha encontrado alguna de esas reservas con esos datos.'), { status: 404 });
+    }
+    if (booking.status !== 'confirmed') {
+      throw Object.assign(new Error('Alguno de esos tratamientos ya no está activo.'), { status: 409 });
+    }
+    bookings.push(booking);
+  }
+  const first = bookings[0];
+  const sameVisit = bookings.every((b) => b.date === first.date && b.time === first.time && b.employeeId === first.employeeId);
+  if (!sameVisit) {
+    throw Object.assign(new Error('Esos tratamientos no son de la misma cita.'), { status: 400 });
+  }
+  return bookings;
+}
+
+// ── Huecos libres para reprogramar VARIOS tratamientos de la misma visita
+// a la vez (p.ej. íntimo + axilas + piernas, todos combinados) — busca la
+// duración conjunta real en vez de una a una, que es lo que antes hacía
+// que aparecieran menos huecos de los que había de verdad. ──
+router.get('/my-bookings/group-slots', async (req, res) => {
+  const { bookingIds, phone, email, date, employeeId } = req.query;
+  if (!bookingIds || !phone || !email || !date) {
+    return res.status(400).json({ error: 'Faltan datos para consultar huecos.' });
+  }
+  try {
+    const ids = String(bookingIds).split(',').map((s) => s.trim()).filter(Boolean);
+    if (!ids.length) return res.status(400).json({ error: 'Elige al menos un tratamiento.' });
+    const bookings = await loadRescheduleGroup(ids, phone, email);
+    const first = bookings[0];
+
+    let targetEmployee = employees.find((e) => e.id === first.employeeId);
+    if (employeeId && employeeId !== first.employeeId) {
+      const candidate = employees.find((e) => e.id === employeeId);
+      if (!candidate || !bookings.every((b) => canDo(candidate, b.serviceId))) {
+        return res.status(400).json({ error: 'Esa profesional no puede realizar todos esos tratamientos.' });
+      }
+      targetEmployee = candidate;
+    }
+    if (!targetEmployee) return res.status(404).json({ error: 'No se ha encontrado la profesional de esta cita.' });
+
+    const duration = bookings.reduce((sum, b) => sum + (Number(b.durationMinutes) || 0), 0) || 60;
+    const slots = await getAvailableSlots(date, targetEmployee.calendarId, duration, targetEmployee.weekly);
+    res.json({ slots, duration });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo consultar la disponibilidad.' });
+  }
+});
+
+// ── Reprogramar juntos varios tratamientos de la misma visita — mismo
+// criterio de aviso tardío/48h que un tratamiento suelto, pero contado
+// UNA sola vez para todo el grupo (es un solo aviso, no uno por línea). ──
+router.post('/my-bookings/reschedule-group', async (req, res) => {
+  const { bookingIds, phone, email, newDate, newTime, newEmployeeId } = req.body || {};
+  if (!Array.isArray(bookingIds) || !bookingIds.length || !phone || !email || !newDate || !newTime) {
+    return res.status(400).json({ error: 'Faltan datos para reprogramar la reserva.' });
+  }
+  try {
+    return await withLocks(bookingIds.slice().sort().map((id) => `booking:${id}`), async () => {
+    const bookings = await loadRescheduleGroup(bookingIds, phone, email);
+    const first = bookings[0];
+
+    const hrs = hoursUntil(first);
+    let lateStrike = null;
+    if (hrs < FREE_CANCEL_HOURS) {
+      const phoneN = normalizePhone(phone);
+      const emailN = normalizeEmail(email);
+      const allStrikes = await getAllStrikeRecords();
+      const existing = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
+      const isFirstTime = effectiveStrikeCount(existing) === 0;
+      await upsertStrikeRecord({
+        phoneNormalized: phoneN, emailNormalized: emailN, name: first.name,
+        strikeCount: effectiveStrikeCount(existing) + 1,
+        lastStrikeDate: new Date().toISOString().slice(0, 10),
+      }, existing);
+      lateStrike = { isFirstTime };
+    }
+
+    const daysAhead = Math.floor((new Date(`${newDate}T12:00:00Z`) - new Date()) / 86400000);
+    if (daysAhead < 0 || daysAhead > hours.bookingWindowDays) {
+      return res.status(400).json({ error: 'Esa fecha no está disponible para reservar.' });
+    }
+
+    let targetEmployee = employees.find((e) => e.id === first.employeeId);
+    const changingEmployee = !!newEmployeeId && newEmployeeId !== first.employeeId;
+    if (changingEmployee) {
+      const candidate = employees.find((e) => e.id === newEmployeeId);
+      if (!candidate || !bookings.every((b) => canDo(candidate, b.serviceId))) {
+        return res.status(400).json({ error: 'Esa profesional no puede realizar todos esos tratamientos.' });
+      }
+      targetEmployee = candidate;
+    }
+    if (!targetEmployee) return res.status(404).json({ error: 'No se ha encontrado la profesional de esta cita.' });
+
+    const duration = bookings.reduce((sum, b) => sum + (Number(b.durationMinutes) || 0), 0) || 60;
+    const freeSlots = await getAvailableSlots(newDate, targetEmployee.calendarId, duration, targetEmployee.weekly);
+    if (!freeSlots.includes(newTime)) {
+      return res.status(409).json({ error: 'Ese hueco ya no está disponible. Elige otra hora.' });
+    }
+
+    const startISO = localToISO(newDate, newTime.length === 5 ? newTime : `${newTime}:00`, hours.timezone);
+    const endISO = addMinutes(startISO, duration);
+
+    // Si queda algún OTRO tratamiento activo de la misma visita que no se
+    // ha marcado para reprogramar (p.ej. la clienta solo quiere mover 2 de
+    // los 3), el evento compartido no se puede tocar para el conjunto que
+    // sí se mueve — se crea uno nuevo solo para ellos, igual que hace la
+    // reprogramación individual cuando comparte evento con otra línea.
+    const allBookingsForCheck = await getAllBookings();
+    const movingIds = new Set(bookings.map((b) => b.bookingId));
+    const hasUnselectedSiblings = allBookingsForCheck.some((b) => (
+      !movingIds.has(b.bookingId) && b.status === 'confirmed'
+      && b.calendarId === first.calendarId && b.eventId === first.eventId
+    ));
+
+    let newEventId = first.eventId;
+    if (changingEmployee) {
+      if (!hasUnselectedSiblings && first.calendarId && first.eventId) {
+        await deleteEvent(first.calendarId, first.eventId).catch(() => {});
+      }
+      const event = await createBookingEvent(targetEmployee.calendarId, {
+        summary: bookings.map((b) => b.serviceName).join(' + ') || 'Cita Osana',
+        description: `Clienta: ${first.name || ''} · ${first.phone || ''}`,
+        startISO, endISO,
+      });
+      newEventId = event.id;
+    } else if (!hasUnselectedSiblings && await isEventUsable(first.calendarId, first.eventId)) {
+      await updateEvent(first.calendarId, first.eventId, {
+        start: { dateTime: startISO },
+        end: { dateTime: endISO },
+      });
+    } else {
+      const event = await createBookingEvent(first.calendarId, {
+        summary: bookings.map((b) => b.serviceName).join(' + ') || 'Cita Osana',
+        description: `Clienta: ${first.name || ''} · ${first.phone || ''}`,
+        startISO, endISO,
+      });
+      newEventId = event.id;
+    }
+
+    for (const booking of bookings) {
+      await updateBookingRow(booking._sheetRow, booking, {
+        date: newDate, time: newTime, eventId: newEventId,
+        ...(changingEmployee ? { employeeId: targetEmployee.id, employeeName: targetEmployee.name, calendarId: targetEmployee.calendarId } : {}),
+      });
+    }
+
+    res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name, lateStrike });
+    });
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ error: err.message });
     console.error(err);
     res.status(500).json({ error: err.message || 'No se pudo reprogramar la reserva.' });
   }

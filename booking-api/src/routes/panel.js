@@ -20,6 +20,7 @@ const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty'
 const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
 const { withLock, withLocks } = require('../lib/asyncLock');
+const { effectiveStrikeCount, isStrikeExpired } = require('../lib/strikes');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
@@ -150,7 +151,8 @@ router.get('/panel/search', async (req, res) => {
         phone: latest.phone,
         email: latest.email,
         birthdate: birthdateBooking ? birthdateBooking.birthdate : '',
-        strikeCount: strike ? Number(strike.strikeCount) || 0 : 0,
+        strikeCount: effectiveStrikeCount(strike),
+        lastStrikeDate: (strike && !isStrikeExpired(strike)) ? strike.lastStrikeDate : '',
         loyaltyBalance: computeLoyaltyBalance(loyaltyMovements),
         bonos: bonos.map((bo) => ({
           bonoId: bo.bonoId,
@@ -1681,22 +1683,26 @@ router.post('/panel/edit-client', async (req, res) => {
   }
 });
 
+// Aviso breve y general de la política de faltas — el mismo texto se usa
+// aquí (email) y en el panel/Mis Reservas, para que nadie pueda decir luego
+// que no lo sabía o que no lo leyó.
+const NO_SHOW_POLICY_NOTE_ES = 'A partir de ahora, faltar sin avisar o cambiar tu cita con menos de 48h de antelación descontará la sesión de tu bono (o el importe de la reserva, si no tienes bono).';
+const NO_SHOW_POLICY_NOTE_EN = 'From now on, a no-show or a change made less than 48h before your appointment will deduct the session from your package (or the booking fee, if you don\'t have a package).';
+
 function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
   const isEn = lang === 'en';
   if (isFirstTime) {
     return isEn
       ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
           <h2 style="font-size:18px;">Update on your appointment — Osana</h2>
-          <p><b>Treatment:</b> ${booking.serviceName}<br><b>Date:</b> ${booking.date}<br><b>Status:</b> No-show (not deducted this time)</p>
-          <p><b>Session deducted: No</b></p>
-          <p>From now on, any no-show or cancellation with less than 48h notice will deduct a session from your package.</p>
+          <p><b>Treatment:</b> ${booking.serviceName}<br><b>Date:</b> ${booking.date}<br><b>Status:</b> No-show — this first time, nothing was charged or deducted.</p>
+          <p><b>${NO_SHOW_POLICY_NOTE_EN}</b></p>
           <p>Want to reschedule? Go to My Bookings or message us on WhatsApp.</p>
         </div>`
       : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
           <h2 style="font-size:18px;">Actualización de tu cita — Osana</h2>
-          <p><b>Cita:</b> ${booking.serviceName}<br><b>Fecha:</b> ${booking.date}<br><b>Estado:</b> Ausencia sin preaviso (no descontable esta vez)</p>
-          <p><b>Sesión descontada: No</b></p>
-          <p>A partir de ahora, cualquier ausencia sin preaviso o cancelación con menos de 48h descontará una sesión de tu bono.</p>
+          <p><b>Cita:</b> ${booking.serviceName}<br><b>Fecha:</b> ${booking.date}<br><b>Estado:</b> Falta sin penalización — esta primera vez no se te ha cobrado ni descontado nada.</p>
+          <p><b>${NO_SHOW_POLICY_NOTE_ES}</b></p>
           <p>¿Quieres reprogramar? Entra en Mis Reservas o escríbenos por WhatsApp.</p>
         </div>`;
   }
@@ -1784,7 +1790,7 @@ router.post('/panel/no-show', async (req, res) => {
     const emailN = normalizeEmail(booking.email);
     const allStrikes = await getAllStrikeRecords();
     const existing = allStrikes.find((s) => s.phoneNormalized === phoneN || (emailN && s.emailNormalized === emailN));
-    const isFirstTime = !existing || Number(existing.strikeCount) === 0;
+    const isFirstTime = effectiveStrikeCount(existing) === 0;
 
     const bonosRestored = [];
     for (const line of group) {
@@ -1819,7 +1825,7 @@ router.post('/panel/no-show', async (req, res) => {
     } else {
       await upsertStrikeRecord({
         phoneNormalized: phoneN, emailNormalized: emailN, name: booking.name,
-        strikeCount: (Number(existing.strikeCount) || 0) + 1, lastStrikeDate: new Date().toISOString().slice(0, 10),
+        strikeCount: effectiveStrikeCount(existing) + 1, lastStrikeDate: new Date().toISOString().slice(0, 10),
       }, existing);
     }
 
