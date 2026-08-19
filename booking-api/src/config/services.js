@@ -43,7 +43,7 @@ module.exports = [
   // ── 02 · HILO & LIFTING ──
   { id: 'hilo-labio', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Labio (hilo)', nameEn: 'Lip (thread)', durationMinutes: 10, price: 5, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'hilo-menton', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Mentón (hilo)', nameEn: 'Chin (thread)', durationMinutes: 10, price: 5, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'hilo-cejas', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Cejas (hilo)', nameEn: 'Eyebrows (thread)', durationMinutes: 30, price: 15, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'hilo-cejas', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Cejas (hilo)', nameEn: 'Eyebrows (thread)', durationMinutes: 20, price: 15, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'hilo-cejas-labio-menton', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Cejas Esenciales (hilo: cejas + labio + mentón)', nameEn: 'Brows Essentials (thread: eyebrows + lip + chin)', durationMinutes: 30, price: 22, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'henna-cejas', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Henna', nameEn: 'Henna', durationMinutes: 15, price: 25, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'hilo-facial', category: 'Hilo & Lifting', categoryEn: 'Threading & Lifting', name: 'Facial (hilo)', nameEn: 'Face (thread)', durationMinutes: 30, price: 30, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
