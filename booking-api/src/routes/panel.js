@@ -11,7 +11,7 @@ const {
   appendDiscount, getAllDiscounts, updateDiscountRow,
 } = require('../lib/sheets');
 const { isDiscountLive } = require('../lib/discounts');
-const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent, isEventUsable } = require('../lib/googleCalendar');
+const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent, isEventUsable, getBusyIntervals } = require('../lib/googleCalendar');
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
@@ -1061,6 +1061,42 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'No se pudo dar de alta la reserva.' });
+  }
+});
+
+// ── Herramienta de diagnóstico: para cuando el panel dice "sin huecos" en
+// un día que a simple vista parece libre — muestra exactamente lo que
+// Google Calendar devuelve como ocupado ese día, y los huecos calculados a
+// partir de eso, para saber si el problema es un evento real bloqueando el
+// día o algo raro en el cálculo. ──
+router.get('/panel/debug-availability', async (req, res) => {
+  const { employeeId, date, durationMinutes } = req.query;
+  if (!employeeId || !date) return res.status(400).json({ error: 'Indica profesional y fecha.' });
+  try {
+    const employee = employees.find((e) => e.id === employeeId);
+    if (!employee) return res.status(404).json({ error: 'Empleada no encontrada.' });
+    const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
+    const daySchedule = (employee.weekly || hours.weekly)[weekday];
+    if (!daySchedule || daySchedule.closed) {
+      return res.json({ closed: true, weekday, note: 'Ese día de la semana está marcado como cerrado para esta profesional.' });
+    }
+    const dayStartISO = localToISO(date, daySchedule.open, hours.timezone);
+    const dayEndISO = localToISO(date, daySchedule.close, hours.timezone);
+    const busy = await getBusyIntervals(employee.calendarId, dayStartISO, dayEndISO);
+    const fmt = (iso) => new Date(iso).toLocaleString('es-ES', { timeZone: hours.timezone, hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+    const duration = Math.max(5, Number(durationMinutes) || 30);
+    const slots = await getAvailableSlots(date, employee.calendarId, duration, employee.weekly, { skipGapHeuristic: true, ignoreClosingTime: true });
+    res.json({
+      employee: employee.name,
+      calendarId: employee.calendarId,
+      horario: `${daySchedule.open}-${daySchedule.close}`,
+      duracionBuscada: duration,
+      ocupadoSegunGoogle: busy.map((b) => ({ desde: fmt(b.start), hasta: fmt(b.end) })),
+      huecosEncontrados: slots,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || 'No se pudo consultar el diagnóstico.' });
   }
 });
 

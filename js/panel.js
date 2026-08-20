@@ -30,6 +30,8 @@
     results: document.getElementById('panel-results'),
     reportToggle: document.getElementById('panel-report-toggle'),
     reportSlot: document.getElementById('panel-report-slot'),
+    debugavailToggle: document.getElementById('panel-debugavail-toggle'),
+    debugavailSlot: document.getElementById('panel-debugavail-slot'),
     paymentsToggle: document.getElementById('panel-payments-toggle'),
     paymentsSlot: document.getElementById('panel-payments-slot'),
     quoteToggle: document.getElementById('panel-quote-toggle'),
@@ -182,6 +184,69 @@
       }
       ev.target.disabled = false;
     });
+  });
+
+  // ── Depurar huecos: para cuando el panel dice "sin huecos" en un día que a
+  // simple vista parece libre en Google Calendar — muestra lo que Google
+  // Calendar devuelve como ocupado ese día y los huecos que calcula el
+  // sistema a partir de eso, para saber si es un evento real bloqueando o
+  // algo raro en el cálculo. ──
+  els.debugavailToggle.addEventListener('click', async () => {
+    if (els.debugavailSlot.innerHTML) { els.debugavailSlot.innerHTML = ''; return; }
+    const employees = await loadAllEmployeesOnce();
+    const today = new Date().toISOString().slice(0, 10);
+    els.debugavailSlot.innerHTML = `
+      <div class="panel-new-appt">
+        <div class="panel-label">Depurar huecos de un día</div>
+        <p class="panel-status" style="margin-bottom:10px;">Compara lo que Google Calendar dice que está ocupado con los huecos que calcula el sistema para esa profesional y ese día.</p>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>Profesional</label>
+            <select class="da-employee">${employees.map((e) => `<option value="${e.id}">${escapeHtml(e.name)}</option>`).join('')}</select>
+          </div>
+          <div class="panel-field"><label>Fecha</label><input type="date" class="da-date" value="${today}"></div>
+          <div class="panel-field"><label>Duración (min)</label><input type="number" class="da-duration" value="30" min="5" step="5"></div>
+          <div class="panel-field"><button type="button" class="panel-btn panel-btn-primary da-search">Comprobar</button></div>
+        </div>
+        <p class="panel-error" style="display:none;"></p>
+        <div class="da-result"></div>
+      </div>
+    `;
+    const slot = els.debugavailSlot;
+    const employeeSelect = slot.querySelector('.da-employee');
+    const dateInput = slot.querySelector('.da-date');
+    const durationInput = slot.querySelector('.da-duration');
+    const errorEl = slot.querySelector('.panel-error');
+    const resultEl = slot.querySelector('.da-result');
+
+    async function runCheck() {
+      errorEl.style.display = 'none';
+      resultEl.innerHTML = '<p class="panel-status">Comprobando…</p>';
+      try {
+        const data = await panelFetch(`/panel/debug-availability?employeeId=${employeeSelect.value}&date=${dateInput.value}&durationMinutes=${durationInput.value}`, { method: 'GET' });
+        if (data.closed) {
+          resultEl.innerHTML = `<p class="panel-status">Ese día de la semana está marcado como <b>cerrado</b> para esta profesional, por eso no salen huecos.</p>`;
+          return;
+        }
+        const busyHtml = data.ocupadoSegunGoogle.length
+          ? `<ul style="margin:6px 0 0 18px;">${data.ocupadoSegunGoogle.map((b) => `<li>${b.desde} – ${b.hasta}</li>`).join('')}</ul>`
+          : '<p class="line-item-meta">Google Calendar no devuelve nada ocupado ese día.</p>';
+        const slotsHtml = data.huecosEncontrados.length
+          ? `<p class="line-item-meta" style="word-break:break-word;">${data.huecosEncontrados.join(', ')}</p>`
+          : '<p class="line-item-meta">El sistema no encuentra ningún hueco libre con esa duración.</p>';
+        resultEl.innerHTML = `
+          <p class="panel-status" style="margin:10px 0 4px;"><b>${escapeHtml(data.employee)}</b> · horario del día: ${data.horario} · buscando huecos de ${data.duracionBuscada} min</p>
+          <p class="panel-status" style="margin:10px 0 0;"><b>Ocupado según Google Calendar:</b></p>
+          ${busyHtml}
+          <p class="panel-status" style="margin:10px 0 0;"><b>Huecos que calcula el sistema:</b></p>
+          ${slotsHtml}
+        `;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.style.display = 'block';
+        resultEl.innerHTML = '';
+      }
+    }
+    slot.querySelector('.da-search').addEventListener('click', runCheck);
   });
 
   // ── Comprobar cobros: para un rango de fechas, todo lo cerrado (citas +
