@@ -1202,19 +1202,41 @@ router.post('/panel/reschedule-combined', async (req, res) => {
     const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
     const endISO = addMinutes(startISO, duration);
 
-    // Si se mueven TODOS los tratamientos que compartían el evento original,
-    // se parchea ese mismo evento. Si se deja alguno atrás, ese evento se
-    // queda tal cual para el que no se mueve, y se crea uno nuevo solo para
-    // los que sí se mueven (mismo patrón que /panel/reschedule).
+    // Los tratamientos elegidos pueden venir de UN evento compartido (una
+    // visita combinada de verdad) o de VARIOS eventos separados (cada
+    // sesión de bono se agendó por su cuenta, aunque cayeran a la misma
+    // hora) — hay que tratar cada caso distinto para no dejar "fantasmas"
+    // bloqueando el calendario en la hora vieja.
     const allBookingsForCheck = await getAllBookings();
-    const originalSiblings = allBookingsForCheck.filter((b) => b.status === 'confirmed' && b.calendarId === first.calendarId && b.eventId === first.eventId);
     const movingIds = new Set(uniqueIds);
-    const allMoving = originalSiblings.every((b) => movingIds.has(b.bookingId));
+    const originalEventKeys = [...new Set(bookings.map((b) => `${b.calendarId}|${b.eventId}`))];
 
-    let newEventId = first.eventId;
-    if (allMoving && await isEventUsable(first.calendarId, first.eventId)) {
-      await updateEvent(first.calendarId, first.eventId, { start: { dateTime: startISO }, end: { dateTime: endISO } });
+    let newEventId;
+    if (originalEventKeys.length === 1) {
+      // Caso normal: todos vienen del mismo evento. Si se mueven TODOS los
+      // tratamientos que lo compartían, se parchea ese mismo evento; si se
+      // deja alguno atrás, se crea uno nuevo solo para los que sí se mueven
+      // (el original se queda tal cual para el que no se mueve).
+      const originalSiblings = allBookingsForCheck.filter((b) => b.status === 'confirmed' && b.calendarId === first.calendarId && b.eventId === first.eventId);
+      const allMoving = originalSiblings.every((b) => movingIds.has(b.bookingId));
+      newEventId = first.eventId;
+      if (allMoving && await isEventUsable(first.calendarId, first.eventId)) {
+        await updateEvent(first.calendarId, first.eventId, { start: { dateTime: startISO }, end: { dateTime: endISO } });
+      } else {
+        const event = await createBookingEvent(first.calendarId, {
+          summary: bookings.map((b) => b.serviceName).join(' + '),
+          description: `Cliente: ${first.name || ''} · ${first.phone || ''}`,
+          startISO, endISO,
+          clientEmail: first.email, clientName: first.name,
+        });
+        newEventId = event.id;
+      }
     } else {
+      // Vienen de varios eventos distintos: se consolidan en uno nuevo, y
+      // cualquiera de los eventos originales que se quede sin NINGÚN
+      // tratamiento activo (todos sus hermanos se están moviendo también)
+      // se borra, para no dejarlo bloqueando su hora vieja sin motivo. El
+      // que todavía tenga algún tratamiento sin mover se deja tal cual.
       const event = await createBookingEvent(first.calendarId, {
         summary: bookings.map((b) => b.serviceName).join(' + '),
         description: `Cliente: ${first.name || ''} · ${first.phone || ''}`,
@@ -1222,6 +1244,15 @@ router.post('/panel/reschedule-combined', async (req, res) => {
         clientEmail: first.email, clientName: first.name,
       });
       newEventId = event.id;
+      for (const key of originalEventKeys) {
+        const [calId, evId] = key.split('|');
+        if (!calId || !evId) continue;
+        const originalSiblings = allBookingsForCheck.filter((b) => b.status === 'confirmed' && b.calendarId === calId && b.eventId === evId);
+        const allOfThisEventMoving = originalSiblings.every((b) => movingIds.has(b.bookingId));
+        if (allOfThisEventMoving) {
+          await deleteEvent(calId, evId).catch((e) => console.error('No se pudo borrar el evento original al consolidar la reprogramación:', e.message));
+        }
+      }
     }
 
     for (const booking of bookings) {
@@ -1887,7 +1918,7 @@ function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime }) {
 // ── Marcar como no-show: perdona la 1ª vez (y restaura la sesión si había
 // bono), descuenta a partir de la 2ª — y avisa siempre por email ──
 router.post('/panel/no-show', async (req, res) => {
-  const { bookingId } = req.body || {};
+  const { bookingId, extraBookingIds } = req.body || {};
   if (!bookingId) return res.status(400).json({ error: 'Falta el identificador de la cita.' });
   try {
     // El aviso de "1ª falta" implica varias lecturas y escrituras seguidas
@@ -1918,6 +1949,19 @@ router.post('/panel/no-show', async (req, res) => {
     const group = (booking.calendarId && booking.eventId)
       ? allBookings.filter((b) => b.calendarId === booking.calendarId && b.eventId === booking.eventId && b.status === 'confirmed')
       : [booking];
+    // extraBookingIds: otras líneas de la MISMA visita real que no comparten
+    // este evento de calendario (p.ej. cada sesión de bono se agendó por su
+    // cuenta, aunque cayeran a la misma hora) — se marcan juntas con esta
+    // misma falta, en vez de que el panel tenga que llamar varias veces y
+    // sumar una falta de más por cada tratamiento.
+    if (Array.isArray(extraBookingIds) && extraBookingIds.length) {
+      const groupIds = new Set(group.map((b) => b.bookingId));
+      for (const id of extraBookingIds) {
+        if (groupIds.has(id)) continue;
+        const extra = allBookings.find((b) => b.bookingId === id && b.status === 'confirmed');
+        if (extra) { group.push(extra); groupIds.add(id); }
+      }
+    }
 
     const phoneN = normalizePhone(booking.phone);
     const emailN = normalizeEmail(booking.email);

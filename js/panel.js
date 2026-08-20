@@ -1090,22 +1090,33 @@
 
     // Citas de esta clienta ya pasadas (o de hoy) que todavía no se han
     // cerrado — se destacan arriba del todo para poder cobrarlas sin
-    // tener que bajar a buscarlas entre el resto del historial.
+    // tener que bajar a buscarlas entre el resto del historial. Se
+    // agrupan igual que en "Todas las citas" (fecha+hora+profesional) para
+    // que una visita de varios tratamientos salga en una sola fila con un
+    // único "Cerrar y cobrar", no uno por tratamiento.
     const unclosedToday = client.bookings.filter((b) => b.status === 'confirmed' && b.isPast
       && (b.finalAmount === null || b.finalAmount === undefined));
+    const unclosedGroups = groupApptsForRender(unclosedToday);
     const unclosedHtml = unclosedToday.length ? `
       <div class="panel-client-unclosed">
         <div class="panel-client-unclosed-label">📌 Sin cerrar</div>
-        ${unclosedToday.map((b) => `
+        ${unclosedGroups.map((g) => {
+          const isGroup = g.length > 1;
+          const names = g.map((b) => b.serviceName).join(' + ');
+          const key = isGroup
+            ? `data-group-key="${escapeHtml(`${g[0].date}|${g[0].time}|${g[0].employeeId}`)}"`
+            : `data-booking-id="${g[0].bookingId}"`;
+          return `
           <div class="panel-client-unclosed-row">
-            <span>${escapeHtml(b.serviceName)} · ${fmtDateShort(b.date)} ${b.time}</span>
+            <span>${escapeHtml(names)} · ${fmtDateShort(g[0].date)} ${g[0].time}</span>
             <div class="panel-client-unclosed-actions">
-              <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-unclosed-close" data-booking-id="${b.bookingId}">💶 Cerrar y cobrar</button>
-              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-unclosed-resched" data-booking-id="${b.bookingId}">🗓️ Reprogramar</button>
-              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-unclosed-noshow" data-booking-id="${b.bookingId}">🚫 No se presentó</button>
+              <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-unclosed-close" ${key}>💶 Cerrar y cobrar</button>
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-unclosed-resched" ${key}>🗓️ Reprogramar</button>
+              <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm panel-unclosed-noshow" ${key}>🚫 No se presentó</button>
             </div>
           </div>
-        `).join('')}
+        `;
+        }).join('')}
       </div>
     ` : '';
 
@@ -1251,35 +1262,42 @@
     });
 
     // El botón "Cerrar y cobrar" de arriba abre el mismo panel de "Editar
-    // cita" que ya existe abajo, en vez de duplicar el flujo de cobro —
-    // solo ahorra tener que buscar la cita entre todo el historial.
-    function findApptEl(bookingId) {
-      const id = window.CSS && CSS.escape ? CSS.escape(bookingId) : bookingId;
-      return apptsContainer.querySelector(`.panel-appt[data-booking-id="${id}"]`);
+    // cita" (o, si es una visita de varios tratamientos, el mismo panel
+    // conjunto de la tarjeta agrupada) que ya existe abajo, en vez de
+    // duplicar el flujo de cobro — solo ahorra tener que buscar la cita
+    // entre todo el historial.
+    function findApptEl(btn) {
+      const escape = (s) => (window.CSS && CSS.escape ? CSS.escape(s) : s);
+      if (btn.dataset.groupKey) {
+        return apptsContainer.querySelector(`.panel-appt-group[data-group-key="${escape(btn.dataset.groupKey)}"]`);
+      }
+      return apptsContainer.querySelector(`.panel-appt[data-booking-id="${escape(btn.dataset.bookingId)}"]`);
     }
     wrap.querySelectorAll('.panel-unclosed-close').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const apptEl = findApptEl(btn.dataset.bookingId);
+        const apptEl = findApptEl(btn);
         if (!apptEl) return;
-        const toggleBtn = apptEl.querySelector('.panel-editbooking-toggle');
-        if (toggleBtn && !apptEl.querySelector('.panel-editbooking-slot').innerHTML) toggleBtn.click();
+        const toggleBtn = apptEl.querySelector(btn.dataset.groupKey ? '.pag-close-btn' : '.panel-editbooking-toggle');
+        const openSlot = apptEl.querySelector(btn.dataset.groupKey ? '.pag-slot' : '.panel-editbooking-slot');
+        if (toggleBtn && !(openSlot && openSlot.innerHTML)) toggleBtn.click();
         apptEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
     wrap.querySelectorAll('.panel-unclosed-resched').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const apptEl = findApptEl(btn.dataset.bookingId);
+        const apptEl = findApptEl(btn);
         if (!apptEl) return;
-        const toggleBtn = apptEl.querySelector('.panel-reschedule-toggle');
-        if (toggleBtn && !apptEl.querySelector('.panel-reschedule-slot').innerHTML) toggleBtn.click();
+        const toggleBtn = apptEl.querySelector(btn.dataset.groupKey ? '.pag-reschedule-btn' : '.panel-reschedule-toggle');
+        const openSlot = apptEl.querySelector(btn.dataset.groupKey ? '.pag-slot' : '.panel-reschedule-slot');
+        if (toggleBtn && !(openSlot && openSlot.innerHTML)) toggleBtn.click();
         apptEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       });
     });
     wrap.querySelectorAll('.panel-unclosed-noshow').forEach((btn) => {
       btn.addEventListener('click', () => {
-        const apptEl = findApptEl(btn.dataset.bookingId);
+        const apptEl = findApptEl(btn);
         if (!apptEl) return;
-        const realBtn = apptEl.querySelector('.panel-noshow-btn');
+        const realBtn = apptEl.querySelector(btn.dataset.groupKey ? '.pag-noshow-btn' : '.panel-noshow-btn');
         if (realBtn) realBtn.click();
       });
     });
@@ -2362,11 +2380,17 @@
   function groupApptsForRender(bookings) {
     const byKey = new Map();
     bookings.forEach((b) => {
-      if (b.status !== 'confirmed' || !b.calendarId || !b.eventId) {
+      if (b.status !== 'confirmed' || !b.date || !b.time || !b.employeeId) {
         byKey.set(`solo:${b.bookingId}`, [b]);
         return;
       }
-      const key = `${b.calendarId}|${b.eventId}`;
+      // Se agrupa por fecha+hora+profesional, no por evento de calendario:
+      // si cada sesión de bono de la misma visita se agendó por separado
+      // (una llamada por bono), cada una tiene su PROPIO evento aunque
+      // caigan en el mismo hueco — agrupar solo por evento las dejaba sin
+      // juntar. Con fecha+hora+profesional se juntan igual que ya las ve
+      // la clienta en "Mis reservas".
+      const key = `${b.date}|${b.time}|${b.employeeId}`;
       if (!byKey.has(key)) byKey.set(key, []);
       byKey.get(key).push(b);
     });
@@ -2385,7 +2409,7 @@
     const el = document.createElement('div');
     el.className = 'panel-appt panel-appt-group';
     const first = group[0];
-    el.dataset.groupKey = `${first.calendarId}|${first.eventId}`;
+    el.dataset.groupKey = `${first.date}|${first.time}|${first.employeeId}`;
 
     const linesHtml = group.map((x) => `
       <div class="panel-appt-group-line" data-booking-id="${x.bookingId}">
@@ -2590,6 +2614,15 @@
     // sobre el grupo completo (no solo los marcados), porque el hueco de
     // calendario es de la visita entera, no de un tratamiento suelto ──
     el.querySelector('.pag-duration-btn').addEventListener('click', () => togglePanel('duration', () => {
+      // Solo tiene sentido un total conjunto si de verdad comparten el
+      // mismo bloqueo de calendario — si cada tratamiento se agendó por
+      // separado (eventos distintos, aunque caigan a la misma hora), no
+      // hay un solo hueco que alargar/recortar de una vez.
+      const distinctEvents = new Set(group.map((x) => `${x.calendarId}|${x.eventId}`));
+      if (distinctEvents.size > 1) {
+        slot.innerHTML = `<div class="panel-new-appt"><p class="panel-status">Estos tratamientos se agendaron por separado (no comparten el mismo hueco de calendario), así que no se puede ajustar un tiempo conjunto. Ajusta cada uno desde su "✎ Editar tratamiento".</p></div>`;
+        return;
+      }
       const currentTotal = group.reduce((s, x) => s + (Number(x.durationMinutes) || 0), 0);
       slot.innerHTML = `
         <div class="panel-new-appt">
@@ -2674,7 +2707,11 @@
     el.querySelector('.pag-noshow-btn').addEventListener('click', async () => {
       if (!confirm(`¿Marcar como no-show la visita completa (${group.length} tratamientos) del ${first.date}?`)) return;
       try {
-        const data = await panelFetch('/panel/no-show', { method: 'POST', body: JSON.stringify({ bookingId: first.bookingId }) });
+        // extraBookingIds: por si estos tratamientos se agendaron cada uno
+        // por su cuenta (eventos de calendario distintos, aunque caigan a
+        // la misma hora) — para que cuente como UNA sola falta, no una por
+        // cada llamada.
+        const data = await panelFetch('/panel/no-show', { method: 'POST', body: JSON.stringify({ bookingId: first.bookingId, extraBookingIds: group.slice(1).map((x) => x.bookingId) }) });
         alert(data.isFirstTime
           ? 'Marcada. Primera falta: se ha perdonado y se ha avisado por email.'
           : 'Marcada. Ya tenía una falta anterior: se ha descontado y avisado por email.');
