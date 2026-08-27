@@ -79,21 +79,21 @@ module.exports = [
   // Si me das un precio (aunque sea orientativo) los añado igual que los demás.
 
   // ── 05 · CORPORALES ──
-  { id: 'presoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Presoterapia', nameEn: 'Pressotherapy', durationMinutes: 30, price: 30, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'radiofrecuencia-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Radiofrecuencia corporal', nameEn: 'Body radiofrequency', durationMinutes: 60, price: 70, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'maderoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Maderoterapia · 55 min', nameEn: 'Wood therapy · 55 min', durationMinutes: 55, price: 85, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'drenaje-linfatico-50', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Drenaje linfático avanzado Essentia · 50 min', nameEn: 'Essentia advanced lymphatic drainage · 50 min', durationMinutes: 50, price: 100, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'presoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Presoterapia · 30 min', nameEn: 'Pressotherapy · 30 min', durationMinutes: 30, price: 30, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'radiofrecuencia-corporal', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Radiofrecuencia corporal · 45 min', nameEn: 'Body radiofrequency · 45 min', durationMinutes: 45, price: 70, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'maderoterapia', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Maderoterapia · 50 min', nameEn: 'Wood therapy · 50 min', durationMinutes: 50, price: 85, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'drenaje-linfatico-50', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Drenaje linfático terapéutico · 50 min', nameEn: 'Therapeutic lymphatic drainage · 50 min', durationMinutes: 50, price: 75, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'drenaje-linfatico-manuela-shala', category: 'Corporales', categoryEn: 'Body Treatments', name: 'Drenaje linfático método "Manuela Shala" · 50 min', nameEn: '"Manuela Shala" method lymphatic drainage · 50 min', durationMinutes: 50, price: 120, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
 
-  // ── 06 · MASAJES & RITUALES ESSENTIA ── (duración incluida en el propio nombre)
-  { id: 'masaje-antiestres-50', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Masaje antiestrés Essentia · 50 min', nameEn: 'Essentia anti-stress massage · 50 min', durationMinutes: 50, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  // ── 06 · MASAJES ── (ya no se trabaja con Essentia — todos exclusivos de Anna, ver employees.js)
+  { id: 'masaje-relajante-60', category: 'Masajes', categoryEn: 'Massages', name: 'Masaje relajante · 60 min', nameEn: 'Relaxing massage · 60 min', durationMinutes: 60, price: 65, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'masaje-aromaterapia-60', category: 'Masajes', categoryEn: 'Massages', name: 'Masaje aromaterapia · 60 min', nameEn: 'Aromatherapy massage · 60 min', durationMinutes: 60, price: 70, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'masaje-personalizado-60', category: 'Masajes', categoryEn: 'Massages', name: 'Masaje personalizado · 60 min', nameEn: 'Personalized massage · 60 min', durationMinutes: 60, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   // Tratamiento de 45 min, pero se bloquean 55 min en la agenda para dar tiempo a preparar la cabina
-  { id: 'kobido-facial', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Kobido facial · 45 min', nameEn: 'Kobido facial massage · 45 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'lifting-facial', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Lifting facial · 45 min', nameEn: 'Facial lifting massage · 45 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'masaje-terapeutico-45', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Masaje terapéutico Essentia · 45 min', nameEn: 'Essentia therapeutic massage · 45 min', durationMinutes: 45, price: 85, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'masaje-deportivo-45', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Masaje deportivo Essentia · 45 min', nameEn: 'Essentia sports massage · 45 min', durationMinutes: 45, price: 90, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'masaje-prenatal-50', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Masaje prenatal Essentia · 50 min', nameEn: 'Essentia prenatal massage · 50 min', durationMinutes: 50, price: 110, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'ritual-reparador-solar-70', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Ritual reparador solar · 70 min', nameEn: 'Solar recovery ritual · 70 min', durationMinutes: 70, price: 120, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
-  { id: 'ritual-essentia-80', category: 'Masajes & Rituales Essentia', categoryEn: 'Massages & Essentia Rituals', name: 'Ritual Essentia · 80 min', nameEn: 'Essentia ritual · 80 min', durationMinutes: 80, price: 160, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'kobido-facial', category: 'Masajes', categoryEn: 'Massages', name: 'Kobido facial · 45 min', nameEn: 'Kobido facial massage · 45 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'lifting-facial', category: 'Masajes', categoryEn: 'Massages', name: 'Lifting facial · 45 min', nameEn: 'Facial lifting massage · 45 min', durationMinutes: 55, price: 80, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'reflexologia-podal-60', category: 'Masajes', categoryEn: 'Massages', name: 'Reflexología podal · 60 min', nameEn: 'Foot reflexology · 60 min', durationMinutes: 60, price: 70, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+  { id: 'reflexologia-podal-50', category: 'Masajes', categoryEn: 'Massages', name: 'Reflexología podal · 50 min', nameEn: 'Foot reflexology · 50 min', durationMinutes: 50, price: 60, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
 
   // ── 07 · ELIMINACIÓN DE TATUAJES ──
   // Mapeé tus tamaños (xs/s/m/grande) a los de la tabla real (S/M/L/XL) de menor a mayor.

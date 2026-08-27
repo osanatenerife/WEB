@@ -36,12 +36,14 @@ module.exports = [
   { serviceId: 'presoterapia', sessions: 6, price: 120 },
   { serviceId: 'radiofrecuencia-corporal', sessions: 3, price: 185 },
   { serviceId: 'radiofrecuencia-corporal', sessions: 6, price: 330 },
-  { serviceId: 'maderoterapia', sessions: 5, price: 360 },
-  { serviceId: 'maderoterapia', sessions: 10, price: 650 },
+  { serviceId: 'maderoterapia', sessions: 5, price: 350 },
+  { serviceId: 'maderoterapia', sessions: 10, price: 620 },
 
-  // ── Masajes & Rituales Essentia ──
-  { serviceId: 'drenaje-linfatico-50', sessions: 5, price: 450 },
-  { serviceId: 'drenaje-linfatico-50', sessions: 10, price: 800 },
+  // ── Masajes ──
+  { serviceId: 'drenaje-linfatico-50', sessions: 5, price: 360 },
+  { serviceId: 'drenaje-linfatico-50', sessions: 10, price: 650 },
+  { serviceId: 'drenaje-linfatico-manuela-shala', sessions: 5, price: 450 },
+  { serviceId: 'drenaje-linfatico-manuela-shala', sessions: 10, price: 800 },
 
   // ── Eliminación de tatuajes ──
   { serviceId: 'tatuaje-talla-s', sessions: 3, price: 120 },

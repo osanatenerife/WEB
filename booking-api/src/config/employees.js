@@ -23,15 +23,14 @@ const services = require('./services');
 // Solo Anna hace estos tratamientos (kobido/lifting facial y maderoterapia)
 const especialidadesAnna = ['kobido-facial', 'lifting-facial', 'maderoterapia'];
 
-// El resto de "Masajes & Rituales Essentia" (kobido/lifting facial comparten
-// categoría pero son especialidad exclusiva de Anna, no de Yuli — se excluyen
-// aquí) + drenaje linfático, que en la web se muestra dentro de "Corporales"
-// pero sigue siendo tratamiento exclusivo de Yuli.
-const masajesEssentiaIds = services
-  .filter((s) => s.category === 'Masajes & Rituales Essentia')
+// Ya no se trabaja con Essentia (antes lo llevaba Yuli) — todo lo que cae en
+// "Masajes" en la web, más el drenaje linfático de "Corporales", pasa a ser
+// especialidad exclusiva de Anna.
+const masajesYCorporalesAnna = services
+  .filter((s) => s.category === 'Masajes')
   .map((s) => s.id)
   .filter((id) => !especialidadesAnna.includes(id))
-  .concat(['drenaje-linfatico-50']);
+  .concat(['drenaje-linfatico-50', 'drenaje-linfatico-manuela-shala']);
 
 const CLOSED = { closed: true };
 
@@ -41,7 +40,7 @@ module.exports = [
     name: 'Raquel',
     calendarId: 'osanatenerife@gmail.com',
     services: [], // todos
-    excludedServices: [...masajesEssentiaIds, ...especialidadesAnna],
+    excludedServices: [...masajesYCorporalesAnna, ...especialidadesAnna],
     weekly: {
       0: CLOSED, // domingo
       1: CLOSED, // lunes
@@ -57,7 +56,7 @@ module.exports = [
     name: 'Vanessa',
     calendarId: 'vanessacentroosana@gmail.com',
     services: [], // todos
-    excludedServices: [...masajesEssentiaIds, ...especialidadesAnna],
+    excludedServices: [...masajesYCorporalesAnna, ...especialidadesAnna],
     weekly: {
       0: CLOSED, // domingo
       1: CLOSED, // lunes
@@ -72,25 +71,18 @@ module.exports = [
     id: 'anna',
     name: 'Anna',
     calendarId: 'annacentroosana@gmail.com',
-    // Sus 3 especialidades exclusivas + faciales/aparatología que también hace,
+    // Todos los masajes y corporales (antes repartidos entre Anna y Yuli,
+    // ahora exclusivos de Anna) + faciales/aparatología que también hace,
     // pero que no son exclusivas suyas (Raquel/Vanessa también las hacen).
     services: [
       ...especialidadesAnna,
+      ...masajesYCorporalesAnna,
       'radiofrecuencia-facial', 'radiofrecuencia-corporal', 'limpieza-profunda',
       'hollywood-peel', 'dermapen', 'exosomas-dermapen', 'limpieza-facial-premium',
       'ritual-basic-skin', 'ritual-relaxing', 'ritual-flash-lifting',
     ],
     weekly: {
       0: CLOSED, 1: CLOSED, 2: { open: '10:00', close: '18:00' }, 3: CLOSED, 4: CLOSED, 5: CLOSED, 6: { open: '10:00', close: '18:00' }, // martes y sábado
-    },
-  },
-  {
-    id: 'yuli',
-    name: 'Yuli',
-    calendarId: 'essentiacentroosana@gmail.com',
-    services: masajesEssentiaIds, // solo masajes & rituales essentia
-    weekly: {
-      0: CLOSED, 1: CLOSED, 2: { open: '10:00', close: '18:00' }, 3: CLOSED, 4: CLOSED, 5: CLOSED, 6: CLOSED, // solo martes
     },
   },
 ];
