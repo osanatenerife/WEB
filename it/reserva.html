@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Prenota il tuo Appuntamento Online — Osana | Tenerife Sud</title>
+<meta name="description" content="Prenota il tuo appuntamento online da Osana: scegli trattamento, professionista e orario, e paga la caparra o il totale in modo sicuro con carta.">
+<link rel="canonical" href="https://osana.es/it/reserva.html">
+<link rel="alternate" hreflang="es" href="https://osana.es/reserva.html">
+<link rel="alternate" hreflang="en" href="https://osana.es/en/reserva.html">
+<link rel="alternate" hreflang="it" href="https://osana.es/it/reserva.html">
+<link rel="alternate" hreflang="x-default" href="https://osana.es/reserva.html">
+<link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/booking.css?v=20260731">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-J81QPRL330"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-J81QPRL330');
+</script>
+</head>
+<body class="reserva-page">
+
+<a href="#main" class="skip-link">Vai al contenuto</a>
+
+<div class="mobile-menu" id="mobile-menu">
+  <button class="mobile-menu-close" onclick="closeMobileMenu()" aria-label="Chiudi menu">✕</button>
+  <a href="index.html" onclick="closeMobileMenu()">Home</a>
+  <a href="servicios.html" onclick="closeMobileMenu()">Servizi</a>
+  <a href="formaciones.html" onclick="closeMobileMenu()">Corsi</a>
+  <a href="promociones.html" onclick="closeMobileMenu()">Promozioni</a>
+  <a href="contacto.html" onclick="closeMobileMenu()">Contatti</a>
+  <a href="mis-reservas.html" onclick="closeMobileMenu()">Le mie prenotazioni</a>
+  <a href="../reserva.html" class="nav-lang" onclick="closeMobileMenu()">ES</a>
+  <a href="../en/reserva.html" class="nav-lang" onclick="closeMobileMenu()">EN</a>
+  <a href="reserva.html" class="btn-primary" onclick="closeMobileMenu()" style="font-size:11px;padding:16px 40px;margin-top:8px;">Prenota ora</a>
+</div>
+
+<nav id="main-nav">
+  <a href="index.html" class="nav-logo"><img src="../images/logo-full-color.png" alt="Osana" class="nav-logo-img"></a>
+  <ul class="nav-links">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="servicios.html">Servizi</a></li>
+    <li><a href="formaciones.html">Corsi</a></li>
+    <li><a href="promociones.html">Promozioni</a></li>
+    <li><a href="contacto.html">Contatti</a></li>
+    <li><a href="mis-reservas.html">Le mie prenotazioni</a></li>
+    <li><a href="../reserva.html" class="nav-lang">ES</a></li>
+    <li><a href="../en/reserva.html" class="nav-lang">EN</a></li>
+    <li><a href="reserva.html" class="nav-cta">Prenota ora</a></li>
+  </ul>
+  <button class="nav-hamburger" onclick="openMobileMenu()" aria-label="Apri menu"><span></span><span></span><span></span></button>
+</nav>
+
+<main id="main" class="page-offset">
+
+<section class="page-hero" style="padding-bottom:24px;">
+  <span class="page-hero-eyebrow">Prenotazione online</span>
+  <h1 class="page-hero-title">Prenota il tuo <em>appuntamento</em></h1>
+  <p class="page-hero-text">Scegli trattamento, professionista e orario, e paga in modo sicuro con carta.</p>
+</section>
+
+<div class="booking-shell" id="booking-shell" data-active-step="1">
+
+  <ol class="booking-progress" id="booking-steps">
+    <li class="booking-progress-step active" data-step="1">
+      <span class="booking-progress-num">1</span>
+      <span class="booking-progress-label">Trattamento</span>
+    </li>
+    <li class="booking-progress-step" data-step="2">
+      <span class="booking-progress-num">2</span>
+      <span class="booking-progress-label">Professionista</span>
+    </li>
+    <li class="booking-progress-step" data-step="3">
+      <span class="booking-progress-num">3</span>
+      <span class="booking-progress-label">Data e ora</span>
+    </li>
+    <li class="booking-progress-step" data-step="4">
+      <span class="booking-progress-num">4</span>
+      <span class="booking-progress-label">I tuoi dati</span>
+    </li>
+  </ol>
+
+  <div id="booking-error" class="booking-error" style="display:none;"></div>
+
+  <div class="booking-layout">
+    <div class="booking-main">
+
+      <!-- PASSO 1: SERVIZIO -->
+      <section class="booking-step-panel active" data-step-panel="1">
+        <h2 class="booking-step-title">Che trattamento vuoi prenotare?</h2>
+        <div id="booking-cat-pills" class="booking-cat-pills"></div>
+        <div id="booking-services" class="booking-service-grid">
+          <p class="booking-loading">Caricamento trattamenti…</p>
+        </div>
+
+        <div id="booking-bono-section" class="booking-bono-section" style="display:none;"></div>
+
+        <div id="booking-addons-section" class="booking-extras-section" style="display:none;">
+          <h3 class="booking-subtitle">Vuoi aggiungere un altro trattamento a questo appuntamento?</h3>
+          <div id="booking-addons-chips" class="booking-addons-chips"></div>
+          <select id="booking-addons-select" class="booking-addons-select">
+            <option value="">+ Aggiungi trattamento…</option>
+          </select>
+          <div id="booking-addons-mode-chooser" class="booking-addons-mode-chooser" style="display:none;"></div>
+        </div>
+
+        <div id="booking-extras-section" class="booking-extras-section" style="display:none;">
+          <h3 class="booking-subtitle">Vuoi aggiungere un extra?</h3>
+          <div id="booking-extras" class="booking-extras-list"></div>
+        </div>
+
+        <div id="booking-step1-actions" style="display:none;">
+          <button type="button" id="booking-continue-step1" class="btn-primary">Continua</button>
+        </div>
+      </section>
+
+      <!-- PASSO 2: PROFESSIONISTA -->
+      <section class="booking-step-panel" data-step-panel="2">
+        <h2 class="booking-step-title">Con chi preferisci il tuo appuntamento?</h2>
+        <div id="booking-employees" class="booking-employee-grid"></div>
+        <button class="booking-back" data-back="1">← Indietro</button>
+      </section>
+
+      <!-- PASSO 3: DATA E ORA -->
+      <section class="booking-step-panel" data-step-panel="3">
+        <h2 class="booking-step-title">Scegli data e ora</h2>
+        <div class="booking-calendar">
+          <div class="booking-calendar-head">
+            <button type="button" id="cal-prev" aria-label="Mese precedente">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+            </button>
+            <span id="cal-month-label"></span>
+            <button type="button" id="cal-next" aria-label="Mese successivo">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+          <div class="booking-calendar-weekdays">
+            <span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span>
+          </div>
+          <div class="booking-calendar-grid" id="booking-calendar-grid"></div>
+        </div>
+        <div id="booking-slots" class="booking-slot-grid"></div>
+        <button class="booking-back" data-back="2">← Indietro</button>
+      </section>
+
+      <!-- PASSO 4: DATI -->
+      <section class="booking-step-panel" data-step-panel="4">
+        <h2 class="booking-step-title">I tuoi dati</h2>
+        <div class="booking-form-grid">
+          <div class="booking-field">
+            <label for="booking-name">Nome e cognome</label>
+            <input type="text" id="booking-name" required>
+          </div>
+          <div class="booking-field">
+            <label for="booking-phone">Telefono</label>
+            <input type="tel" id="booking-phone" required>
+          </div>
+        </div>
+        <div class="booking-field">
+          <label for="booking-email">Email (per la conferma e il promemoria dell'appuntamento)</label>
+          <input type="email" id="booking-email" required>
+        </div>
+        <div class="booking-field">
+          <label for="booking-birthdate">Data di nascita (facoltativa, per farti gli auguri e inviarti sconti)</label>
+          <input type="date" id="booking-birthdate">
+        </div>
+        <button class="booking-back" data-back="3">← Indietro</button>
+      </section>
+
+    </div>
+
+    <aside class="booking-summary-panel">
+      <span class="booking-summary-title">La tua prenotazione</span>
+      <div id="booking-summary" class="booking-summary-body">
+        <p class="booking-summary-empty">Scegli un trattamento per iniziare.</p>
+      </div>
+      <div class="booking-discount-box">
+        <label class="booking-discount-label" for="booking-discount-code">Codice sconto</label>
+        <div class="booking-discount-row">
+          <input type="text" id="booking-discount-code" placeholder="Es. VERANO10">
+          <button type="button" id="booking-discount-apply" class="booking-discount-btn">Applica</button>
+        </div>
+      </div>
+      <p id="booking-discount-msg" class="booking-discount-msg" style="display:none;"></p>
+      <div id="booking-pay-options" class="booking-pay-options"></div>
+      <button id="booking-submit" class="btn-primary booking-summary-cta">Vai al pagamento sicuro</button>
+    </aside>
+  </div>
+
+</div>
+
+</main>
+
+<footer>
+  <div class="footer-top">
+    <div>
+      <span class="footer-brand-name"><img src="../images/logo-full-blanco.png" alt="Osana" class="footer-logo-img"></span>
+      <p class="footer-brand-text">Centro specializzato in depilazione laser SHR ed estetica avanzata a Tenerife Sud. Tecnologia medico-estetica con un approccio completamente personalizzato.</p>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Centro</span>
+      <ul>
+        <li><a href="servicios.html">Servizi</a></li>
+        <li><a href="formaciones.html">Corsi</a></li>
+        <li><a href="promociones.html">Promozioni</a></li>
+        <li><a href="contacto.html">Contatti</a></li>
+        <li><a href="bono-regalo.html">Buono regalo</a></li>
+        <li><a href="mis-reservas.html">Gestisci la mia prenotazione</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <span class="footer-col-title">Contatti</span>
+      <ul>
+        <li><a href="tel:+34623725551">+34 623 725 551</a></li>
+        <li><a href="mailto:osanatenerife@gmail.com">osanatenerife@gmail.com</a></li>
+        <li><a href="https://wa.me/34623725551">WhatsApp</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span class="footer-copy">© 2026 Osana · Centro di Depilazione ed Estetica · Adeje, Tenerife</span>
+  </div>
+</footer>
+
+<a href="https://wa.me/34623725551" class="wa-float" target="_blank" rel="noopener" aria-label="WhatsApp">
+  <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.07-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.2-1.77 1.24-.47.05-1.03.07-1.66-.1-.38-.1-.87-.28-1.5-.56-2.64-1.14-4.36-3.8-4.5-3.98-.13-.18-1.08-1.44-1.08-2.75 0-1.3.68-1.94.93-2.2.24-.27.52-.33.7-.33h.5c.16 0 .38-.03.58.44.22.53.75 1.83.82 1.96.07.13.11.29.02.47-.09.18-.13.29-.27.44-.13.16-.28.35-.4.47-.13.13-.27.27-.12.53.16.27.7 1.16 1.5 1.88 1.04.93 1.9 1.22 2.17 1.36.27.13.43.11.6-.07.16-.18.68-.79.87-1.06.18-.27.36-.22.6-.13.24.09 1.55.73 1.82.86.27.13.44.2.5.31.07.13.07.7-.15 1.31z"/></svg>
+</a>
+
+<script src="../js/main.js"></script>
+<script src="../js/editor.js"></script>
+<script src="../js/booking-config.js"></script>
+<script>window.BOOKING_LANG = 'it';</script>
+<script src="../js/booking.js?v=20260731"></script>
+</body>
+</html>
