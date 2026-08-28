@@ -23,7 +23,7 @@ router.post('/bono-checkout', async (req, res) => {
     employeeId, date, time,
     clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, termsAccepted, lang,
   } = req.body || {};
-  const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
+  const reservaPath = lang === 'en' ? '/en/reserva.html' : lang === 'it' ? '/it/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
@@ -121,7 +121,7 @@ router.post('/bono-checkout', async (req, res) => {
 
     const allNames = [...bonoItems, ...singleItems].map((it) => it.service.name).join(' + ');
     const customerAllNames = [...bonoItems, ...singleItems]
-      .map((it) => (lang === 'en' ? (it.service.nameEn || it.service.name) : it.service.name)).join(' + ');
+      .map((it) => (lang === 'en' ? (it.service.nameEn || it.service.name) : lang === 'it' ? (it.service.nameIt || it.service.name) : it.service.name)).join(' + ');
 
     // Revalidar disponibilidad y crear el evento "pendiente de pago" dentro
     // del mismo bloqueo en memoria por profesional+día — evita que dos
@@ -152,7 +152,7 @@ router.post('/bono-checkout', async (req, res) => {
     const origin = resolveOrigin(req);
     const session = await createCheckoutSession({
       amountEuros: amount,
-      description: lang === 'en'
+      description: (lang === 'en' || lang === 'it')
         ? `${customerAllNames} — Osana`
         : `${allNames} — Osana`,
       successUrl: `${origin}${reservaPath}?estado=ok`,
@@ -176,7 +176,7 @@ router.post('/bono-checkout', async (req, res) => {
         amount: String(amount),
         paymentType,
         termsAcceptedAt: new Date().toISOString(),
-        lang: lang === 'en' ? 'en' : 'es',
+        lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
       },
     });
 
@@ -194,14 +194,14 @@ router.post('/bono-checkout', async (req, res) => {
 // Lista pública de bonos disponibles, con el precio "1 sesión" y el nombre
 // del servicio ya resueltos, para pintar el selector en la web.
 router.get('/bonos', (req, res) => {
-  const lang = req.query.lang === 'en' ? 'en' : 'es';
+  const lang = req.query.lang === 'en' ? 'en' : req.query.lang === 'it' ? 'it' : 'es';
   const list = bonos.map((b) => {
     const service = services.find((s) => s.id === b.serviceId);
     if (!service) return null;
     return {
       serviceId: b.serviceId,
-      serviceName: lang === 'en' ? (service.nameEn || service.name) : service.name,
-      category: lang === 'en' ? (service.categoryEn || service.category) : service.category,
+      serviceName: lang === 'en' ? (service.nameEn || service.name) : lang === 'it' ? (service.nameIt || service.name) : service.name,
+      category: lang === 'en' ? (service.categoryEn || service.category) : lang === 'it' ? (service.categoryIt || service.category) : service.category,
       sessions: b.sessions,
       bonoPrice: b.price,
       singleSessionPrice: service.price,

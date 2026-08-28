@@ -59,12 +59,20 @@ function tspanLines(lines, x, startY, lineHeight) {
 
 function buildSvgOverlay({ fromName, toName, itemLabel, message, expiryLabel, code, lang }) {
   const isEn = lang === 'en';
+  const isIt = lang === 'it';
   const strings = isEn
     ? {
         title: 'GIFT VOUCHER', tagline: 'a gift to treat yourself',
         to: 'TO:', from: 'FROM:', validUntil: 'VALID UNTIL:', giftIntro: 'COME AND TREAT YOURSELF WITH:',
         redemption: 'PRIOR BOOKING REQUIRED TO REDEEM THIS VOUCHER.',
         code: 'CODE',
+      }
+    : isIt
+    ? {
+        title: 'BUONO REGALO', tagline: 'un regalo per coccolarti',
+        to: 'PER:', from: 'DA:', validUntil: 'VALIDO FINO AL:', giftIntro: 'VIENI A COCCOLARTI CON:',
+        redemption: 'È NECESSARIA LA PRENOTAZIONE PER USARE QUESTO BUONO.',
+        code: 'CODICE',
       }
     : {
         title: 'BONO REGALO', tagline: 'un regalo para que te mimes',

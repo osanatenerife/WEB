@@ -15,7 +15,7 @@ async function fetchGoogleReviews(lang) {
   const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
   url.searchParams.set('place_id', placeId);
   url.searchParams.set('fields', 'name,rating,user_ratings_total,reviews');
-  url.searchParams.set('language', lang === 'en' ? 'en' : 'es');
+  url.searchParams.set('language', lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es');
   url.searchParams.set('key', apiKey);
 
   const res = await fetch(url);
@@ -40,7 +40,7 @@ async function fetchGoogleReviews(lang) {
 }
 
 router.get('/reviews', async (req, res) => {
-  const lang = req.query.lang === 'en' ? 'en' : 'es';
+  const lang = req.query.lang === 'en' ? 'en' : req.query.lang === 'it' ? 'it' : 'es';
   const cached = cache[lang];
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
     return res.json(cached.data);

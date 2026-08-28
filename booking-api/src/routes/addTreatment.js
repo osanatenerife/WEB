@@ -45,7 +45,7 @@ router.post('/my-bookings/add-treatment', async (req, res) => {
   if (!bookingId || !phone || !email || !serviceId) {
     return res.status(400).json({ error: 'Faltan datos para añadir el tratamiento.' });
   }
-  const reservaPath = lang === 'en' ? '/en/mis-reservas.html' : '/mis-reservas.html';
+  const reservaPath = lang === 'en' ? '/en/mis-reservas.html' : lang === 'it' ? '/it/mis-reservas.html' : '/mis-reservas.html';
 
   try {
     const booking = await findBookingById(bookingId);
@@ -111,7 +111,9 @@ router.post('/my-bookings/add-treatment', async (req, res) => {
       amountEuros: amount,
       description: lang === 'en'
         ? `${service.nameEn || service.name} — added to your Osana booking`
-        : `${service.name} — añadido a tu reserva Osana`,
+        : lang === 'it'
+          ? `${service.nameIt || service.name} — aggiunto alla tua prenotazione Osana`
+          : `${service.name} — añadido a tu reserva Osana`,
       successUrl: `${origin}${reservaPath}?estado=ok`,
       cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
       allowKlarna: type === 'total',
@@ -130,7 +132,7 @@ router.post('/my-bookings/add-treatment', async (req, res) => {
         originalEndISO: currentEndISO,
         amount: String(amount),
         paymentType: type,
-        lang: lang === 'en' ? 'en' : 'es',
+        lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
       },
     });
 

@@ -1184,7 +1184,7 @@ router.post('/panel/reschedule', async (req, res) => {
     if (booking.email) {
       sendEmail({
         to: booking.email,
-        subject: booking.lang === 'en' ? 'Your appointment was rescheduled — Osana' : 'Tu cita ha sido reprogramada — Osana',
+        subject: booking.lang === 'en' ? 'Your appointment was rescheduled — Osana' : booking.lang === 'it' ? 'Il tuo appuntamento è stato riprogrammato — Osana' : 'Tu cita ha sido reprogramada — Osana',
         html: rescheduleEmailHtml({ booking, oldDate, oldTime, newDate: date, newTime: time }),
       }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
     }
@@ -1298,7 +1298,7 @@ router.post('/panel/reschedule-combined', async (req, res) => {
     if (first.email) {
       sendEmail({
         to: first.email,
-        subject: first.lang === 'en' ? 'Your appointment was rescheduled — Osana' : 'Tu cita ha sido reprogramada — Osana',
+        subject: first.lang === 'en' ? 'Your appointment was rescheduled — Osana' : first.lang === 'it' ? 'Il tuo appuntamento è stato riprogrammato — Osana' : 'Tu cita ha sido reprogramada — Osana',
         html: rescheduleEmailHtml({ booking: first, oldDate: first.date, oldTime: first.time, newDate: date, newTime: time }),
       }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
     }
@@ -1888,18 +1888,25 @@ router.post('/panel/edit-client', async (req, res) => {
 // que no lo sabía o que no lo leyó.
 const NO_SHOW_POLICY_NOTE_ES = 'A partir de ahora te pedimos avisarnos con al menos 48h si necesitas cambiar o cancelar una cita: la próxima vez que faltes sin avisar (o cambies con menos de 48h), se descontará la sesión de tu bono, o el importe de la reserva si no tienes bono.';
 const NO_SHOW_POLICY_NOTE_EN = 'From now on, please give us at least 48h notice if you need to change or cancel an appointment: next time you miss one without notice (or change it with less than 48h notice), the session from your package will be deducted, or the booking fee if you don\'t have one.';
+const NO_SHOW_POLICY_NOTE_IT = 'D\'ora in poi ti chiediamo di avvisarci con almeno 48h di anticipo se devi cambiare o cancellare un appuntamento: la prossima volta che manchi senza avvisare (o cambi con meno di 48h di anticipo), verrà scalata la seduta dal tuo pacchetto, o l\'importo della prenotazione se non ne hai uno.';
 
 function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
   const isEn = lang === 'en';
+  const isIt = lang === 'it';
   if (isFirstTime) {
-    return isEn
-      ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+    if (isEn) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
           <h2 style="font-size:18px;">Update on your appointment — Osana</h2>
           <p><b>Treatment:</b> ${booking.serviceName}<br><b>Date:</b> ${booking.date}<br><b>Status:</b> No-show — this first time, nothing was charged or deducted.</p>
           <p><b>${NO_SHOW_POLICY_NOTE_EN}</b></p>
           <p>Want to reschedule? Go to My Bookings or message us on WhatsApp.</p>
-        </div>`
-      : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        </div>`;
+    if (isIt) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+          <h2 style="font-size:18px;">Aggiornamento sul tuo appuntamento — Osana</h2>
+          <p><b>Trattamento:</b> ${booking.serviceName}<br><b>Data:</b> ${booking.date}<br><b>Stato:</b> Assenza senza preavviso — questa prima volta non ti è stato addebitato né scalato nulla.</p>
+          <p><b>${NO_SHOW_POLICY_NOTE_IT}</b></p>
+          <p>Vuoi riprogrammare? Vai su Le mie prenotazioni o scrivici su WhatsApp.</p>
+        </div>`;
+    return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
           <h2 style="font-size:18px;">Actualización de tu cita — Osana</h2>
           <p><b>Cita:</b> ${booking.serviceName}<br><b>Fecha:</b> ${booking.date}<br><b>Estado:</b> Falta sin penalización — esta primera vez no se te ha cobrado ni descontado nada.</p>
           <p><b>${NO_SHOW_POLICY_NOTE_ES}</b></p>
@@ -1908,16 +1915,24 @@ function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
   }
   const remainingLine = bono ? `<p><b>Sesiones restantes en tu bono: ${bono.sessionsRemaining} de ${bono.totalSessions}</b></p>` : '';
   const remainingLineEn = bono ? `<p><b>Sessions remaining in your package: ${bono.sessionsRemaining} of ${bono.totalSessions}</b></p>` : '';
-  return isEn
-    ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+  const remainingLineIt = bono ? `<p><b>Sedute rimanenti nel tuo pacchetto: ${bono.sessionsRemaining} di ${bono.totalSessions}</b></p>` : '';
+  if (isEn) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
         <h2 style="font-size:18px;">Update on your appointment — Osana</h2>
         <p><b>Treatment:</b> ${booking.serviceName}<br><b>Date:</b> ${booking.date}<br><b>Status:</b> No-show</p>
         <p><b>Session deducted: Yes (1 session)</b></p>
         ${remainingLineEn}
         <p>Your free first-time pass was already used on a previous no-show, so this one counts. Please give us at least 48h notice next time if you need to change or cancel an appointment.</p>
         <p>Want to reschedule? Go to My Bookings or message us on WhatsApp.</p>
-      </div>`
-    : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+      </div>`;
+  if (isIt) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Aggiornamento sul tuo appuntamento — Osana</h2>
+        <p><b>Trattamento:</b> ${booking.serviceName}<br><b>Data:</b> ${booking.date}<br><b>Stato:</b> Assenza senza preavviso</p>
+        <p><b>Seduta scalata: Sì (1 seduta)</b></p>
+        ${remainingLineIt}
+        <p>Hai già usato il tuo jolly della prima assenza in una occasione precedente, quindi questa conta. Ti chiediamo di avvisarci con almeno 48h di anticipo la prossima volta che devi cambiare o cancellare un appuntamento.</p>
+        <p>Vuoi riprogrammare? Vai su Le mie prenotazioni o scrivici su WhatsApp.</p>
+      </div>`;
+  return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
         <h2 style="font-size:18px;">Actualización de tu cita — Osana</h2>
         <p><b>Cita:</b> ${booking.serviceName}<br><b>Fecha:</b> ${booking.date}<br><b>Estado:</b> Ausencia sin preaviso</p>
         <p><b>Sesión descontada: Sí (1 sesión)</b></p>
@@ -1932,16 +1947,24 @@ function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
 // Reservas", donde ya lo ve confirmado en pantalla al momento).
 function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime }) {
   const isEn = booking.lang === 'en';
-  return isEn
-    ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+  const isIt = booking.lang === 'it';
+  if (isEn) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
         <h2 style="font-size:18px;">Your appointment was rescheduled</h2>
         <p>Hi ${escapeHtml(booking.name || '')},</p>
         <p>Our team has moved your appointment for <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
         <p>Was: ${oldDate} at ${oldTime}<br>Now: <b>${newDate} at ${newTime}</b></p>
         <p>If this doesn't work for you, message us on WhatsApp and we'll find another time.</p>
         <p>See you soon!<br>Osana</p>
-      </div>`
-    : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+      </div>`;
+  if (isIt) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Il tuo appuntamento è stato riprogrammato</h2>
+        <p>Ciao ${escapeHtml(booking.name || '')},</p>
+        <p>Il nostro team ha spostato il tuo appuntamento per <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
+        <p>Prima: ${oldDate} alle ${oldTime}<br>Ora: <b>${newDate} alle ${newTime}</b></p>
+        <p>Se questo orario non ti va bene, scrivici su WhatsApp e troviamo un altro momento.</p>
+        <p>A presto!<br>Osana</p>
+      </div>`;
+  return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
         <h2 style="font-size:18px;">Tu cita ha sido reprogramada</h2>
         <p>Hola ${escapeHtml(booking.name || '')},</p>
         <p>Nuestro equipo ha movido tu cita de <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
@@ -2046,7 +2069,7 @@ router.post('/panel/no-show', async (req, res) => {
       try {
         await sendEmail({
           to: booking.email,
-          subject: booking.lang === 'en' ? 'Update on your appointment — Osana' : 'Actualización de tu cita — Osana',
+          subject: booking.lang === 'en' ? 'Update on your appointment — Osana' : booking.lang === 'it' ? 'Aggiornamento sul tuo appuntamento — Osana' : 'Actualización de tu cita — Osana',
           html: noShowEmailHtml({ isFirstTime, booking, bono: bonosRestored[0] || null, lang: booking.lang }),
         });
       } catch (emailErr) {
@@ -2170,7 +2193,7 @@ router.post('/panel/custom-quote', async (req, res) => {
   try {
     const quoteId = crypto.randomUUID();
     const origin = resolveOrigin(req);
-    const thanksPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
+    const thanksPath = lang === 'en' ? '/en/reserva.html' : lang === 'it' ? '/it/reserva.html' : '/reserva.html';
     const session = await createCheckoutSession({
       amountEuros: amountNum,
       description: `${description} — Osana`,
@@ -2186,7 +2209,7 @@ router.post('/panel/custom-quote', async (req, res) => {
         description,
         category,
         amount: String(amountNum),
-        lang: lang === 'en' ? 'en' : 'es',
+        lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
       },
     });
 
@@ -2202,7 +2225,7 @@ router.post('/panel/custom-quote', async (req, res) => {
       status: 'pending',
       paidDate: '',
       paymentIntentId: '',
-      lang: lang === 'en' ? 'en' : 'es',
+      lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
     });
 
     res.json({ ok: true, url: session.url });

@@ -2,22 +2,22 @@
 // OSANA — Lógica del bono regalo (bono-regalo.html / en/bono-regalo.html)
 // ============================================================
 (function () {
-  const LANG = (typeof window !== 'undefined' && window.BOOKING_LANG === 'en') ? 'en' : 'es';
+  const LANG = (typeof window !== 'undefined' && (window.BOOKING_LANG === 'en' || window.BOOKING_LANG === 'it')) ? window.BOOKING_LANG : 'es';
 
   const STR = {
-    loadingServices: { es: 'Cargando tratamientos…', en: 'Loading treatments…' },
-    loadServicesError: { es: 'No se pudieron cargar los tratamientos.', en: 'Could not load treatments.' },
-    chooseTreatment: { es: 'Elige un tratamiento', en: 'Choose a treatment' },
-    fillRequired: { es: 'Rellena de, para y tu email para continuar.', en: 'Fill in from, to and your email to continue.' },
-    chooseTreatmentError: { es: 'Elige un tratamiento del listado.', en: 'Choose a treatment from the list.' },
-    minAmountError: { es: 'El importe mínimo es 20 €.', en: 'The minimum amount is €20.' },
-    connecting: { es: 'Conectando con el pago seguro…', en: 'Connecting to secure payment…' },
-    submitLabel: { es: 'Pagar y enviar bono', en: 'Pay and send voucher' },
-    checkoutError: { es: 'No se pudo iniciar el pago.', en: 'Could not start the payment.' },
-    confirmedTitle: { es: '¡Bono comprado! ✓', en: 'Voucher purchased! ✓' },
-    confirmedText: { es: 'Te hemos enviado el bono regalo por email. Revisa también la carpeta de spam por si acaso.', en: "We've sent the gift voucher to your email. Check your spam folder too, just in case." },
-    backHome: { es: 'Volver al inicio', en: 'Back to home' },
-    cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.' },
+    loadingServices: { es: 'Cargando tratamientos…', en: 'Loading treatments…', it: 'Caricamento trattamenti…' },
+    loadServicesError: { es: 'No se pudieron cargar los tratamientos.', en: 'Could not load treatments.', it: 'Non è stato possibile caricare i trattamenti.' },
+    chooseTreatment: { es: 'Elige un tratamiento', en: 'Choose a treatment', it: 'Scegli un trattamento' },
+    fillRequired: { es: 'Rellena de, para y tu email para continuar.', en: 'Fill in from, to and your email to continue.', it: 'Inserisci da, per e la tua email per continuare.' },
+    chooseTreatmentError: { es: 'Elige un tratamiento del listado.', en: 'Choose a treatment from the list.', it: 'Scegli un trattamento dall\'elenco.' },
+    minAmountError: { es: 'El importe mínimo es 20 €.', en: 'The minimum amount is €20.', it: 'L\'importo minimo è 20 €.' },
+    connecting: { es: 'Conectando con el pago seguro…', en: 'Connecting to secure payment…', it: 'Connessione al pagamento sicuro…' },
+    submitLabel: { es: 'Pagar y enviar bono', en: 'Pay and send voucher', it: 'Paga e invia il buono' },
+    checkoutError: { es: 'No se pudo iniciar el pago.', en: 'Could not start the payment.', it: 'Non è stato possibile avviare il pagamento.' },
+    confirmedTitle: { es: '¡Bono comprado! ✓', en: 'Voucher purchased! ✓', it: 'Buono acquistato! ✓' },
+    confirmedText: { es: 'Te hemos enviado el bono regalo por email. Revisa también la carpeta de spam por si acaso.', en: "We've sent the gift voucher to your email. Check your spam folder too, just in case.", it: 'Ti abbiamo inviato il buono regalo via email. Controlla anche la cartella spam per sicurezza.' },
+    backHome: { es: 'Volver al inicio', en: 'Back to home', it: 'Torna alla home' },
+    cancelledPayment: { es: 'Has cancelado el pago. Puedes intentarlo de nuevo cuando quieras.', en: 'You cancelled the payment. You can try again whenever you like.', it: 'Hai annullato il pagamento. Puoi riprovare quando vuoi.' },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
 

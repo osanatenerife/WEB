@@ -39,12 +39,13 @@ async function loyaltyBalanceLine(clientPhone, lang) {
     const movements = await getLoyaltyMovementsForPhone(normalizePhone(clientPhone));
     const balance = computeLoyaltyBalance(movements);
     if (balance <= 0) return '';
-    const expiryLabel = currentExpiryDate().toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
+    const locale = lang === 'en' ? 'en-GB' : lang === 'it' ? 'it-IT' : 'es-ES';
+    const expiryLabel = currentExpiryDate().toLocaleDateString(locale, {
       day: 'numeric', month: 'long', year: 'numeric',
     });
-    return lang === 'en'
-      ? `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre. Expires ${expiryLabel}.</p>`
-      : `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro. Caduca el ${expiryLabel}.</p>`;
+    if (lang === 'en') return `<p>💶 <strong>Your loyalty balance: ${balance.toFixed(2)} €</strong> — usable as a discount on your next single treatment paid at the centre. Expires ${expiryLabel}.</p>`;
+    if (lang === 'it') return `<p>💶 <strong>Il tuo credito fedeltà: ${balance.toFixed(2)} €</strong> — utilizzabile come sconto sul tuo prossimo trattamento singolo pagato in centro. Scade il ${expiryLabel}.</p>`;
+    return `<p>💶 <strong>Tu saldo acumulado: ${balance.toFixed(2)} €</strong> — puedes usarlo como descuento en tu próximo tratamiento suelto pagado en el centro. Caduca el ${expiryLabel}.</p>`;
   } catch (e) {
     console.error('No se pudo calcular el saldo para el email de confirmación:', e);
     return '';
@@ -54,7 +55,8 @@ async function loyaltyBalanceLine(clientPhone, lang) {
 function formatDateLabel(dateStr, lang) {
   try {
     const d = new Date(`${dateStr}T12:00:00`);
-    return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    const locale = lang === 'en' ? 'en-GB' : lang === 'it' ? 'it-IT' : 'es-ES';
+    return d.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long' });
   } catch (e) {
     return dateStr;
   }
@@ -70,27 +72,84 @@ function estimatedEarnLine(primaryServiceId, paidOnline, lang) {
   if (!category) return '';
   const earned = round2(paidOnline * earnRateFor(category, 'tarjeta'));
   if (earned <= 0) return '';
-  return lang === 'en'
-    ? `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € earned from this booking</p>`
-    : `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € ganados con esta reserva</p>`;
+  if (lang === 'en') return `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € earned from this booking</p>`;
+  if (lang === 'it') return `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € guadagnati con questa prenotazione</p>`;
+  return `<p style="margin:0 0 4px;color:#f6eeda;font-size:14px;font-weight:600;">+${earned.toFixed(2)} € ganados con esta reserva</p>`;
 }
+
+const BOOKING_EMAIL_STRINGS = {
+  es: {
+    manageUrl: 'https://osana.es/mis-reservas.html',
+    reason: 'Motivo de reserva', date: 'Fecha', time: 'Hora', specialist: 'Esteticista',
+    paidOnline: 'Pagado online', remaining: 'Resto a pagar en el centro',
+    title: 'Reserva confirmada', hi: 'Hola',
+    thanks: 'gracias por confiar en nosotras. Aquí tienes los detalles de tu cita:',
+    manageBtn: 'Gestionar mi reserva',
+    cancelNote: 'Puedes cancelar o reprogramar hasta 48h antes sin coste.',
+    loyaltyTitle: 'Programa de fidelidad',
+    subject: 'Reserva confirmada — Osana',
+    conditions: [
+      'Se acumula un 4% de tus compras (tratamientos, bonos de sesiones o productos), un 6% si pagas en efectivo.',
+      'Importe mínimo de canje: 10 €.',
+      'Se canjea en tratamientos sueltos y en bonos de sesiones (no en productos ni en bonos regalo).',
+      'El saldo generado caduca cada 31 de diciembre — la cuenta empieza de cero cada 1 de enero.',
+      'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento o bono.',
+    ],
+  },
+  en: {
+    manageUrl: 'https://osana.es/en/mis-reservas.html',
+    reason: 'Reason for booking', date: 'Date', time: 'Time', specialist: 'Specialist',
+    paidOnline: 'Paid online', remaining: 'Remaining at the centre',
+    title: 'Booking confirmed', hi: 'Hi',
+    thanks: 'thank you for booking with us. Here are your appointment details:',
+    manageBtn: 'Manage my booking',
+    cancelNote: 'Free cancellation or rescheduling up to 48h before.',
+    loyaltyTitle: 'Loyalty program',
+    subject: 'Booking confirmed — Osana',
+    conditions: [
+      'You earn 4% of your purchases (treatments, session packages or products), 6% if paid in cash.',
+      'Minimum redemption amount: €10.',
+      'Redeemable on single treatments and session packages (not on products or gift vouchers).',
+      'Balance earned expires every December 31st — the count starts fresh each January 1st.',
+      'Not transferable between clients or redeemable for cash — only as a discount on a treatment or package.',
+    ],
+  },
+  it: {
+    manageUrl: 'https://osana.es/it/mis-reservas.html',
+    reason: 'Motivo della prenotazione', date: 'Data', time: 'Ora', specialist: 'Specialista',
+    paidOnline: 'Pagato online', remaining: 'Da saldare in centro',
+    title: 'Prenotazione confermata', hi: 'Ciao',
+    thanks: 'grazie per averci scelto. Ecco i dettagli del tuo appuntamento:',
+    manageBtn: 'Gestisci la mia prenotazione',
+    cancelNote: 'Cancellazione o riprogrammazione gratuite fino a 48h prima.',
+    loyaltyTitle: 'Programma fedeltà',
+    subject: 'Prenotazione confermata — Osana',
+    conditions: [
+      'Accumuli il 4% dei tuoi acquisti (trattamenti, pacchetti di sedute o prodotti), il 6% se paghi in contanti.',
+      'Importo minimo di utilizzo: 10 €.',
+      'Utilizzabile su trattamenti singoli e pacchetti di sedute (non su prodotti o buoni regalo).',
+      'Il credito accumulato scade ogni 31 dicembre — il conteggio riparte da zero ogni 1° gennaio.',
+      'Non è trasferibile tra clienti né convertibile in denaro — solo come sconto su un trattamento o pacchetto.',
+    ],
+  },
+};
 
 async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang }) {
   if (!clientEmail) return;
-  const isEn = lang === 'en';
+  const t = BOOKING_EMAIL_STRINGS[lang] || BOOKING_EMAIL_STRINGS.es;
   const total = Number(price) || 0;
   const paid = Number(amountPaid) || 0;
   const pending = Math.max(0, round2(total - paid));
   const dateLabel = formatDateLabel(date, lang);
-  const manageUrl = isEn ? 'https://osana.es/en/mis-reservas.html' : 'https://osana.es/mis-reservas.html';
+  const manageUrl = t.manageUrl;
 
   const rows = [
-    [isEn ? 'Reason for booking' : 'Motivo de reserva', escapeHtml(serviceName || '')],
-    [isEn ? 'Date' : 'Fecha', escapeHtml(dateLabel)],
-    [isEn ? 'Time' : 'Hora', escapeHtml(time || '')],
-    [isEn ? 'Specialist' : 'Esteticista', escapeHtml(employeeName || '')],
-    [isEn ? 'Paid online' : 'Pagado online', `${paid.toFixed(2)} €`],
-    ...(pending > 0 ? [[isEn ? 'Remaining at the centre' : 'Resto a pagar en el centro', `${pending.toFixed(2)} €`]] : []),
+    [t.reason, escapeHtml(serviceName || '')],
+    [t.date, escapeHtml(dateLabel)],
+    [t.time, escapeHtml(time || '')],
+    [t.specialist, escapeHtml(employeeName || '')],
+    [t.paidOnline, `${paid.toFixed(2)} €`],
+    ...(pending > 0 ? [[t.remaining, `${pending.toFixed(2)} €`]] : []),
   ];
   const rowsHtml = rows.map(([label, value], i) => `
     <tr>
@@ -100,38 +159,23 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
 
   const earnedLine = estimatedEarnLine(primaryServiceId, paid, lang);
   const loyaltyLine = await loyaltyBalanceLine(clientPhone, lang);
-  const loyaltyConditions = isEn
-    ? [
-        'You earn 4% of your purchases (treatments, session packages or products), 6% if paid in cash.',
-        'Minimum redemption amount: €10.',
-        'Redeemable on single treatments and session packages (not on products or gift vouchers).',
-        'Balance earned expires every December 31st — the count starts fresh each January 1st.',
-        'Not transferable between clients or redeemable for cash — only as a discount on a treatment or package.',
-      ]
-    : [
-        'Se acumula un 4% de tus compras (tratamientos, bonos de sesiones o productos), un 6% si pagas en efectivo.',
-        'Importe mínimo de canje: 10 €.',
-        'Se canjea en tratamientos sueltos y en bonos de sesiones (no en productos ni en bonos regalo).',
-        'El saldo generado caduca cada 31 de diciembre — la cuenta empieza de cero cada 1 de enero.',
-        'No es transferible entre clientas ni canjeable por dinero en efectivo — solo como descuento en un tratamiento o bono.',
-      ];
-  const loyaltyConditionsHtml = `<ul style="margin:10px 0 0;padding:0 0 0 16px;text-align:left;color:#cbbfae;font-size:11px;line-height:1.7;">${loyaltyConditions.map((c) => `<li>${c}</li>`).join('')}</ul>`;
+  const loyaltyConditionsHtml = `<ul style="margin:10px 0 0;padding:0 0 0 16px;text-align:left;color:#cbbfae;font-size:11px;line-height:1.7;">${t.conditions.map((c) => `<li>${c}</li>`).join('')}</ul>`;
 
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;background:#f6eeda;">
     <div style="background:#1a1612;padding:30px 24px 26px;text-align:center;">
       <img src="https://osana.es/images/logo-full-blanco.png" alt="Osana" style="height:36px;width:auto;display:inline-block;margin:0 0 16px;border:0;">
-      <h1 style="margin:0;color:#f6eeda;font-size:20px;font-weight:600;">${isEn ? 'Booking confirmed' : 'Reserva confirmada'} ✓</h1>
+      <h1 style="margin:0;color:#f6eeda;font-size:20px;font-weight:600;">${t.title} ✓</h1>
     </div>
     <div style="padding:28px 24px;">
-      <p style="margin:0 0 20px;color:#1a1612;font-size:15px;">${isEn ? 'Hi' : 'Hola'} ${escapeHtml(clientName || '')}, ${isEn ? 'thank you for booking with us. Here are your appointment details:' : 'gracias por confiar en nosotras. Aquí tienes los detalles de tu cita:'}</p>
+      <p style="margin:0 0 20px;color:#1a1612;font-size:15px;">${t.hi} ${escapeHtml(clientName || '')}, ${t.thanks}</p>
       <table style="width:100%;border-collapse:collapse;">${rowsHtml}</table>
       <div style="text-align:center;margin:28px 0 8px;">
-        <a href="${manageUrl}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${isEn ? 'Manage my booking' : 'Gestionar mi reserva'}</a>
+        <a href="${manageUrl}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${t.manageBtn}</a>
       </div>
-      <p style="text-align:center;color:#8a8178;font-size:12px;margin:0;">${isEn ? 'Free cancellation or rescheduling up to 48h before.' : 'Puedes cancelar o reprogramar hasta 48h antes sin coste.'}</p>
+      <p style="text-align:center;color:#8a8178;font-size:12px;margin:0;">${t.cancelNote}</p>
     </div>
     <div style="background:#1a1612;padding:24px;text-align:center;">
-      <p style="margin:0 0 10px;color:#ac977e;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">${isEn ? 'Loyalty program' : 'Programa de fidelidad'}</p>
+      <p style="margin:0 0 10px;color:#ac977e;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">${t.loyaltyTitle}</p>
       ${earnedLine}
       ${loyaltyLine.replace(/<p>/, '<p style="margin:0 0 8px;color:#f6eeda;font-size:13px;">').replace('💶 ', '')}
       ${loyaltyConditionsHtml}
@@ -139,7 +183,7 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   </div>`;
 
   try {
-    await sendEmail({ to: clientEmail, subject: isEn ? 'Booking confirmed — Osana' : 'Reserva confirmada — Osana', html });
+    await sendEmail({ to: clientEmail, subject: t.subject, html });
   } catch (emailErr) {
     console.error('No se pudo enviar el email de confirmación de reserva:', emailErr);
   }
@@ -238,7 +282,7 @@ async function handleBookingPayment(session) {
         amountPaid: realAmountPaid,
         paymentType: paymentType || '',
         paymentIntentId: session.payment_intent || '',
-        lang: lang === 'en' ? 'en' : 'es',
+        lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
         reminderSent: '',
         birthdate: clientBirthdate || '',
         termsAcceptedAt: termsAcceptedAt || '',
@@ -429,7 +473,7 @@ async function handleBonoSessionPayment(session) {
           status: 'active',
           expiryDate: addMonthsISO(BONO_VALIDITY_MONTHS),
           paymentIntentId: session.payment_intent || '',
-          lang: lang === 'en' ? 'en' : 'es',
+          lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
         });
       } catch (sheetErr) {
         console.error('No se pudo guardar el bono en la Sheet:', sheetErr);
@@ -460,7 +504,7 @@ async function handleBonoSessionPayment(session) {
           amountPaid: it.amountPaidOnline,
           paymentType: paymentType || '',
           paymentIntentId: session.payment_intent || '',
-          lang: lang === 'en' ? 'en' : 'es',
+          lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
           reminderSent: '',
           birthdate: clientBirthdate || '',
           bonoId: it.bonoId || '',
@@ -496,7 +540,7 @@ async function handleBonoSessionPayment(session) {
           amountPaid: it.amountPaidOnline,
           paymentType: paymentType || '',
           paymentIntentId: session.payment_intent || '',
-          lang: lang === 'en' ? 'en' : 'es',
+          lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
           reminderSent: '',
           birthdate: clientBirthdate || '',
           termsAcceptedAt: termsAcceptedAt || '',
@@ -591,13 +635,15 @@ async function handleCustomQuotePayment(session) {
 
   if (clientEmail) {
     try {
-      const isEn = lang === 'en';
+      const quoteEmailHtml = lang === 'en'
+        ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Payment received</h2><p><b>${escapeHtml(description)}</b></p><p>Amount paid: ${realAmountPaid.toFixed(2)} €</p><p>Thank you!<br>Osana</p></div>`
+        : lang === 'it'
+          ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Pagamento ricevuto</h2><p><b>${escapeHtml(description)}</b></p><p>Importo pagato: ${realAmountPaid.toFixed(2)} €</p><p>Grazie!<br>Osana</p></div>`
+          : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Pago recibido</h2><p><b>${escapeHtml(description)}</b></p><p>Importe pagado: ${realAmountPaid.toFixed(2)} €</p><p>¡Gracias!<br>Osana</p></div>`;
       await sendEmail({
         to: clientEmail,
-        subject: isEn ? 'Payment confirmation — Osana' : 'Confirmación de pago — Osana',
-        html: isEn
-          ? `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Payment received</h2><p><b>${escapeHtml(description)}</b></p><p>Amount paid: ${realAmountPaid.toFixed(2)} €</p><p>Thank you!<br>Osana</p></div>`
-          : `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;"><h2 style="font-size:18px;">Pago recibido</h2><p><b>${escapeHtml(description)}</b></p><p>Importe pagado: ${realAmountPaid.toFixed(2)} €</p><p>¡Gracias!<br>Osana</p></div>`,
+        subject: lang === 'en' ? 'Payment confirmation — Osana' : lang === 'it' ? 'Conferma di pagamento — Osana' : 'Confirmación de pago — Osana',
+        html: quoteEmailHtml,
       });
     } catch (emailErr) {
       console.error('No se pudo enviar la confirmación del presupuesto:', emailErr);
@@ -611,6 +657,12 @@ function buildGiftEmailHtml({ lang }) {
         title: 'Your gift voucher is ready 🎁',
         body: "Thank you for your purchase! Your Osana gift voucher is attached to this email as an image, ready to print or forward to whoever you're gifting it to.",
         sign: 'See you soon,<br>Osana',
+      }
+    : lang === 'it'
+    ? {
+        title: 'Il tuo buono regalo è pronto 🎁',
+        body: "Grazie per il tuo acquisto! Il tuo buono regalo Osana è allegato a questa email come immagine, pronto da stampare o inoltrare a chi vuoi regalarlo.",
+        sign: 'A presto,<br>Osana',
       }
     : {
         title: 'Tu bono regalo ya está listo 🎁',
@@ -640,16 +692,18 @@ async function handleGiftPayment(session) {
   }
 
   const isEn = lang === 'en';
+  const isIt = lang === 'it';
   const service = giftType === 'service' ? services.find((s) => s.id === serviceId) : null;
+  const serviceNameLocalized = (isEn ? (service && service.nameEn) : isIt ? (service && service.nameIt) : service && service.name) || (service && service.name) || '';
   const itemLabel = giftType === 'service'
-    ? ((isEn ? (service && service.nameEn) : service && service.name) || (service && service.name) || '')
-    : (isEn ? `€${amount} to spend on any treatment` : `${amount} € para gastar en cualquier tratamiento`);
+    ? serviceNameLocalized
+    : (isEn ? `€${amount} to spend on any treatment` : isIt ? `${amount} € da spendere su qualsiasi trattamento` : `${amount} € para gastar en cualquier tratamiento`);
 
   const code = randomVoucherCode();
   const purchaseDate = new Date();
   const expiryDate = new Date(purchaseDate);
   expiryDate.setMonth(expiryDate.getMonth() + GIFT_VALIDITY_MONTHS);
-  const expiryLabel = expiryDate.toLocaleDateString(isEn ? 'en-GB' : 'es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const expiryLabel = expiryDate.toLocaleDateString(isEn ? 'en-GB' : isIt ? 'it-IT' : 'es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
   try {
     await appendGift({
@@ -668,7 +722,7 @@ async function handleGiftPayment(session) {
       message: message || '',
       expiryDate: expiryDate.toISOString().slice(0, 10),
       paymentIntentId: session.payment_intent || '',
-      lang: isEn ? 'en' : 'es',
+      lang: isEn ? 'en' : isIt ? 'it' : 'es',
     });
   } catch (sheetErr) {
     console.error('No se pudo guardar el bono regalo en la Sheet:', sheetErr);
@@ -680,7 +734,7 @@ async function handleGiftPayment(session) {
       const html = buildGiftEmailHtml({ lang });
       await sendEmail({
         to: buyerEmail,
-        subject: isEn ? 'Your Osana gift voucher' : 'Tu bono regalo de Osana',
+        subject: isEn ? 'Your Osana gift voucher' : isIt ? 'Il tuo buono regalo Osana' : 'Tu bono regalo de Osana',
         html,
         attachments: [{ filename: 'bono-regalo-osana.png', content: cardBuffer.toString('base64') }],
       });
@@ -759,14 +813,18 @@ async function handleAddonTreatmentPayment(session) {
   });
 
   const isEn = lang === 'en';
+  const isIt = lang === 'it';
   if (booking.email) {
     try {
+      const addonHtml = isEn
+        ? `<p>Hi ${escapeHtml(booking.name || '')},</p><p>We've added <strong>${escapeHtml(addedName)}</strong> to your appointment on ${booking.date} at ${booking.time}.</p><p>Paid now: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>See you soon!<br>Osana</p>`
+        : isIt
+          ? `<p>Ciao ${escapeHtml(booking.name || '')},</p><p>Abbiamo aggiunto <strong>${escapeHtml(addedName)}</strong> al tuo appuntamento del ${booking.date} alle ${booking.time}.</p><p>Pagato ora: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>A presto!<br>Osana</p>`
+          : `<p>Hola ${escapeHtml(booking.name || '')},</p><p>Hemos añadido <strong>${escapeHtml(addedName)}</strong> a tu cita del ${booking.date} a las ${booking.time}.</p><p>Pagado ahora: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>¡Te esperamos!<br>Osana</p>`;
       await sendEmail({
         to: booking.email,
-        subject: isEn ? 'Treatment added to your booking — Osana' : 'Tratamiento añadido a tu reserva — Osana',
-        html: isEn
-          ? `<p>Hi ${escapeHtml(booking.name || '')},</p><p>We've added <strong>${escapeHtml(addedName)}</strong> to your appointment on ${booking.date} at ${booking.time}.</p><p>Paid now: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>See you soon!<br>Osana</p>`
-          : `<p>Hola ${escapeHtml(booking.name || '')},</p><p>Hemos añadido <strong>${escapeHtml(addedName)}</strong> a tu cita del ${booking.date} a las ${booking.time}.</p><p>Pagado ahora: <strong>${realAmountPaid.toFixed(2)} €</strong></p><p>¡Te esperamos!<br>Osana</p>`,
+        subject: isEn ? 'Treatment added to your booking — Osana' : isIt ? 'Trattamento aggiunto alla tua prenotazione — Osana' : 'Tratamiento añadido a tu reserva — Osana',
+        html: addonHtml,
       });
     } catch (emailErr) {
       console.error('No se pudo enviar el email de tratamiento añadido:', emailErr);

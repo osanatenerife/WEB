@@ -82,6 +82,25 @@ const EMAIL_STRINGS = {
     `;
     },
   },
+  it: {
+    subject: 'Promemoria: il tuo prossimo appuntamento da Osana',
+    greeting: (name) => `Ciao ${name || ''},`.trim(),
+    body: (group, dateLabel) => {
+      const pending = pendingBalanceFor(group);
+      return `
+      <p>Ti ricordiamo il tuo appuntamento da <strong>Osana</strong>:</p>
+      <p>
+        📅 <strong>${dateLabel}</strong> alle <strong>${group[0].time}</strong><br>
+        💆 ${serviceNamesFor(group)}<br>
+        👤 Con ${group[0].employeeName}
+      </p>
+      <p>💶 Importo da saldare in centro: <strong>${pending}</strong></p>
+      <p>📍 Calle Manuel Bello Ramos, 56, Adeje (Tenerife Sud)</p>
+      <p>Devi cancellare o cambiare l'orario? Vai su <a href="https://osana.es/it/mis-reservas.html">osana.es/it/mis-reservas.html</a>. Ricorda che se cancelli con meno di 48h di anticipo, l'importo pagato non viene rimborsato.</p>
+      <p>A presto!<br>Osana</p>
+    `;
+    },
+  },
 };
 
 router.get('/send-reminders', async (req, res) => {
@@ -115,9 +134,10 @@ router.get('/send-reminders', async (req, res) => {
     const errors = [];
     for (const group of dueGroups) {
       const first = group[0];
-      const lang = first.lang === 'en' ? 'en' : 'es';
+      const lang = first.lang === 'en' ? 'en' : first.lang === 'it' ? 'it' : 'es';
       const strings = EMAIL_STRINGS[lang];
-      const dateLabel = appointmentDateTime(first).toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', {
+      const locale = lang === 'en' ? 'en-GB' : lang === 'it' ? 'it-IT' : 'es-ES';
+      const dateLabel = appointmentDateTime(first).toLocaleDateString(locale, {
         weekday: 'long', day: 'numeric', month: 'long',
       });
       // Email y WhatsApp son canales independientes: un fallo en uno (por

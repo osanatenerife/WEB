@@ -67,7 +67,7 @@ function round2(n) {
 
 router.post('/checkout', async (req, res) => {
   const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, discountCode, termsAccepted, lang } = req.body || {};
-  const reservaPath = lang === 'en' ? '/en/reserva.html' : '/reserva.html';
+  const reservaPath = lang === 'en' ? '/en/reserva.html' : lang === 'it' ? '/it/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
     return res.status(400).json({ error: 'Faltan datos obligatorios de la reserva.' });
@@ -103,8 +103,9 @@ router.post('/checkout', async (req, res) => {
     const allNames = [service.name, ...additionalServices.map((s) => s.name)];
     const summaryTitle = allNames.join(' + ') + (selectedExtras.length ? ` + ${selectedExtras.length} extra(s)` : '');
     // Lo que ve el cliente en Stripe sí respeta su idioma
-    const customerAllNames = [service.nameEn || service.name, ...additionalServices.map((s) => s.nameEn || s.name)];
-    const customerServiceName = lang === 'en' ? customerAllNames.join(' + ') : allNames.join(' + ');
+    const customerAllNamesEn = [service.nameEn || service.name, ...additionalServices.map((s) => s.nameEn || s.name)];
+    const customerAllNamesIt = [service.nameIt || service.name, ...additionalServices.map((s) => s.nameIt || s.name)];
+    const customerServiceName = lang === 'en' ? customerAllNamesEn.join(' + ') : lang === 'it' ? customerAllNamesIt.join(' + ') : allNames.join(' + ');
 
     // 1) Revalidar que el hueco sigue libre y 2) bloquearlo de inmediato con
     // un evento "pendiente de pago", todo dentro del mismo bloqueo en
@@ -160,7 +161,7 @@ router.post('/checkout', async (req, res) => {
           date, time, durationMinutes: String(duration),
           clientName, clientPhone, clientEmail: clientEmail || '', clientBirthdate: clientBirthdate || '',
           price: String(price), amount: String(amount), paymentType: type,
-          lang: lang === 'en' ? 'en' : 'es',
+          lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
           termsAcceptedAt: new Date().toISOString(),
         },
         amount_total: 0,
@@ -173,7 +174,11 @@ router.post('/checkout', async (req, res) => {
     // 3) Crear la sesión de pago de Stripe
     const session = await createCheckoutSession({
       amountEuros: amount,
-      description: lang === 'en' ? `${customerServiceName} — Osana booking/payment` : `${summaryTitle} — reserva/pago Osana`,
+      description: lang === 'en'
+        ? `${customerServiceName} — Osana booking/payment`
+        : lang === 'it'
+          ? `${customerServiceName} — prenotazione/pagamento Osana`
+          : `${summaryTitle} — reserva/pago Osana`,
       successUrl: `${origin}${reservaPath}?estado=ok`,
       cancelUrl: `${origin}${reservaPath}?estado=cancelado`,
       allowKlarna: type === 'total',
@@ -198,7 +203,7 @@ router.post('/checkout', async (req, res) => {
         discountCode: discount ? discount.code : '',
         discountAmount: discount ? String(discount.amount) : '',
         termsAcceptedAt: new Date().toISOString(),
-        lang: lang === 'en' ? 'en' : 'es',
+        lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
       },
     });
 

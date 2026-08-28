@@ -40,6 +40,17 @@ const EMAIL_STRINGS = {
       <p>We'd love to celebrate with you!<br>Osana</p>
     `,
   },
+  it: {
+    subject: 'Buon compleanno! 🎂 Un regalo da Osana',
+    body: (name, year) => `
+      <p>Ciao ${name || ''},</p>
+      <p>Tutto il team di Osana ti augura un bellissimo compleanno! 🎉</p>
+      <p>Come regalo, hai uno <strong>sconto del 15%</strong> sulla tua prossima prenotazione durante tutto questo mese. Ti basta inserire questo codice al pagamento:</p>
+      <p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:16px 0;">${BIRTHDAY_PROMO_CODE}</p>
+      <p><a href="https://osana.es/it/reserva.html">Prenota qui il tuo appuntamento</a>.</p>
+      <p>Non vediamo l'ora di festeggiare con te!<br>Osana</p>
+    `,
+  },
 };
 
 router.get('/send-birthday-emails', async (req, res) => {
@@ -76,7 +87,7 @@ router.get('/send-birthday-emails', async (req, res) => {
       const existing = birthdayRecords.find((r) => `${r.emailNormalized}|${r.phoneNormalized}` === key);
       if (existing && existing.lastSentYear === todayYear) continue; // ya felicitado este año
 
-      const lang = b.lang === 'en' ? 'en' : 'es';
+      const lang = b.lang === 'en' ? 'en' : b.lang === 'it' ? 'it' : 'es';
       const strings = EMAIL_STRINGS[lang];
       try {
         await sendEmail({

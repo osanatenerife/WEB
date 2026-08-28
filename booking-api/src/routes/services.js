@@ -8,11 +8,15 @@ const { parseExtraIds: parseIds } = require('../lib/pricing');
 const router = express.Router();
 
 // Lista pública de servicios agrupados por categoría
-// ?lang=en devuelve nombre y categoría en inglés (con fallback al español si faltara)
+// ?lang=en / ?lang=it devuelve nombre y categoría en ese idioma (con fallback al español si faltara)
 router.get('/services', (req, res) => {
-  const list = req.query.lang === 'en'
-    ? services.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category, description: s.descriptionEn || s.description }))
-    : services;
+  const { lang } = req.query;
+  let list = services;
+  if (lang === 'en') {
+    list = services.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category, description: s.descriptionEn || s.description }));
+  } else if (lang === 'it') {
+    list = services.map((s) => ({ ...s, name: s.nameIt || s.name, category: s.categoryIt || s.category, description: s.descriptionIt || s.description }));
+  }
   res.json({ services: list });
 });
 
@@ -46,6 +50,8 @@ router.get('/extras', (req, res) => {
   }
   if (lang === 'en') {
     list = list.map((e) => ({ ...e, name: e.nameEn || e.name }));
+  } else if (lang === 'it') {
+    list = list.map((e) => ({ ...e, name: e.nameIt || e.name }));
   }
   res.json({ extras: list });
 });

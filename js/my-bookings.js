@@ -5,7 +5,7 @@
   const form = document.getElementById('mb-lookup-form');
   if (!form) return;
 
-  const LANG = document.documentElement.lang === 'en' ? 'en' : 'es';
+  const LANG = document.documentElement.lang === 'en' ? 'en' : document.documentElement.lang === 'it' ? 'it' : 'es';
   const phoneInput = document.getElementById('mb-phone');
   const emailInput = document.getElementById('mb-email');
   const resultsEl = document.getElementById('mb-results');
@@ -17,67 +17,69 @@
   const noShowNoticeEl = document.getElementById('mb-noshow-notice');
 
   const STR = {
-    loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…' },
-    noBookings: { es: 'No hemos encontrado reservas futuras con esos datos.', en: "We couldn't find any upcoming bookings with those details." },
-    genericError: { es: 'Ha ocurrido un error, inténtalo de nuevo.', en: 'Something went wrong, please try again.' },
-    confirmCancel: { es: '¿Seguro que quieres cancelar esta cita?', en: 'Are you sure you want to cancel this appointment?' },
-    cancelledRefunded: { es: '✓ Cita cancelada — se ha reembolsado el importe pagado.', en: '✓ Appointment cancelled — the amount paid has been refunded.' },
-    cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 48h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 48h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.' },
-    cancelledNothingToRefund: { es: '✓ Cita cancelada.', en: '✓ Appointment cancelled.' },
-    cancelledRefundFailed: { es: '✓ Cita cancelada — avisaste con tiempo suficiente, así que te corresponde el reembolso, pero ha habido un problema técnico al procesarlo automáticamente. Nuestro equipo lo revisará y te lo devolverá a mano en breve. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — you gave enough notice so a refund applies, but there was a technical issue processing it automatically. Our team will review it and refund you by hand shortly. Message us on WhatsApp if you have questions.' },
-    cancel: { es: 'Cancelar cita', en: 'Cancel appointment' },
-    reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time' },
-    addTreatment: { es: 'Añadir tratamiento', en: 'Add treatment' },
-    addTreatmentPlaceholder: { es: '+ Añadir tratamiento…', en: '+ Add treatment…' },
-    payDepositOnly: { es: 'Pagar solo la reserva', en: 'Pay booking fee only' },
-    payFullNow: { es: 'Pagar todo ahora', en: 'Pay in full now' },
-    restAtCenterParen: { es: '(resto en el centro)', en: '(rest at the centre)' },
-    fullRequired: { es: 'Este tratamiento se paga completo online:', en: 'This treatment is paid in full online:' },
-    depositRequired: { es: 'Este tratamiento requiere pagar la reserva ahora:', en: 'This treatment requires paying the booking fee now:' },
-    confirmAndPay: { es: 'Pagar y añadir', en: 'Pay and add' },
-    connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…' },
-    addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.' },
-    noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet." },
-    noShowForgivenNote: { es: 'Falta sin penalización — puedes reprogramar sin coste.', en: 'No-show without penalty — you can reschedule at no cost.' },
-    noShowNoticeForgiven: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session." },
-    noShowNoticePenalized: { es: 'Falta con penalización — se ha descontado el importe de la reserva o la sesión del bono correspondiente. Para la próxima, te pedimos avisar con 48h de antelación.', en: 'No-show with penalty — the booking fee or package session has been deducted. For next time, please give us at least 48h notice.' },
-    pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book' },
-    pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.' },
-    pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}` },
-    pendingBonoSessionsLeft: { es: (n) => `Ya pagada — te queda${n === 1 ? '' : 'n'} ${n} ${n === 1 ? 'sesión' : 'sesiones'} en el bono`, en: (n) => `Already paid — ${n} session${n === 1 ? '' : 's'} left on your package` },
-    bookThisSession: { es: 'Reservar esta sesión', en: 'Book this session' },
-    confirmBonoBooking: { es: '¿Reservar esta sesión para el {date} a las {time}?', en: 'Book this session for {date} at {time}?' },
-    bonoBooked: { es: '✓ Sesión reservada.', en: '✓ Session booked.' },
-    chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date' },
-    chooseTherapist: { es: 'Elige profesional disponible', en: 'Choose an available specialist' },
-    bonoBadge: { es: 'Bono activo', en: 'Active package' },
-    paidBadge: { es: 'Pagada', en: 'Paid' },
-    pendingPaymentBadge: { es: 'Pendiente de pago', en: 'Payment pending' },
-    searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…' },
-    noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.' },
-    confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?' },
-    lateStrikeFirstTime: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — esta vez no pasa nada, pero la próxima vez avisa con más tiempo si puedes.', en: "✓ Appointment changed. It was less than 48h in advance — this time it's fine, but please give us more notice next time if you can." },
-    lateStrikeRepeat: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — al ser un aviso tardío, queda registrado.', en: '✓ Appointment changed. It was less than 48h in advance — as a late notice, this has been recorded.' },
+    loading: { es: 'Buscando tus reservas…', en: 'Looking up your bookings…', it: 'Ricerca delle tue prenotazioni…' },
+    noBookings: { es: 'No hemos encontrado reservas futuras con esos datos.', en: "We couldn't find any upcoming bookings with those details.", it: 'Non abbiamo trovato prenotazioni future con questi dati.' },
+    genericError: { es: 'Ha ocurrido un error, inténtalo de nuevo.', en: 'Something went wrong, please try again.', it: 'Si è verificato un errore, riprova.' },
+    confirmCancel: { es: '¿Seguro que quieres cancelar esta cita?', en: 'Are you sure you want to cancel this appointment?', it: 'Sei sicura di voler cancellare questo appuntamento?' },
+    cancelledRefunded: { es: '✓ Cita cancelada — se ha reembolsado el importe pagado.', en: '✓ Appointment cancelled — the amount paid has been refunded.', it: '✓ Appuntamento cancellato — l\'importo pagato è stato rimborsato.' },
+    cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 48h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 48h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.', it: '✓ Appuntamento cancellato — essendo con meno di 48h di anticipo, non c\'è rimborso automatico. Scrivici su WhatsApp per qualsiasi dubbio.' },
+    cancelledNothingToRefund: { es: '✓ Cita cancelada.', en: '✓ Appointment cancelled.', it: '✓ Appuntamento cancellato.' },
+    cancelledRefundFailed: { es: '✓ Cita cancelada — avisaste con tiempo suficiente, así que te corresponde el reembolso, pero ha habido un problema técnico al procesarlo automáticamente. Nuestro equipo lo revisará y te lo devolverá a mano en breve. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — you gave enough notice so a refund applies, but there was a technical issue processing it automatically. Our team will review it and refund you by hand shortly. Message us on WhatsApp if you have questions.', it: '✓ Appuntamento cancellato — hai avvisato in tempo utile quindi ti spetta il rimborso, ma c\'è stato un problema tecnico nell\'elaborazione automatica. Il nostro team lo verificherà e te lo restituirà a mano a breve. Scrivici su WhatsApp per qualsiasi dubbio.' },
+    cancel: { es: 'Cancelar cita', en: 'Cancel appointment', it: 'Cancella appuntamento' },
+    reschedule: { es: 'Cambiar fecha/hora', en: 'Change date/time', it: 'Cambia data/ora' },
+    addTreatment: { es: 'Añadir tratamiento', en: 'Add treatment', it: 'Aggiungi trattamento' },
+    addTreatmentPlaceholder: { es: '+ Añadir tratamiento…', en: '+ Add treatment…', it: '+ Aggiungi trattamento…' },
+    payDepositOnly: { es: 'Pagar solo la reserva', en: 'Pay booking fee only', it: 'Paga solo la caparra' },
+    payFullNow: { es: 'Pagar todo ahora', en: 'Pay in full now', it: 'Paga tutto ora' },
+    restAtCenterParen: { es: '(resto en el centro)', en: '(rest at the centre)', it: '(resto in centro)' },
+    fullRequired: { es: 'Este tratamiento se paga completo online:', en: 'This treatment is paid in full online:', it: 'Questo trattamento si paga interamente online:' },
+    depositRequired: { es: 'Este tratamiento requiere pagar la reserva ahora:', en: 'This treatment requires paying the booking fee now:', it: 'Questo trattamento richiede il pagamento della caparra ora:' },
+    confirmAndPay: { es: 'Pagar y añadir', en: 'Pay and add', it: 'Paga e aggiungi' },
+    connectingPayment: { es: 'Conectando con el pago…', en: 'Connecting to payment…', it: 'Connessione al pagamento…' },
+    addTreatmentNote: { es: 'Se añade justo después de tu tratamiento actual, con la misma profesional. Si no hay hueco libre, te lo diremos antes de cobrarte nada.', en: 'Added right after your current treatment, with the same specialist. If there\'s no free slot, we\'ll tell you before charging anything.', it: 'Viene aggiunto subito dopo il tuo trattamento attuale, con la stessa professionista. Se non c\'è disponibilità, te lo diremo prima di addebitarti qualsiasi cosa.' },
+    noHistory: { es: 'Todavía no tienes visitas pasadas registradas.', en: "You don't have any past visits on record yet.", it: 'Non hai ancora visite passate registrate.' },
+    noShowForgivenNote: { es: 'Falta sin penalización — puedes reprogramar sin coste.', en: 'No-show without penalty — you can reschedule at no cost.', it: 'Assenza senza penalità — puoi riprogrammare senza costi.' },
+    noShowNoticeForgiven: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session.", it: 'Assenza senza penalità. (Hai mancato il tuo appuntamento o non hai avvisato con 48h di anticipo). La prossima assenza senza preavviso di 48h comporterà lo scalo dell\'importo della prenotazione o della seduta del pacchetto.' },
+    noShowNoticePenalized: { es: 'Falta con penalización — se ha descontado el importe de la reserva o la sesión del bono correspondiente. Para la próxima, te pedimos avisar con 48h de antelación.', en: 'No-show with penalty — the booking fee or package session has been deducted. For next time, please give us at least 48h notice.', it: 'Assenza con penalità — è stato scalato l\'importo della prenotazione o la seduta del pacchetto corrispondente. La prossima volta, ti chiediamo di avvisare con 48h di anticipo.' },
+    pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book', it: 'Sedute del pacchetto da prenotare' },
+    pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.', it: 'Seleziona le sedute che vuoi prenotare insieme, nella stessa visita.' },
+    pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}`, it: (used, total) => `Seduta ${used + 1} di ${total}` },
+    pendingBonoSessionsLeft: { es: (n) => `Ya pagada — te queda${n === 1 ? '' : 'n'} ${n} ${n === 1 ? 'sesión' : 'sesiones'} en el bono`, en: (n) => `Already paid — ${n} session${n === 1 ? '' : 's'} left on your package`, it: (n) => `Già pagata — ti restano ${n} sedut${n === 1 ? 'a' : 'e'} nel pacchetto` },
+    bookThisSession: { es: 'Reservar esta sesión', en: 'Book this session', it: 'Prenota questa seduta' },
+    confirmBonoBooking: { es: '¿Reservar esta sesión para el {date} a las {time}?', en: 'Book this session for {date} at {time}?', it: 'Prenotare questa seduta per il {date} alle {time}?' },
+    bonoBooked: { es: '✓ Sesión reservada.', en: '✓ Session booked.', it: '✓ Seduta prenotata.' },
+    chooseNewDate: { es: 'Elige la nueva fecha', en: 'Choose the new date', it: 'Scegli la nuova data' },
+    chooseTherapist: { es: 'Elige profesional disponible', en: 'Choose an available specialist', it: 'Scegli una professionista disponibile' },
+    bonoBadge: { es: 'Bono activo', en: 'Active package', it: 'Pacchetto attivo' },
+    paidBadge: { es: 'Pagada', en: 'Paid', it: 'Pagata' },
+    pendingPaymentBadge: { es: 'Pendiente de pago', en: 'Payment pending', it: 'Pagamento in sospeso' },
+    searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…', it: 'Ricerca degli orari disponibili…' },
+    noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.', it: 'Non ci sono più orari disponibili quel giorno. Prova un\'altra data.' },
+    confirmReschedule: { es: '¿Cambiar tu cita al {date} a las {time}?', en: 'Move your appointment to {date} at {time}?', it: 'Spostare il tuo appuntamento al {date} alle {time}?' },
+    lateStrikeFirstTime: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — esta vez no pasa nada, pero la próxima vez avisa con más tiempo si puedes.', en: "✓ Appointment changed. It was less than 48h in advance — this time it's fine, but please give us more notice next time if you can.", it: '✓ Appuntamento cambiato. È stato con meno di 48h di anticipo — questa volta va bene, ma la prossima volta avvisaci con più anticipo se puoi.' },
+    lateStrikeRepeat: { es: '✓ Cita cambiada. Ha sido con menos de 48h de antelación — al ser un aviso tardío, queda registrado.', en: '✓ Appointment changed. It was less than 48h in advance — as a late notice, this has been recorded.', it: '✓ Appuntamento cambiato. È stato con meno di 48h di anticipo — trattandosi di un preavviso tardivo, viene registrato.' },
     groupVisitTitle: {
       es: (date, time, employeeName) => `Tu sesión del ${date} a las ${time} · Con ${employeeName}`,
       en: (date, time, employeeName) => `Your session on ${date} at ${time} · With ${employeeName}`,
+      it: (date, time, employeeName) => `La tua seduta del ${date} alle ${time} · Con ${employeeName}`,
     },
-    groupRescheduleNote: { es: 'Elige qué tratamientos de esta sesión quieres mover a la nueva fecha. El tiempo que busquemos será la suma de los que marques.', en: "Choose which treatments from this session you want to move to the new date. We'll search for a slot long enough for everything you select." },
-    chooseAtLeastOne: { es: 'Elige al menos un tratamiento.', en: 'Choose at least one treatment.' },
-    with: { es: 'Con', en: 'With' },
-    free: { es: 'Gratis', en: 'Free' },
-    totalLabel: { es: 'Total', en: 'Total' },
-    paidLabel: { es: 'Pagado', en: 'Paid' },
-    pendingLabel: { es: 'Pendiente en el centro', en: 'Pending at the centre' },
-    pointsFromPaid: { es: (n) => `+${n} € de saldo por lo ya pagado`, en: (n) => `+€${n} balance earned from what's already paid` },
-    loyaltyLabel: { es: 'Tu saldo de fidelización', en: 'Your loyalty balance' },
-    loyaltyHistoryTitle: { es: 'Historial de saldo', en: 'Balance history' },
-    loyaltyHistoryToggle: { es: 'Ver historial', en: 'View history' },
-    loyaltyEarnLine: { es: (amount, service, date) => `+${amount} € · ${service} · ${date}`, en: (amount, service, date) => `+€${amount} · ${service} · ${date}` },
-    loyaltyRedeemLine: { es: (amount, service, date) => `−${amount} € canjeados · ${service} · ${date}`, en: (amount, service, date) => `−€${amount} redeemed · ${service} · ${date}` },
+    groupRescheduleNote: { es: 'Elige qué tratamientos de esta sesión quieres mover a la nueva fecha. El tiempo que busquemos será la suma de los que marques.', en: "Choose which treatments from this session you want to move to the new date. We'll search for a slot long enough for everything you select.", it: 'Scegli quali trattamenti di questa seduta vuoi spostare alla nuova data. Cercheremo uno slot abbastanza lungo per tutto ciò che selezioni.' },
+    chooseAtLeastOne: { es: 'Elige al menos un tratamiento.', en: 'Choose at least one treatment.', it: 'Scegli almeno un trattamento.' },
+    with: { es: 'Con', en: 'With', it: 'Con' },
+    free: { es: 'Gratis', en: 'Free', it: 'Gratis' },
+    totalLabel: { es: 'Total', en: 'Total', it: 'Totale' },
+    paidLabel: { es: 'Pagado', en: 'Paid', it: 'Pagato' },
+    pendingLabel: { es: 'Pendiente en el centro', en: 'Pending at the centre', it: 'In sospeso in centro' },
+    pointsFromPaid: { es: (n) => `+${n} € de saldo por lo ya pagado`, en: (n) => `+€${n} balance earned from what's already paid`, it: (n) => `+${n} € di credito da quanto già pagato` },
+    loyaltyLabel: { es: 'Tu saldo de fidelización', en: 'Your loyalty balance', it: 'Il tuo credito fedeltà' },
+    loyaltyHistoryTitle: { es: 'Historial de saldo', en: 'Balance history', it: 'Storico del credito' },
+    loyaltyHistoryToggle: { es: 'Ver historial', en: 'View history', it: 'Vedi storico' },
+    loyaltyEarnLine: { es: (amount, service, date) => `+${amount} € · ${service} · ${date}`, en: (amount, service, date) => `+€${amount} · ${service} · ${date}`, it: (amount, service, date) => `+${amount} € · ${service} · ${date}` },
+    loyaltyRedeemLine: { es: (amount, service, date) => `−${amount} € canjeados · ${service} · ${date}`, en: (amount, service, date) => `−€${amount} redeemed · ${service} · ${date}`, it: (amount, service, date) => `−${amount} € utilizzati · ${service} · ${date}` },
     loyaltyExpiry: {
       es: (dateLabel) => `Caduca el ${dateLabel}`,
       en: (dateLabel) => `Expires ${dateLabel}`,
+      it: (dateLabel) => `Scade il ${dateLabel}`,
     },
     loyaltyRules: {
       es: [
@@ -96,9 +98,17 @@
         'Balance earned expires every December 31st — the count starts fresh each January 1st.',
         'Not transferable between clients or redeemable for cash — only as a discount on a treatment or package.',
       ],
+      it: [
+        'Accumuli il 4% dei tuoi acquisti (trattamenti, pacchetti o prodotti), il 6% se paghi in contanti.',
+        'Importo minimo di utilizzo: 10 €.',
+        'Utilizzabile su trattamenti singoli e pacchetti di sedute (non su prodotti o buoni regalo).',
+        'Non puoi utilizzare più di quanto resta da pagare sull\'appuntamento, né più del credito disponibile.',
+        'Il credito accumulato scade ogni 31 dicembre — il conteggio riparte da zero ogni 1° gennaio.',
+        'Non è trasferibile tra clienti né convertibile in denaro — solo come sconto su un trattamento o pacchetto.',
+      ],
     },
   };
-  function t(key) { return (STR[key] && STR[key][LANG]) || key; }
+  function t(key) { return (STR[key] && (STR[key][LANG] || STR[key].es)) || key; }
 
   function escapeHtml(str) {
     return String(str || '')
@@ -814,9 +824,9 @@
     if ((!balance || balance <= 0) && !hasHistory) { loyaltyEl.style.display = 'none'; loyaltyEl.innerHTML = ''; return; }
     const rulesHtml = t('loyaltyRules').map((r) => `<li>${r}</li>`).join('');
     const expiryDate = new Date(new Date().getFullYear(), 11, 31);
-    const expiryLabel = expiryDate.toLocaleDateString(LANG === 'en' ? 'en-GB' : 'es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    const expiryLabel = expiryDate.toLocaleDateString(LANG === 'en' ? 'en-GB' : LANG === 'it' ? 'it-IT' : 'es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
     const historyItemsHtml = hasHistory ? history.map((m) => {
-      const dateLabel = new Date(`${m.date}T12:00:00`).toLocaleDateString(LANG === 'en' ? 'en-GB' : 'es-ES', { day: 'numeric', month: 'short' });
+      const dateLabel = new Date(`${m.date}T12:00:00`).toLocaleDateString(LANG === 'en' ? 'en-GB' : LANG === 'it' ? 'it-IT' : 'es-ES', { day: 'numeric', month: 'short' });
       const amount = Math.abs(m.amount).toFixed(2);
       return `<li class="mb-loyalty-history-item ${m.type === 'redeem' ? 'is-redeem' : 'is-earn'}">${
         m.type === 'redeem' ? t('loyaltyRedeemLine')(amount, m.serviceName, dateLabel) : t('loyaltyEarnLine')(amount, m.serviceName, dateLabel)
