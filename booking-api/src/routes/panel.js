@@ -1018,7 +1018,14 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         // calendario, que ya usa el total ajustado más arriba).
         durationMinutes: isFirst ? Math.max(1, r.service.durationMinutes + extraMin) : r.service.durationMinutes,
         price: carriesPrice ? bookingPrice : (r.isBono ? '' : 0),
-        amountPaid: carriesPrice ? bookingAmountPaid : 0,
+        // El importe "ya pagado" de un bono se guarda en su propia fila de
+        // SessionBono (arriba), pero si además no lo reflejamos también AQUÍ
+        // (en la fila de la cita), ese cobro de hoy nunca aparece en
+        // "Comprobar cobros" ni en el informe trimestral — se queda invisible
+        // para la contabilidad aunque el bono lo tenga registrado. Por eso
+        // cada fila de bono lleva también su propio amountPaid/depositPaidHow,
+        // igual que la fila que "carriesPrice" para los tratamientos sueltos.
+        amountPaid: carriesPrice ? bookingAmountPaid : (r.isBono && paidOnlineForLoyalty > 0 ? paidOnlineForLoyalty : 0),
         paymentType: rowPaymentType,
         paymentIntentId: '',
         lang: 'es',
@@ -1027,7 +1034,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         bonoId: rowBonoId,
         sessionNumber: rowSessionNumber,
         notes: isFirst ? (notes || 'Alta manual de cita ya existente.') : '',
-        depositPaidHow: carriesPrice ? (paidHow || '') : '',
+        depositPaidHow: carriesPrice ? (paidHow || '') : (r.isBono && paidOnlineForLoyalty > 0 ? (paidHow || '') : ''),
         ...(carriesPrice && extrasFullyPaidNow && paidHow ? { finalAmount: bookingAmountPaid, remainderPaidHow: paidHow } : {}),
       });
       bookingIds.push(bookingId);
