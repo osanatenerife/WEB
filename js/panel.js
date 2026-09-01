@@ -1498,9 +1498,11 @@
           <div class="vb-added-row">
             <div class="vb-pick-body">
               <div class="vb-pick-name">${escapeHtml(svc ? svc.name : '')}${t.isBono ? ' <span class="vb-bono-flag">🎟 bono</span>' : ''}</div>
-              <div class="vb-pick-meta">${svc ? svc.price + ' €' : ''}</div>
+              <div class="vb-pick-meta">${t.isBono
+                ? `${(Number(t.bonoPrice) || 0).toFixed(2)} € total · pagado hoy: ${(Number(t.bonoAmountPaid) || 0).toFixed(2)} €${Math.max(0, (Number(t.bonoPrice) || 0) - (Number(t.bonoAmountPaid) || 0)) > 0 ? ` · pendiente: ${Math.max(0, (Number(t.bonoPrice) || 0) - (Number(t.bonoAmountPaid) || 0)).toFixed(2)} €` : ''}`
+                : (svc ? svc.price + ' €' : '')}</div>
             </div>
-            ${!t.isBono ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>` : ''}
+            ${t.isBono ? `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-edit-bono" data-idx="${idx}">✏️ Editar</button>` : `<button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-convert-bono" data-idx="${idx}">🎟 Es un bono</button>`}
             <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm vb-remove-added" data-idx="${idx}">Quitar</button>
           </div>`;
       if (editing) {
@@ -1512,8 +1514,9 @@
             </div>
             <div class="panel-field-row">
               <div class="panel-field"><label>Precio total del bono (€)</label><input type="number" step="0.01" class="vb-bono-price" value="${t.bonoPrice || ''}" placeholder="Precio a medida"></div>
-              <div class="panel-field"><label>Ya pagado de este bono (€)</label><input type="number" step="0.01" class="vb-bono-paid" value="${t.bonoAmountPaid !== undefined ? t.bonoAmountPaid : '0'}"></div>
+              <div class="panel-field"><label>Pagado hoy (€)</label><input type="number" step="0.01" class="vb-bono-paid" value="${t.bonoAmountPaid !== undefined ? t.bonoAmountPaid : '0'}"></div>
             </div>
+            <p class="field-hint vb-bono-pending" style="font-size:11.5px;color:var(--ink-faint);margin:-6px 0 4px;">Queda pendiente: <b>${Math.max(0, (Number(t.bonoPrice) || 0) - (Number(t.bonoAmountPaid !== undefined ? t.bonoAmountPaid : 0) || 0)).toFixed(2)} €</b> — se pedirá automáticamente cuando venga a la próxima sesión.</p>
             <p class="field-hint" style="font-size:11px;color:var(--ink-faint);margin:-6px 0 10px;">Si el bono ya se vendió antes y ya tenía sesiones hechas (p.ej. lo estás dando de alta ahora pero ya iba por la 2 de 3), cambia el número de sesión — no hace falta que empiece siempre en 1.</p>
             <div style="display:flex;gap:8px;">
               <button type="button" class="panel-btn panel-btn-accent panel-btn-sm vb-confirm-bono" data-idx="${idx}">Guardar como bono</button>
@@ -1685,7 +1688,7 @@
       slot.querySelectorAll('.vb-remove-added').forEach((btn) => {
         btn.addEventListener('click', () => { vbState.added.splice(Number(btn.dataset.idx), 1); vbState.editingIdx = null; render(); });
       });
-      slot.querySelectorAll('.vb-convert-bono').forEach((btn) => {
+      slot.querySelectorAll('.vb-convert-bono, .vb-edit-bono').forEach((btn) => {
         btn.addEventListener('click', () => { vbState.editingIdx = Number(btn.dataset.idx); render(); });
       });
       slot.querySelectorAll('.vb-cancel-bono').forEach((btn) => {
@@ -1713,12 +1716,21 @@
         const idx = vbState.editingIdx;
         const t = vbState.added[idx];
         const priceInput = slot.querySelector('.vb-bono-price');
+        const paidInput = slot.querySelector('.vb-bono-paid');
+        const pendingEl = slot.querySelector('.vb-bono-pending b');
         const svc = allServices.find((s) => s.id === t.serviceId);
+        const updatePending = () => {
+          if (!pendingEl) return;
+          const pending = Math.max(0, (Number(priceInput.value) || 0) - (Number(paidInput.value) || 0));
+          pendingEl.textContent = `${pending.toFixed(2)} €`;
+        };
         bonoSessionsInput.addEventListener('input', (e) => {
           const n = Number(e.target.value) || 0;
           if (!t.bonoPriceTouched && svc) priceInput.value = n > 0 ? (svc.price * n).toFixed(2) : '';
+          updatePending();
         });
-        priceInput.addEventListener('input', () => { t.bonoPriceTouched = true; });
+        priceInput.addEventListener('input', () => { t.bonoPriceTouched = true; updatePending(); });
+        paidInput.addEventListener('input', updatePending);
       }
 
       const forkNewBtn = slot.querySelector('[data-when="new"]');
