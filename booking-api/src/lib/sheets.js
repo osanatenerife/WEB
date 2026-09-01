@@ -94,6 +94,13 @@ const COLUMNS = [
   // algo que nunca debió existir. La fila se conserva (no se borra de la
   // Sheet) por si hiciera falta auditar más adelante.
   'deletedAsMistake',
+  // Fecha real en la que se cobró "amountPaid" en persona (depositPaidHow),
+  // cuando quien da de alta la cita a mano lo indica explícitamente — para
+  // no asumir que el pago fue "hoy" (día en que se está tecleando la cita)
+  // cuando en realidad la clienta pagó en otra fecha y el equipo lo está
+  // registrando con retraso. Si viene vacío, se sigue usando el cálculo
+  // anterior (fecha de creación de la fila, o la de la cita si ya pasó).
+  'depositPaidDate',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 

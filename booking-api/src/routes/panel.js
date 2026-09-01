@@ -828,6 +828,11 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
   const {
     name, phone, email, birthdate, employeeId, date, time,
     price, amountPaid, notes, paidHow, extraMinutes, bonoPurchaseDate,
+    // Fecha real en la que se cobró en persona (paidHow) — para cuando se
+    // está registrando con retraso un pago que se cobró otro día distinto
+    // de hoy. Si no se manda, se sigue calculando como antes (hoy, salvo
+    // que la cita ya sea pasada).
+    paymentDate,
     // items: cada tratamiento de la visita — { serviceId, isBono,
     // totalSessions, sessionNumber, bonoTotalPrice, bonoAmountPaid }.
     // CUALQUIERA de ellos puede ser un bono (no solo el primero) — una
@@ -840,6 +845,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     // que no interesa dejar identificadas).
     accountingOnly,
   } = req.body || {};
+  const depositPaidDate = paymentDate && String(paymentDate).trim() ? String(paymentDate).trim() : '';
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Indica al menos un tratamiento.' });
   }
@@ -1035,6 +1041,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         sessionNumber: rowSessionNumber,
         notes: isFirst ? (notes || 'Alta manual de cita ya existente.') : '',
         depositPaidHow: carriesPrice ? (paidHow || '') : (r.isBono && paidOnlineForLoyalty > 0 ? (paidHow || '') : ''),
+        ...((carriesPrice || (r.isBono && paidOnlineForLoyalty > 0)) && depositPaidDate ? { depositPaidDate } : {}),
         ...(carriesPrice && extrasFullyPaidNow && paidHow ? { finalAmount: bookingAmountPaid, remainderPaidHow: paidHow } : {}),
       });
       bookingIds.push(bookingId);
@@ -2704,22 +2711,26 @@ router.get('/panel/payments-log', async (req, res) => {
 
     // Señas/pagos por adelantado cobrados EN PERSONA (efectivo/tarjeta/bizum
     // al dar de alta la cita, no un pago online por Stripe): se cuentan por
-    // el día en que se cobraron de verdad — normalmente el de creación de la
-    // fila (createdAt), para que un pago de hoy de una cita dentro de tres
-    // semanas no aparezca en caja hasta esa fecha futura.
+    // el día en que se cobraron de verdad.
     //
-    // Pero si la cita ya era del pasado en el momento de darla de alta (se
-    // está registrando a mano una visita antigua, con "Ya pasó — solo
-    // registrar"), createdAt es solo el momento en que alguien se puso a
-    // teclearla, no un cobro real de ese día — en ese caso se usa la fecha
-    // de la propia cita, igual que el resto de su importe.
+    // Si quien lo registró indicó explícitamente esa fecha (depositPaidDate,
+    // el campo "Fecha del pago" del alta manual), se usa esa — es la más
+    // fiable, porque cubre el caso de registrar HOY, con retraso, un pago
+    // que se cobró en persona hace días. Si no se indicó (altas antiguas
+    // antes de este campo), se recurre al cálculo anterior: normalmente el
+    // día de creación de la fila (createdAt), salvo que la cita ya fuera del
+    // pasado al darla de alta (con "Ya pasó — solo registrar"), en cuyo caso
+    // createdAt no es un cobro real de ese día y se usa la fecha de la
+    // propia cita.
     const advanceDeposits = bookings
       .filter((b) => b.depositPaidHow && Number(b.amountPaid) > 0 && b.createdAt)
       .map((b) => {
         const createdDate = String(b.createdAt).slice(0, 10);
         const loggedAfterTheFact = b.date && b.date < createdDate;
+        const inferredDate = loggedAfterTheFact ? b.date : createdDate;
+        const depositDate = b.depositPaidDate || inferredDate;
         return {
-          bookingId: b.bookingId, date: loggedAfterTheFact ? b.date : createdDate, name: b.name, phone: b.phone,
+          bookingId: b.bookingId, date: depositDate, name: b.name, phone: b.phone,
           serviceName: b.serviceName, amount: Number(b.amountPaid) || 0, paidHow: b.depositPaidHow,
           apptDate: b.date, apptTime: b.time,
         };

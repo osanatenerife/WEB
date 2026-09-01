@@ -1599,7 +1599,10 @@
             <div class="panel-field"><label>Ya pagado de lo suelto (€)</label><input type="number" step="0.01" class="vb-paid" value="0"></div>
             ` : ''}
             <div class="panel-field"><label>Pagado con</label><select class="vb-paidhow"><option value="tarjeta">Tarjeta</option><option value="efectivo">Efectivo</option><option value="bizum">Bizum</option></select></div>
-          </div>` : ''}
+            <div class="panel-field"><label>Fecha del pago</label><input type="date" class="vb-payment-date" value="${new Date().toISOString().slice(0, 10)}"></div>
+          </div>
+          <p class="panel-status" style="margin:-6px 0 10px;font-size:11.5px;">Pon la fecha en la que se cobró de verdad — normalmente hoy, pero cámbiala si estás registrando con retraso un pago que se hizo otro día.</p>
+          ` : ''}
           <button type="button" class="panel-btn panel-btn-primary vb-confirm">Confirmar visita</button>` : ''}
           <p class="panel-error vb-error" style="display:none;"></p>
         </div>
@@ -1879,6 +1882,7 @@
               const priceInput = slot.querySelector('.vb-price');
               const paidInput = slot.querySelector('.vb-paid');
               const paidHowSelect = slot.querySelector('.vb-paidhow');
+              const paymentDateInput = slot.querySelector('.vb-payment-date');
               // Cualquiera de los tratamientos añadidos puede ser un bono
               // (puede haber varios a la vez) — cada uno lleva su propio
               // precio/pagado; el precio/pagado del formulario compartido
@@ -1903,6 +1907,7 @@
                   price: priceInput ? priceInput.value : '',
                   amountPaid: paidInput ? paidInput.value : 0,
                   paidHow: paidHowSelect.value,
+                  paymentDate: paymentDateInput ? paymentDateInput.value : '',
                   notes: notesVal, accountingOnly: isPast,
                   extraMinutes: isPast ? undefined : extraMinutesForSend(),
                 }),
