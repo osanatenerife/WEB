@@ -911,3 +911,8 @@ module.exports = router;
 // instante las reservas totalmente gratuitas (importe 0), sin pasar por
 // Stripe — ver checkout.js para el porqué.
 module.exports.handleBookingPayment = handleBookingPayment;
+// panel.js reutiliza esta función para mandar el email de confirmación al
+// dar de alta a mano una "Cita nueva" real (p.ej. reservada por teléfono) —
+// esa vía no pasa por Stripe/webhook, así que sin esto la clienta no recibía
+// nunca ninguna confirmación por email.
+module.exports.sendBookingConfirmationEmail = sendBookingConfirmationEmail;

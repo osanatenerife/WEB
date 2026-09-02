@@ -15,6 +15,7 @@ const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent, isEv
 const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
+const { sendBookingConfirmationEmail } = require('./webhook');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
@@ -957,6 +958,11 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     const bookingIds = [];
     let priceBookingId = '';
     let priceServiceId = '';
+    // Para el email de confirmación (más abajo, solo si es "Cita nueva") —
+    // suma el precio/pagado de TODOS los tratamientos de la visita (sueltos
+    // + bonos), no solo el de la fila que "carriesPrice".
+    let emailTotalPrice = Number(bookingPrice) || 0;
+    let emailTotalPaid = Number(bookingAmountPaid) || 0;
     for (let i = 0; i < resolvedItems.length; i++) {
       const r = resolvedItems[i];
       const isFirst = i === 0;
@@ -981,6 +987,8 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         const paidOnline = r.bonoAmountPaid !== undefined && r.bonoAmountPaid !== '' ? Number(r.bonoAmountPaid) : bonoPrice;
         const remainingAmount = Math.max(0, round2(bonoPrice - paidOnline));
         paidOnlineForLoyalty = paidOnline;
+        emailTotalPrice += bonoPrice;
+        emailTotalPaid += paidOnline;
 
         rowBonoId = crypto.randomUUID();
         await appendSessionBono({
@@ -1068,6 +1076,19 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         booking: { serviceId: priceServiceId, phone, email, name, bookingId: priceBookingId },
         portionAmount: bookingAmountPaid,
         paidHow,
+      });
+    }
+
+    // Solo para "Cita nueva" real (no "ya pasó — solo registrar"): esta vía
+    // no pasa por Stripe/webhook, así que sin esto la clienta nunca recibía
+    // ningún email de confirmación cuando el equipo le daba de alta la cita
+    // a mano (p.ej. reservada por teléfono o en persona).
+    if (!accountingOnly && email) {
+      await sendBookingConfirmationEmail({
+        clientEmail: email, clientName: name, clientPhone: phone,
+        serviceName: combinedServiceName, primaryServiceId: priceServiceId || resolvedItems[0].serviceId,
+        date, time: timeNorm, employeeName: employee ? employee.name : '',
+        amountPaid: emailTotalPaid, price: emailTotalPrice, lang: 'es',
       });
     }
 
