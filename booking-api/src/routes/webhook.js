@@ -10,6 +10,7 @@ const { earnLoyalty } = require('../lib/loyaltyEarn');
 const { sendEmail } = require('../lib/email');
 const { generateGiftCardBuffer } = require('../lib/giftCard');
 const { withLock } = require('../lib/asyncLock');
+const { googleCalendarLink } = require('../lib/calendarLink');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const bonos = require('../config/bonos');
@@ -85,6 +86,7 @@ const BOOKING_EMAIL_STRINGS = {
     title: 'Reserva confirmada', hi: 'Hola',
     thanks: 'gracias por confiar en nosotras. Aquí tienes los detalles de tu cita:',
     manageBtn: 'Gestionar mi reserva',
+    addToCalendar: '📅 Añadir a Google Calendar',
     cancelNote: 'Puedes cancelar o reprogramar hasta 48h antes sin coste.',
     loyaltyTitle: 'Programa de fidelidad',
     subject: 'Reserva confirmada — Osana',
@@ -103,6 +105,7 @@ const BOOKING_EMAIL_STRINGS = {
     title: 'Booking confirmed', hi: 'Hi',
     thanks: 'thank you for booking with us. Here are your appointment details:',
     manageBtn: 'Manage my booking',
+    addToCalendar: '📅 Add to Google Calendar',
     cancelNote: 'Free cancellation or rescheduling up to 48h before.',
     loyaltyTitle: 'Loyalty program',
     subject: 'Booking confirmed — Osana',
@@ -121,6 +124,7 @@ const BOOKING_EMAIL_STRINGS = {
     title: 'Prenotazione confermata', hi: 'Ciao',
     thanks: 'grazie per averci scelto. Ecco i dettagli del tuo appuntamento:',
     manageBtn: 'Gestisci la mia prenotazione',
+    addToCalendar: '📅 Aggiungi a Google Calendar',
     cancelNote: 'Cancellazione o riprogrammazione gratuite fino a 48h prima.',
     loyaltyTitle: 'Programma fedeltà',
     subject: 'Prenotazione confermata — Osana',
@@ -134,7 +138,7 @@ const BOOKING_EMAIL_STRINGS = {
   },
 };
 
-async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang }) {
+async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang, durationMinutes }) {
   if (!clientEmail) return;
   const t = BOOKING_EMAIL_STRINGS[lang] || BOOKING_EMAIL_STRINGS.es;
   const total = Number(price) || 0;
@@ -142,6 +146,10 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   const pending = Math.max(0, round2(total - paid));
   const dateLabel = formatDateLabel(date, lang);
   const manageUrl = t.manageUrl;
+  const calendarUrl = googleCalendarLink({
+    title: serviceName || 'Cita Osana', dateStr: date, timeStr: time, durationMinutes,
+    details: employeeName ? `${t.specialist}: ${employeeName}` : '',
+  });
 
   const rows = [
     [t.reason, escapeHtml(serviceName || '')],
@@ -172,6 +180,7 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
       <div style="text-align:center;margin:28px 0 8px;">
         <a href="${manageUrl}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${t.manageBtn}</a>
       </div>
+      ${calendarUrl ? `<div style="text-align:center;margin:0 0 20px;"><a href="${calendarUrl}" style="color:#ac977e;text-decoration:underline;font-size:12.5px;">${t.addToCalendar}</a></div>` : ''}
       <p style="text-align:center;color:#8a8178;font-size:12px;margin:0;">${t.cancelNote}</p>
     </div>
     <div style="background:#1a1612;padding:24px;text-align:center;">
@@ -310,7 +319,7 @@ async function handleBookingPayment(session) {
     clientEmail, clientName, clientPhone,
     serviceName: combinedServiceName, primaryServiceId: serviceId, date, time,
     employeeName: employee ? employee.name : '',
-    amountPaid: realAmountPaid, price, lang,
+    amountPaid: realAmountPaid, price, lang, durationMinutes,
   });
 
   await notifySalonNewBooking({
@@ -558,6 +567,7 @@ async function handleBonoSessionPayment(session) {
       return it.isBono ? `${name} — bono de ${it.sessions} sesiones (1/${it.sessions})` : name;
     })
     .join(' + ');
+  const combinedDuration = itemsWithShare.reduce((sum, it) => sum + (it.service ? Number(it.service.durationMinutes) || 0 : 0), 0);
 
   await sendBookingConfirmationEmail({
     clientEmail, clientName, clientPhone,
@@ -565,7 +575,7 @@ async function handleBonoSessionPayment(session) {
     primaryServiceId: itemsWithShare[0] ? itemsWithShare[0].serviceId : '',
     date, time,
     employeeName: employee ? employee.name : '',
-    amountPaid: realAmountPaid, price: combinedTotal, lang,
+    amountPaid: realAmountPaid, price: combinedTotal, lang, durationMinutes: combinedDuration,
   });
 
   await notifySalonNewBooking({

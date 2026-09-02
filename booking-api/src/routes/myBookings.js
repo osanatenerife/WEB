@@ -766,7 +766,7 @@ router.post('/my-bookings/reschedule-group', async (req, res) => {
         subject: first.lang === 'en' ? 'Your appointment was rescheduled — Osana' : first.lang === 'it' ? 'Il tuo appuntamento è stato riprogrammato — Osana' : 'Tu cita ha sido reprogramada — Osana',
         html: rescheduleEmailHtml({
           booking: { ...first, serviceName: combinedServiceName },
-          oldDate: first.date, oldTime: first.time, newDate, newTime,
+          oldDate: first.date, oldTime: first.time, newDate, newTime, durationMinutes: duration,
         }),
       }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
     }

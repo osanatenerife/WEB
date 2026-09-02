@@ -16,6 +16,7 @@ const { getAvailableSlots, isRangeFree } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const { sendEmail } = require('../lib/email');
 const { sendBookingConfirmationEmail } = require('./webhook');
+const { googleCalendarLink } = require('../lib/calendarLink');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
@@ -1088,7 +1089,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         clientEmail: email, clientName: name, clientPhone: phone,
         serviceName: combinedServiceName, primaryServiceId: priceServiceId || resolvedItems[0].serviceId,
         date, time: timeNorm, employeeName: employee ? employee.name : '',
-        amountPaid: emailTotalPaid, price: emailTotalPrice, lang: 'es',
+        amountPaid: emailTotalPaid, price: emailTotalPrice, lang: 'es', durationMinutes,
       });
     }
 
@@ -1334,7 +1335,7 @@ router.post('/panel/reschedule-combined', async (req, res) => {
       sendEmail({
         to: first.email,
         subject: first.lang === 'en' ? 'Your appointment was rescheduled — Osana' : first.lang === 'it' ? 'Il tuo appuntamento è stato riprogrammato — Osana' : 'Tu cita ha sido reprogramada — Osana',
-        html: rescheduleEmailHtml({ booking: first, oldDate: first.date, oldTime: first.time, newDate: date, newTime: time }),
+        html: rescheduleEmailHtml({ booking: first, oldDate: first.date, oldTime: first.time, newDate: date, newTime: time, durationMinutes: duration }),
       }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
     }
 
@@ -1980,14 +1981,20 @@ function noShowEmailHtml({ isFirstTime, booking, bono, lang }) {
 // Aviso a la clienta cuando el equipo cambia la fecha/hora de su cita desde
 // el panel (a diferencia de cuando reprograma ella misma desde "Mis
 // Reservas", donde ya lo ve confirmado en pantalla al momento).
-function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime }) {
+function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime, durationMinutes }) {
   const isEn = booking.lang === 'en';
   const isIt = booking.lang === 'it';
+  const calendarUrl = googleCalendarLink({
+    title: booking.serviceName || 'Cita Osana', dateStr: newDate, timeStr: newTime,
+    durationMinutes: durationMinutes !== undefined ? durationMinutes : booking.durationMinutes,
+  });
+  const calendarLine = (label) => (calendarUrl ? `<p><a href="${calendarUrl}">${label}</a></p>` : '');
   if (isEn) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
         <h2 style="font-size:18px;">Your appointment was rescheduled</h2>
         <p>Hi ${escapeHtml(booking.name || '')},</p>
         <p>Our team has moved your appointment for <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
         <p>Was: ${oldDate} at ${oldTime}<br>Now: <b>${newDate} at ${newTime}</b></p>
+        ${calendarLine('📅 Add to Google Calendar')}
         <p>If this doesn't work for you, message us on WhatsApp and we'll find another time.</p>
         <p>See you soon!<br>Osana</p>
       </div>`;
@@ -1996,6 +2003,7 @@ function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime }) {
         <p>Ciao ${escapeHtml(booking.name || '')},</p>
         <p>Il nostro team ha spostato il tuo appuntamento per <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
         <p>Prima: ${oldDate} alle ${oldTime}<br>Ora: <b>${newDate} alle ${newTime}</b></p>
+        ${calendarLine('📅 Aggiungi a Google Calendar')}
         <p>Se questo orario non ti va bene, scrivici su WhatsApp e troviamo un altro momento.</p>
         <p>A presto!<br>Osana</p>
       </div>`;
@@ -2004,6 +2012,7 @@ function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime }) {
         <p>Hola ${escapeHtml(booking.name || '')},</p>
         <p>Nuestro equipo ha movido tu cita de <b>${escapeHtml(booking.serviceName || '')}</b>:</p>
         <p>Antes: ${oldDate} a las ${oldTime}<br>Ahora: <b>${newDate} a las ${newTime}</b></p>
+        ${calendarLine('📅 Añadir a Google Calendar')}
         <p>Si no te viene bien, escríbenos por WhatsApp y buscamos otro hueco.</p>
         <p>¡Te esperamos!<br>Osana</p>
       </div>`;
