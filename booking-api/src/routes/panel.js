@@ -2988,3 +2988,8 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
 });
 
 module.exports = router;
+// myBookings.js reutiliza esto para avisar por email cuando es la CLIENTA
+// quien reprograma su propia cita desde "Mis reservas" — antes solo se
+// avisaba cuando reprogramaba el equipo desde el panel, así que la clienta
+// se quedaba sin ninguna confirmación de que el cambio se había guardado.
+module.exports.rescheduleEmailHtml = rescheduleEmailHtml;

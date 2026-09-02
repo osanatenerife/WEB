@@ -15,6 +15,7 @@ const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEven
 const { withLock, withLocks } = require('../lib/asyncLock');
 const { canDo } = require('./services');
 const { effectiveStrikeCount } = require('../lib/strikes');
+const { rescheduleEmailHtml } = require('./panel');
 
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
@@ -585,6 +586,14 @@ router.post('/my-bookings/reschedule', async (req, res) => {
       ...(forgiven ? { status: 'confirmed' } : {}),
     });
 
+    if (booking.email) {
+      sendEmail({
+        to: booking.email,
+        subject: booking.lang === 'en' ? 'Your appointment was rescheduled — Osana' : booking.lang === 'it' ? 'Il tuo appuntamento è stato riprogrammato — Osana' : 'Tu cita ha sido reprogramada — Osana',
+        html: rescheduleEmailHtml({ booking, oldDate: booking.date, oldTime: booking.time, newDate, newTime }),
+      }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
+    }
+
     res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name, lateStrike });
     });
   } catch (err) {
@@ -748,6 +757,18 @@ router.post('/my-bookings/reschedule-group', async (req, res) => {
         date: newDate, time: newTime, eventId: newEventId,
         ...(changingEmployee ? { employeeId: targetEmployee.id, employeeName: targetEmployee.name, calendarId: targetEmployee.calendarId } : {}),
       });
+    }
+
+    if (first.email) {
+      const combinedServiceName = bookings.map((b) => b.serviceName).join(' + ');
+      sendEmail({
+        to: first.email,
+        subject: first.lang === 'en' ? 'Your appointment was rescheduled — Osana' : first.lang === 'it' ? 'Il tuo appuntamento è stato riprogrammato — Osana' : 'Tu cita ha sido reprogramada — Osana',
+        html: rescheduleEmailHtml({
+          booking: { ...first, serviceName: combinedServiceName },
+          oldDate: first.date, oldTime: first.time, newDate, newTime,
+        }),
+      }).catch((e) => console.error('No se pudo avisar por email de la reprogramación:', e));
     }
 
     res.json({ ok: true, date: newDate, time: newTime, employeeId: targetEmployee.id, employeeName: targetEmployee.name, lateStrike });
