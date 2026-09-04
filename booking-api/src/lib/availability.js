@@ -29,7 +29,6 @@ function isClosureDate(dateStr) {
  * @returns {Promise<string[]>} horas de inicio disponibles, formato "HH:mm"
  */
 async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySchedule, opts) {
-  const skipGapHeuristic = !!(opts && opts.skipGapHeuristic);
   // El equipo, desde el panel, a veces necesita agendar una cita puntual
   // después de la hora normal de cierre (un caso especial, la última
   // clienta del día...) — las clientas, reservando online, siguen sin
@@ -97,13 +96,12 @@ async function getAvailableSlots(dateStr, calendarId, durationMinutes, weeklySch
       (leavesDeadGap ? fallbackSlots : goodSlots).push(label);
     }
   }
-  // El equipo, al reprogramar una cita ya existente desde el panel, necesita
-  // poder encajar tratamientos justo pegados a otros (p.ej. reconstruir una
-  // cita con varios tratamientos consecutivos) — para eso se salta el
-  // criterio de "no dejar huecos muertos", que solo tiene sentido de cara a
-  // nuevas reservas de clientas.
-  if (skipGapHeuristic) return [...goodSlots, ...fallbackSlots].sort();
-  return goodSlots.length ? goodSlots : fallbackSlots;
+  // Antes, si ya había algún hueco "bueno" ese día, los que dejaban un
+  // tramo muerto se ocultaban del todo — pero eso escondía disponibilidad
+  // real (p.ej. huecos por la tarde antes de otra cita), y una clienta con
+  // esa hora en mente simplemente no la veía nunca. Ahora se muestran
+  // siempre TODOS los huecos libres, con los "buenos" primero.
+  return [...goodSlots, ...fallbackSlots].sort();
 }
 
 /**
