@@ -195,6 +195,19 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
     await sendEmail({ to: clientEmail, subject: t.subject, html });
   } catch (emailErr) {
     console.error('No se pudo enviar el email de confirmación de reserva:', emailErr);
+    // Este fallo se tragaba en silencio — nadie se enteraba de que una
+    // clienta se había quedado sin su email de confirmación hasta que ella
+    // misma preguntaba. Avisamos al salón para que pueda escribirle a mano
+    // mientras se investiga la causa real.
+    try {
+      await sendEmail({
+        to: SALON_EMAIL,
+        subject: `⚠️ No se pudo mandar la confirmación a ${clientName || 'una clienta'}`,
+        html: `<p>Ha fallado el envío del email de confirmación de reserva a <strong>${escapeHtml(clientEmail)}</strong> (${escapeHtml(clientName || '')}, ${escapeHtml(clientPhone || '')}).</p><p>Tratamiento: ${escapeHtml(serviceName || '')} · ${escapeHtml(date || '')} ${escapeHtml(time || '')}</p><p>Motivo: ${escapeHtml(emailErr.message || String(emailErr))}</p><p>Puede que convenga avisarla por WhatsApp de que su cita quedó confirmada igualmente.</p>`,
+      });
+    } catch (alertErr) {
+      console.error('Tampoco se pudo mandar el aviso de fallo al salón:', alertErr);
+    }
   }
 }
 
