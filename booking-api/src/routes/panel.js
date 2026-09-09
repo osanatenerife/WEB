@@ -661,6 +661,24 @@ router.post('/panel/edit-booking', async (req, res) => {
     }
 
     await updateBookingRow(booking._sheetRow, booking, updates);
+
+    // Avisa a la clienta cuando el equipo corrige el tratamiento o el
+    // precio de su cita ya reservada (p.ej. se equivocó al elegirlo, o
+    // decide otra cosa distinta) — antes ese cambio se quedaba solo
+    // registrado internamente y ella nunca se enteraba del nuevo importe.
+    const serviceChanged = !!(serviceId || removeServiceId || addServiceId || swapServiceId);
+    const priceChanged = updates.price !== undefined;
+    if (booking.email && (serviceChanged || priceChanged)) {
+      const finalServiceName = updates.serviceName || booking.serviceName;
+      const finalPrice = updates.price !== undefined ? updates.price : booking.price;
+      const finalPaid = updates.amountPaid !== undefined ? updates.amountPaid : booking.amountPaid;
+      sendEmail({
+        to: booking.email,
+        subject: booking.lang === 'en' ? 'Your booking was updated — Osana' : booking.lang === 'it' ? 'La tua prenotazione è stata aggiornata — Osana' : 'Hemos actualizado tu cita — Osana',
+        html: bookingEditedEmailHtml({ booking, finalServiceName, finalPrice, finalPaid }),
+      }).catch((e) => console.error('No se pudo avisar por email del cambio de tratamiento/precio:', e));
+    }
+
     res.json({ ok: true, restoredBonoSession, convertedBonoId: convertedBonoId || undefined });
   } catch (err) {
     console.error(err);
@@ -2014,6 +2032,44 @@ function rescheduleEmailHtml({ booking, oldDate, oldTime, newDate, newTime, dura
         <p>Antes: ${oldDate} a las ${oldTime}<br>Ahora: <b>${newDate} a las ${newTime}</b></p>
         ${calendarLine('📅 Añadir a Google Calendar')}
         <p>Si no te viene bien, escríbenos por WhatsApp y buscamos otro hueco.</p>
+        <p>¡Te esperamos!<br>Osana</p>
+      </div>`;
+}
+
+function bookingEditedEmailHtml({ booking, finalServiceName, finalPrice, finalPaid }) {
+  const isEn = booking.lang === 'en';
+  const isIt = booking.lang === 'it';
+  const total = Number(finalPrice) || 0;
+  const paid = Number(finalPaid) || 0;
+  const pending = Math.max(0, round2(total - paid));
+  const pendingLineEs = total > 0 ? `<p>Precio: <b>${total.toFixed(2)} €</b>${pending > 0 ? ` · Pendiente en el centro: <b>${pending.toFixed(2)} €</b>` : ' (pagado del todo)'}</p>` : '';
+  const pendingLineEn = total > 0 ? `<p>Price: <b>${total.toFixed(2)} €</b>${pending > 0 ? ` · Pending at the centre: <b>${pending.toFixed(2)} €</b>` : ' (fully paid)'}</p>` : '';
+  const pendingLineIt = total > 0 ? `<p>Prezzo: <b>${total.toFixed(2)} €</b>${pending > 0 ? ` · Da saldare in centro: <b>${pending.toFixed(2)} €</b>` : ' (pagato per intero)'}</p>` : '';
+  if (isEn) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Your booking was updated</h2>
+        <p>Hi ${escapeHtml(booking.name || '')},</p>
+        <p>Our team has updated your appointment on ${booking.date} at ${booking.time}:</p>
+        <p>Treatment: <b>${escapeHtml(finalServiceName || '')}</b></p>
+        ${pendingLineEn}
+        <p>If this doesn't look right, message us on WhatsApp.</p>
+        <p>See you soon!<br>Osana</p>
+      </div>`;
+  if (isIt) return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">La tua prenotazione è stata aggiornata</h2>
+        <p>Ciao ${escapeHtml(booking.name || '')},</p>
+        <p>Il nostro team ha aggiornato il tuo appuntamento del ${booking.date} alle ${booking.time}:</p>
+        <p>Trattamento: <b>${escapeHtml(finalServiceName || '')}</b></p>
+        ${pendingLineIt}
+        <p>Se qualcosa non torna, scrivici su WhatsApp.</p>
+        <p>A presto!<br>Osana</p>
+      </div>`;
+  return `<div style="font-family:Arial,sans-serif;color:#2a2520;max-width:480px;margin:0 auto;">
+        <h2 style="font-size:18px;">Hemos actualizado tu cita</h2>
+        <p>Hola ${escapeHtml(booking.name || '')},</p>
+        <p>Nuestro equipo ha actualizado tu cita del ${booking.date} a las ${booking.time}:</p>
+        <p>Tratamiento: <b>${escapeHtml(finalServiceName || '')}</b></p>
+        ${pendingLineEs}
+        <p>Si algo no te cuadra, escríbenos por WhatsApp.</p>
         <p>¡Te esperamos!<br>Osana</p>
       </div>`;
 }
