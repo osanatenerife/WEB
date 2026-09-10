@@ -67,20 +67,46 @@
     refreshAgendaBadge();
   }
 
-  async function panelFetch(path, options) {
-    const res = await fetch(`${BOOKING_API_BASE}${path}`, {
-      ...options,
-      headers: { 'Content-Type': 'application/json', 'x-panel-key': panelKey, ...(options && options.headers) },
-    });
-    if (res.status === 401) {
-      localStorage.removeItem(KEY_STORAGE);
-      panelKey = '';
-      showLogin('Clave incorrecta.');
-      throw new Error('unauthorized');
+  // El servidor (Render, plan gratuito) se "duerme" tras un rato sin uso y
+  // la primera petición después puede tardar 20-30s en responder — sin
+  // ningún aviso, un botón que tarda tanto en reaccionar parece roto ("le
+  // doy y no hace nada"). Si una petición tarda más de 2s, se muestra un
+  // aviso discreto arriba para que se sepa que sigue en marcha.
+  let slowIndicatorEl = null;
+  let slowIndicatorTimer = null;
+  function showSlowIndicator() {
+    if (!slowIndicatorEl) {
+      slowIndicatorEl = document.createElement('div');
+      slowIndicatorEl.textContent = '⏳ Cargando… puede tardar unos segundos si el servidor llevaba un rato sin usarse.';
+      slowIndicatorEl.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#ac977e;color:#1a1612;text-align:center;font-size:12.5px;padding:6px 10px;';
+      document.body.appendChild(slowIndicatorEl);
     }
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Error de conexión.');
-    return data;
+    slowIndicatorEl.style.display = 'block';
+  }
+  function hideSlowIndicator() {
+    if (slowIndicatorEl) slowIndicatorEl.style.display = 'none';
+  }
+
+  async function panelFetch(path, options) {
+    slowIndicatorTimer = setTimeout(showSlowIndicator, 2000);
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}${path}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'x-panel-key': panelKey, ...(options && options.headers) },
+      });
+      if (res.status === 401) {
+        localStorage.removeItem(KEY_STORAGE);
+        panelKey = '';
+        showLogin('Clave incorrecta.');
+        throw new Error('unauthorized');
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Error de conexión.');
+      return data;
+    } finally {
+      clearTimeout(slowIndicatorTimer);
+      hideSlowIndicator();
+    }
   }
 
   els.keySubmit.addEventListener('click', () => {
