@@ -3318,6 +3318,7 @@
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           ev.target.disabled = false;
         }
       });
@@ -3329,6 +3330,7 @@
       if (!addServiceSelect.value) {
         errorEl.textContent = 'Elige qué tratamiento añadir.';
         errorEl.style.display = 'block';
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
       errorEl.style.display = 'none';
@@ -3347,6 +3349,7 @@
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         ev.target.disabled = false;
       }
     });
@@ -3360,6 +3363,7 @@
       if (!detailInput.value.trim() || !amountInput.value) {
         errorEl.textContent = 'Indica el detalle y el importe del extra.';
         errorEl.style.display = 'block';
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
       errorEl.style.display = 'none';
@@ -3378,6 +3382,7 @@
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
+        errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         ev.target.disabled = false;
       }
     });
@@ -3439,6 +3444,7 @@
           } else {
             errorEl.textContent = e.message;
             errorEl.style.display = 'block';
+            errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           }
           ev.target.disabled = false;
         }
@@ -3470,6 +3476,7 @@
           if (!totalInput.value || !sessionInput.value) {
             errorEl.textContent = 'Indica el número de esta sesión y el total de sesiones del bono.';
             errorEl.style.display = 'block';
+            errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
           }
           // "Ya está pagado del todo" pone el precio entero en la forma de
@@ -3519,6 +3526,7 @@
           } catch (e) {
             errorEl.textContent = e.message;
             errorEl.style.display = 'block';
+            errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             ev.target.disabled = false;
           }
         });
@@ -3542,6 +3550,7 @@
           } catch (e) {
             errorEl.textContent = e.message;
             errorEl.style.display = 'block';
+            errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             ev.target.disabled = false;
           }
         });
@@ -3566,6 +3575,7 @@
           } catch (e) {
             errorEl.textContent = e.message;
             errorEl.style.display = 'block';
+            errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
             ev.target.disabled = false;
           }
         });
@@ -3605,6 +3615,7 @@
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           ev.target.disabled = false;
         }
       });
@@ -3618,6 +3629,7 @@
         } catch (e) {
           errorEl.textContent = e.message;
           errorEl.style.display = 'block';
+          errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
           ev.target.disabled = false;
         }
       });
