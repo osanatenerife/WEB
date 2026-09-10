@@ -138,8 +138,8 @@ const BOOKING_EMAIL_STRINGS = {
   },
 };
 
-async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang, durationMinutes }) {
-  if (!clientEmail) return;
+async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang, durationMinutes, bookingIds }) {
+  if (!clientEmail) return false;
   const t = BOOKING_EMAIL_STRINGS[lang] || BOOKING_EMAIL_STRINGS.es;
   const total = Number(price) || 0;
   const paid = Number(amountPaid) || 0;
@@ -193,21 +193,38 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
 
   try {
     await sendEmail({ to: clientEmail, subject: t.subject, html });
+    // Marca cada fila de esta visita como "ya confirmada" — así la tarea
+    // periódica de reintentos (ver reminders.js) no vuelve a intentarlo ni
+    // manda una confirmación duplicada.
+    if (Array.isArray(bookingIds) && bookingIds.length) {
+      for (const id of bookingIds) {
+        try {
+          const b = await findBookingById(id);
+          if (b) await updateBookingRow(b._sheetRow, b, { confirmationEmailSent: '1' });
+        } catch (markErr) {
+          console.error('No se pudo marcar confirmationEmailSent:', markErr);
+        }
+      }
+    }
+    return true;
   } catch (emailErr) {
     console.error('No se pudo enviar el email de confirmación de reserva:', emailErr);
     // Este fallo se tragaba en silencio — nadie se enteraba de que una
     // clienta se había quedado sin su email de confirmación hasta que ella
     // misma preguntaba. Avisamos al salón para que pueda escribirle a mano
-    // mientras se investiga la causa real.
+    // mientras se investiga la causa real. La tarea periódica de reintentos
+    // (reminders.js) volverá a intentarlo sola más adelante, así que no
+    // hace falta hacer nada más aquí que avisar.
     try {
       await sendEmail({
         to: SALON_EMAIL,
         subject: `⚠️ No se pudo mandar la confirmación a ${clientName || 'una clienta'}`,
-        html: `<p>Ha fallado el envío del email de confirmación de reserva a <strong>${escapeHtml(clientEmail)}</strong> (${escapeHtml(clientName || '')}, ${escapeHtml(clientPhone || '')}).</p><p>Tratamiento: ${escapeHtml(serviceName || '')} · ${escapeHtml(date || '')} ${escapeHtml(time || '')}</p><p>Motivo: ${escapeHtml(emailErr.message || String(emailErr))}</p><p>Puede que convenga avisarla por WhatsApp de que su cita quedó confirmada igualmente.</p>`,
+        html: `<p>Ha fallado el envío del email de confirmación de reserva a <strong>${escapeHtml(clientEmail)}</strong> (${escapeHtml(clientName || '')}, ${escapeHtml(clientPhone || '')}).</p><p>Tratamiento: ${escapeHtml(serviceName || '')} · ${escapeHtml(date || '')} ${escapeHtml(time || '')}</p><p>Motivo: ${escapeHtml(emailErr.message || String(emailErr))}</p><p>Se reintentará automáticamente más tarde — no hace falta que hagas nada, salvo que quieras avisarla ya por WhatsApp de que su cita quedó confirmada igualmente.</p>`,
       });
     } catch (alertErr) {
       console.error('Tampoco se pudo mandar el aviso de fallo al salón:', alertErr);
     }
+    return false;
   }
 }
 
@@ -333,6 +350,7 @@ async function handleBookingPayment(session) {
     serviceName: combinedServiceName, primaryServiceId: serviceId, date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price, lang, durationMinutes,
+    bookingIds: bookingId ? [bookingId] : [],
   });
 
   await notifySalonNewBooking({
@@ -467,6 +485,7 @@ async function handleBonoSessionPayment(session) {
     }
   }
 
+  const createdBookingIds = [];
   for (const it of itemsWithShare) {
     if (it.isBono) {
       const totalSessions = Number(it.sessions) || 1;
@@ -534,6 +553,7 @@ async function handleBonoSessionPayment(session) {
           termsAcceptedAt: termsAcceptedAt || '',
         });
         await autoCloseAndEarn(sessionBookingId, it.amountPaidOnline);
+        createdBookingIds.push(sessionBookingId);
       } catch (sheetErr) {
         console.error('No se pudo guardar la sesión del bono en la Sheet:', sheetErr);
       }
@@ -568,6 +588,7 @@ async function handleBonoSessionPayment(session) {
           termsAcceptedAt: termsAcceptedAt || '',
         });
         await autoCloseAndEarn(looseBookingId, it.amountPaidOnline);
+        createdBookingIds.push(looseBookingId);
       } catch (sheetErr) {
         console.error('No se pudo guardar el tratamiento suelto en la Sheet:', sheetErr);
       }
@@ -589,6 +610,7 @@ async function handleBonoSessionPayment(session) {
     date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price: combinedTotal, lang, durationMinutes: combinedDuration,
+    bookingIds: createdBookingIds,
   });
 
   await notifySalonNewBooking({

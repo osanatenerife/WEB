@@ -101,6 +101,11 @@ const COLUMNS = [
   // registrando con retraso. Si viene vacío, se sigue usando el cálculo
   // anterior (fecha de creación de la fila, o la de la cita si ya pasó).
   'depositPaidDate',
+  // '1' si el email de confirmación de reserva se llegó a mandar con éxito
+  // — para que una tarea periódica pueda encontrar las citas confirmadas y
+  // futuras que se quedaron sin él (por un fallo de envío puntual) y
+  // reintentarlo sola, sin depender de que la clienta pregunte.
+  'confirmationEmailSent',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 

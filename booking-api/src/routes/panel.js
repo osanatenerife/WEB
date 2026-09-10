@@ -1108,6 +1108,7 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
         serviceName: combinedServiceName, primaryServiceId: priceServiceId || resolvedItems[0].serviceId,
         date, time: timeNorm, employeeName: employee ? employee.name : '',
         amountPaid: emailTotalPaid, price: emailTotalPrice, lang: 'es', durationMinutes,
+        bookingIds,
       });
     }
 
