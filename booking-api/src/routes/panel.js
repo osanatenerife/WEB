@@ -2618,6 +2618,11 @@ router.get('/panel/agenda', async (req, res) => {
     const now = Date.now();
     const rangeEndMs = now + days * 24 * 60 * 60 * 1000;
     const expiringWindowMs = now + 30 * 24 * 60 * 60 * 1000;
+    // "Hoy" es el día entero, no solo lo que queda por delante — si no, una
+    // cita de esta mañana (ya pasada a la hora en que se mira la agenda)
+    // desaparecía sin más del apartado "Hoy" en cuanto pasaba su hora,
+    // aunque siguiera siendo del mismo día.
+    const todayStartMs = new Date(localToISO(new Date().toISOString().slice(0, 10), '00:00', hours.timezone)).getTime();
 
     const unclosedBookings = bookings
       .filter((b) => b.status === 'confirmed' && (b.finalAmount === undefined || b.finalAmount === '')
@@ -2625,7 +2630,7 @@ router.get('/panel/agenda', async (req, res) => {
       .sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
 
     const upcomingBookings = bookings
-      .filter((b) => b.status === 'confirmed' && appointmentDateTime(b).getTime() >= now
+      .filter((b) => b.status === 'confirmed' && appointmentDateTime(b).getTime() >= todayStartMs
         && appointmentDateTime(b).getTime() <= rangeEndMs)
       .sort((a, b) => appointmentDateTime(a) - appointmentDateTime(b));
 
