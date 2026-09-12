@@ -38,6 +38,10 @@ module.exports = [
   { serviceId: 'radiofrecuencia-corporal', sessions: 6, price: 330 },
   { serviceId: 'maderoterapia', sessions: 5, price: 360 },
   { serviceId: 'maderoterapia', sessions: 10, price: 650 },
+  { serviceId: 'electroestimulacion', sessions: 3, price: 120 },
+  { serviceId: 'electroestimulacion', sessions: 6, price: 210 },
+  { serviceId: 'criolipolisis', sessions: 3, price: 390 },
+  { serviceId: 'criolipolisis', sessions: 6, price: 570 },
 
   // ── Masajes ──
   { serviceId: 'drenaje-linfatico-50', sessions: 5, price: 350 },
