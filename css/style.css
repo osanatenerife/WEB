@@ -758,11 +758,19 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
 .reveal-delay-2 { transition-delay: 0.2s; }
 .reveal-delay-3 { transition-delay: 0.3s; }
 
+/* El menú de escritorio (enlaces + EN + IT + "Reservar cita") ya no cabe en
+   una sola línea a partir de unos 900px de ancho — sin envolver ni hacer
+   scroll, los últimos elementos (IT, y a veces hasta EN) se salían de la
+   pantalla en vez de pasar al menú de hamburguesa. Se pasa a la versión
+   móvil un poco antes (1100px) para que siempre quepa todo. */
+@media (max-width: 1100px) {
+  .nav-links { display: none; }
+  .nav-hamburger { display: block; }
+}
+
 /* ══════════════════ MOBILE (mobile-first overrides, breakpoint 900/768) ══════════════════ */
 @media (max-width: 900px) {
   nav#main-nav { padding: 0 20px; }
-  .nav-links { display: none; }
-  .nav-hamburger { display: block; }
 
   .pillars { grid-template-columns: 1fr; }
   .pillar { border-right: none; border-bottom: 1px solid var(--linew); }
