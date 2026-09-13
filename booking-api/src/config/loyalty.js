@@ -32,13 +32,15 @@ function round2(n) {
 
 // El saldo ganado ('earn') caduca cada 31 de diciembre — la cuenta empieza
 // de cero cada 1 de enero. Lo canjeado ('redeem') se resta siempre, sin
-// caducidad (ya salió de la cuenta cuando se usó).
+// caducidad (ya salió de la cuenta cuando se usó) — igual que una
+// reversión ('reversal', cuando se elimina/reembolsa una cita que ya había
+// generado saldo: ver reverseLoyaltyForBooking en lib/loyaltyEarn.js).
 function computeLoyaltyBalance(movements) {
   const cutoff = new Date(new Date().getFullYear(), 0, 1); // 1 de enero del año actual
   let balance = 0;
   (movements || []).forEach((m) => {
     const amount = Number(m.amount) || 0;
-    if (m.type === 'redeem') {
+    if (m.type === 'redeem' || m.type === 'reversal') {
       balance -= amount;
     } else if (new Date(m.date) >= cutoff) {
       balance += amount;

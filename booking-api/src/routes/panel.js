@@ -19,7 +19,7 @@ const { sendBookingConfirmationEmail } = require('./webhook');
 const { googleCalendarLink } = require('../lib/calendarLink');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
-const { earnLoyalty } = require('../lib/loyaltyEarn');
+const { earnLoyalty, reverseLoyaltyForBooking } = require('../lib/loyaltyEarn');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
 const { withLock, withLocks } = require('../lib/asyncLock');
 const { effectiveStrikeCount, isStrikeExpired } = require('../lib/strikes');
@@ -2232,6 +2232,15 @@ router.post('/panel/delete-booking', async (req, res) => {
       // /panel/search, que filtra por esto).
       ...(asMistake ? { deletedAsMistake: '1' } : {}),
     });
+
+    // Si esta cita ya había generado saldo de fidelidad (se pagó y se
+    // cerró, o se pagó del todo online), ese saldo deja de tener sentido en
+    // cuanto la cita se borra — se revierte. No aplica si la cita se queda
+    // como "cancelled_no_refund" (la clienta canceló tarde y el importe se
+    // quedó cobrado de verdad: el saldo ganado por eso sigue siendo legítimo).
+    if (newStatus === 'cancelled_refunded') {
+      await reverseLoyaltyForBooking(booking.bookingId);
+    }
 
     // Si era la sesión de un bono (p.ej. una de varias tratamientos de una
     // cita combinada donde ese día no dio tiempo a esta zona en concreto),

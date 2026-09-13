@@ -16,6 +16,7 @@ const { withLock, withLocks } = require('../lib/asyncLock');
 const { canDo } = require('./services');
 const { effectiveStrikeCount } = require('../lib/strikes');
 const { rescheduleEmailHtml } = require('./panel');
+const { reverseLoyaltyForBooking } = require('../lib/loyaltyEarn');
 
 const SALON_EMAIL = process.env.GIFT_NOTIFY_EMAIL || 'osanatenerife@gmail.com';
 
@@ -457,6 +458,13 @@ router.post('/my-bookings/cancel', async (req, res) => {
     await updateBookingRow(booking._sheetRow, booking, {
       status: refunded ? 'cancelled_refunded' : 'cancelled_no_refund',
     });
+
+    // Si esta cita ya había generado saldo de fidelidad (se pagó 100%
+    // online, así que se ganó al confirmarse) y ahora se reembolsa del
+    // todo, ese saldo deja de tener sentido — se revierte.
+    if (refunded) {
+      await reverseLoyaltyForBooking(booking.bookingId);
+    }
 
     res.json({ ok: true, refunded, refundStatus, amountRefunded: refunded ? Number(booking.amountPaid) : 0 });
     });

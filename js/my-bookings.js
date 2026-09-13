@@ -76,6 +76,7 @@
     loyaltyHistoryToggle: { es: 'Ver historial', en: 'View history', it: 'Vedi storico' },
     loyaltyEarnLine: { es: (amount, service, date) => `+${amount} € · ${service} · ${date}`, en: (amount, service, date) => `+€${amount} · ${service} · ${date}`, it: (amount, service, date) => `+${amount} € · ${service} · ${date}` },
     loyaltyRedeemLine: { es: (amount, service, date) => `−${amount} € canjeados · ${service} · ${date}`, en: (amount, service, date) => `−€${amount} redeemed · ${service} · ${date}`, it: (amount, service, date) => `−${amount} € utilizzati · ${service} · ${date}` },
+    loyaltyReversalLine: { es: (amount, service, date) => `−${amount} € (corrección) · ${service} · ${date}`, en: (amount, service, date) => `−€${amount} (correction) · ${service} · ${date}`, it: (amount, service, date) => `−${amount} € (correzione) · ${service} · ${date}` },
     loyaltyExpiry: {
       es: (dateLabel) => `Caduca el ${dateLabel}`,
       en: (dateLabel) => `Expires ${dateLabel}`,
@@ -828,8 +829,9 @@
     const historyItemsHtml = hasHistory ? history.map((m) => {
       const dateLabel = new Date(`${m.date}T12:00:00`).toLocaleDateString(LANG === 'en' ? 'en-GB' : LANG === 'it' ? 'it-IT' : 'es-ES', { day: 'numeric', month: 'short' });
       const amount = Math.abs(m.amount).toFixed(2);
-      return `<li class="mb-loyalty-history-item ${m.type === 'redeem' ? 'is-redeem' : 'is-earn'}">${
-        m.type === 'redeem' ? t('loyaltyRedeemLine')(amount, m.serviceName, dateLabel) : t('loyaltyEarnLine')(amount, m.serviceName, dateLabel)
+      const lineKey = m.type === 'redeem' ? 'loyaltyRedeemLine' : m.type === 'reversal' ? 'loyaltyReversalLine' : 'loyaltyEarnLine';
+      return `<li class="mb-loyalty-history-item ${m.type === 'redeem' || m.type === 'reversal' ? 'is-redeem' : 'is-earn'}">${
+        t(lineKey)(amount, m.serviceName, dateLabel)
       }</li>`;
     }).join('') : '';
     loyaltyEl.innerHTML = `
