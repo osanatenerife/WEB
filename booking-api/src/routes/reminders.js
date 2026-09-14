@@ -234,15 +234,21 @@ router.get('/send-reminders', async (req, res) => {
           errors.push({ bookingIds: group.map((b) => b.bookingId), channel: 'whatsapp', error: waErr.message });
         }
       }
-      for (const b of group) {
-        try {
-          await updateBookingRow(b._sheetRow, b, { reminderSent: 'sent' });
-        } catch (err) {
-          console.error(`Error marcando recordatorio como enviado para ${b.bookingId}:`, err.message);
-          errors.push({ bookingId: b.bookingId, error: err.message });
+      // Si el email falló (p.ej. se llegó al límite diario de envíos), NO se
+      // marca como enviado — así esta cita se vuelve a intentar en la
+      // siguiente pasada, en vez de quedarse para siempre sin recordatorio
+      // por un fallo que nada tiene que ver con la cita en sí.
+      if (emailOk) {
+        for (const b of group) {
+          try {
+            await updateBookingRow(b._sheetRow, b, { reminderSent: 'sent' });
+          } catch (err) {
+            console.error(`Error marcando recordatorio como enviado para ${b.bookingId}:`, err.message);
+            errors.push({ bookingId: b.bookingId, error: err.message });
+          }
         }
+        sent++;
       }
-      if (emailOk) sent++;
     }
 
     res.json({ checked: all.length, due: dueGroups.length, sent, errors, confirmationRetry });
