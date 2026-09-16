@@ -29,10 +29,18 @@ function isDiscountLive(discount) {
   return true;
 }
 
+// Puede haber más de un descuento con el mismo texto de código si uno viejo
+// se desactivó y se reutilizó el texto (p.ej. porque ya está repartido por
+// ManyChat/redes y no se puede cambiar) — se prioriza el que esté activo,
+// y entre varios activos (no debería pasar) el creado más reciente.
 function findDiscountByCode(discounts, code) {
   const normalized = String(code || '').trim().toUpperCase();
   if (!normalized) return null;
-  return discounts.find((d) => String(d.code || '').trim().toUpperCase() === normalized) || null;
+  const matches = discounts.filter((d) => String(d.code || '').trim().toUpperCase() === normalized);
+  if (!matches.length) return null;
+  const active = matches.filter((d) => d.active !== 'false');
+  const pool = active.length ? active : matches;
+  return pool.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
 }
 
 // ¿Este código aplica al tipo de compra actual (sesión suelta o bono)?

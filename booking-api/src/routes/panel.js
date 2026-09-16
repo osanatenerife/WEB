@@ -2396,8 +2396,11 @@ router.post('/panel/discount', async (req, res) => {
 
   try {
     const existing = await getAllDiscounts();
-    if (existing.some((d) => String(d.code).trim().toUpperCase() === code.trim().toUpperCase())) {
-      return res.status(409).json({ error: 'Ya existe un código de descuento con ese nombre.' });
+    // Solo bloquea si hay uno ACTIVO con ese mismo código — uno desactivado
+    // no cuenta, para poder reutilizar el mismo texto de código (p.ej. si ya
+    // está repartido por ManyChat/redes y no se puede cambiar sin más).
+    if (existing.some((d) => String(d.code).trim().toUpperCase() === code.trim().toUpperCase() && d.active !== 'false')) {
+      return res.status(409).json({ error: 'Ya existe un código de descuento ACTIVO con ese nombre — desactívalo primero si quieres reutilizar el texto.' });
     }
     const serviceNames = ids.map((id) => (services.find((s) => s.id === id) || {}).name || id).join(', ');
     await appendDiscount({
