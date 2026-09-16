@@ -8,42 +8,45 @@ const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
-const { getAllDiscounts } = require('../lib/sheets');
-const { isDiscountLive, findDiscountByCode, computeDiscountAmount } = require('../lib/discounts');
+const bonos = require('../config/bonos');
+const { resolveDiscount } = require('../lib/discounts');
 const { handleBookingPayment } = require('./webhook');
 const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
 
 const router = express.Router();
 
-// Recalcula el descuento SIEMPRE en el servidor (nunca se confía en un
-// importe que venga del navegador) — a partir del código y de los
-// tratamientos realmente seleccionados (precios resueltos aquí mismo).
-async function resolveDiscount(code, priceableItems) {
-  if (!code) return null;
-  const discounts = await getAllDiscounts();
-  const discount = findDiscountByCode(discounts, code);
-  if (!discount || !isDiscountLive(discount)) return null;
-  const amount = computeDiscountAmount(discount, priceableItems);
-  if (!amount) return null;
-  return { code: discount.code, amount };
-}
-
 // Endpoint público para que el paso de reserva compruebe un código de
 // descuento (y muestre cuánto se ahorra) antes de llegar al pago — el
 // checkout vuelve a revalidarlo igualmente, este endpoint es solo para
-// que la clienta vea el importe al momento.
+// que la clienta vea el importe al momento. Sirve tanto para sesiones
+// sueltas (serviceIds) como para bonos (mode:'bono' + bonoSelections,
+// porque el precio a descontar es el del PAQUETE, no el de una sesión).
 router.post('/discount-check', async (req, res) => {
-  const { code, serviceIds } = req.body || {};
-  const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
-  if (!code || !ids.length) {
-    return res.status(400).json({ error: 'Indica el código y los tratamientos seleccionados.' });
-  }
+  const { code, serviceIds, mode, bonoSelections } = req.body || {};
+  const checkMode = mode === 'bono' ? 'bono' : 'loose';
   try {
-    const priceableItems = ids.map((id) => services.find((s) => s.id === id)).filter(Boolean);
-    const discount = await resolveDiscount(code, priceableItems);
+    let priceableItems;
+    if (checkMode === 'bono') {
+      const sels = Array.isArray(bonoSelections) ? bonoSelections.filter(Boolean) : [];
+      if (!code || !sels.length) {
+        return res.status(400).json({ error: 'Indica el código y el bono elegido.' });
+      }
+      priceableItems = sels.map((sel) => {
+        const bono = bonos.find((b) => b.serviceId === sel.serviceId && Number(b.sessions) === Number(sel.sessions));
+        return bono ? { id: sel.serviceId, price: bono.price } : null;
+      }).filter(Boolean);
+      if (!priceableItems.length) return res.status(404).json({ error: 'Bono no encontrado.' });
+    } else {
+      const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
+      if (!code || !ids.length) {
+        return res.status(400).json({ error: 'Indica el código y los tratamientos seleccionados.' });
+      }
+      priceableItems = ids.map((id) => services.find((s) => s.id === id)).filter(Boolean);
+    }
+    const discount = await resolveDiscount(code, priceableItems, checkMode);
     if (!discount) {
-      return res.status(404).json({ error: 'Ese código no es válido, ha caducado o no aplica a los tratamientos elegidos.' });
+      return res.status(404).json({ error: 'Ese código no es válido, ha caducado o no aplica a lo elegido.' });
     }
     res.json({ valid: true, amountOff: discount.amount });
   } catch (err) {
@@ -91,7 +94,7 @@ router.post('/checkout', async (req, res) => {
   try {
     // El descuento se vuelve a comprobar en el servidor a partir del código,
     // nunca del importe que mande el navegador — evita que se manipule el precio.
-    const discount = await resolveDiscount(discountCode, [service, ...additionalServices]);
+    const discount = await resolveDiscount(discountCode, [service, ...additionalServices], 'loose');
     const price = round2(priceBeforeDiscount - (discount ? discount.amount : 0));
 
     const startISO = localToISO(date, time.length === 5 ? time : time + ':00', hours.timezone);

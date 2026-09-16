@@ -80,7 +80,9 @@
     bono: null, // { serviceId, serviceName, sessions, bonoPrice, singleSessionPrice }
     discountCode: null, // código ya validado por el servidor
     discountAmount: 0, // importe que se resta, calculado por el servidor
-    discountValidatedIds: [], // ids de tratamientos con los que se validó — si la selección cambia, el descuento deja de aplicar
+    discountMode: 'loose', // 'loose' | 'bono' — con qué modo se validó, para saber cómo comprobar que sigue aplicando
+    discountValidatedIds: [], // ids de tratamientos con los que se validó (modo suelto) — si la selección cambia, el descuento deja de aplicar
+    discountValidatedBonoSig: '', // firma de los bonos con los que se validó (modo bono) — mismo criterio que discountValidatedIds
   };
 
   // "extras" son modificadores de zona/tiempo del tratamiento principal
@@ -99,23 +101,39 @@
     return primary + modifiers + addonsDuration() + extraBonosDuration();
   }
   function hasAnyBono() { return state.wantsBono || state.extraBonos.length > 0; }
-  // Los códigos de descuento solo aplican al tratamiento principal (si no es
-  // bono) y a los tratamientos sueltos añadidos — nunca a bonos de sesiones.
+  // Un código de descuento puede estar restringido a sesiones sueltas, a
+  // bonos, o a ambos (lo decide quien lo crea en el panel) — cuál de los dos
+  // "modos" comprobar depende de si el carrito actual tiene algún bono.
   function discountEligibleServiceIds() {
-    // En cuanto hay CUALQUIER bono en el carrito (principal o añadido), el
-    // pago pasa por bono-checkout, que no admite descuentos — así que no
-    // hay ningún tratamiento "elegible" mientras eso sea así.
+    // Modo sueltas: solo tiene sentido si NO hay ningún bono en el carrito
+    // (con un bono de por medio, el pago pasa por bono-checkout entero).
     if (hasAnyBono()) return [];
     const ids = [];
     if (state.service) ids.push(state.service.id);
     state.extraServices.forEach((s) => ids.push(s.id));
     return ids;
   }
-  // El descuento se validó contra una selección concreta de tratamientos —
-  // si la selección cambia después (se añade/quita algo), deja de aplicar
-  // hasta que se vuelva a comprobar el código.
+  // Modo bono: todos los bonos del carrito (el principal, si lo es, + los
+  // añadidos), cada uno identificado por tratamiento + nº de sesiones —
+  // el descuento se calcula sobre el precio del PAQUETE, no de una sesión.
+  function currentBonoSelections() {
+    const sels = [];
+    if (state.wantsBono && state.bono && state.service) sels.push({ serviceId: state.service.id, sessions: state.bono.sessions });
+    state.extraBonos.forEach((b) => sels.push({ serviceId: b.serviceId, sessions: b.sessions }));
+    return sels;
+  }
+  function bonoSelectionsSignature(sels) {
+    return sels.map((s) => `${s.serviceId}:${s.sessions}`).sort().join(',');
+  }
+  // El descuento se validó contra una selección concreta (de tratamientos
+  // sueltos, o de bonos) — si la selección cambia después (se añade/quita
+  // algo), deja de aplicar hasta que se vuelva a comprobar el código.
   function discountIsStillValid() {
     if (!state.discountCode) return false;
+    if (state.discountMode === 'bono') {
+      const current = bonoSelectionsSignature(currentBonoSelections());
+      return current !== '' && current === state.discountValidatedBonoSig;
+    }
     const current = discountEligibleServiceIds().slice().sort().join(',');
     const validated = state.discountValidatedIds.slice().sort().join(',');
     return current !== '' && current === validated;
@@ -231,6 +249,8 @@
     if (state.discountCode && !discountIsStillValid()) {
       state.discountCode = null;
       state.discountAmount = 0;
+      state.discountValidatedIds = [];
+      state.discountValidatedBonoSig = '';
       els.discountMsg.textContent = t('discountStale');
       els.discountMsg.className = 'booking-discount-msg error';
       els.discountMsg.style.display = 'block';
@@ -241,14 +261,10 @@
     const code = els.discountCodeInput.value.trim();
     els.discountMsg.style.display = 'none';
     if (!code) return;
-    if (hasAnyBono()) {
-      els.discountMsg.textContent = t('discountNotForBono');
-      els.discountMsg.className = 'booking-discount-msg error';
-      els.discountMsg.style.display = 'block';
-      return;
-    }
-    const ids = discountEligibleServiceIds();
-    if (!ids.length) {
+    const bonoMode = hasAnyBono();
+    const bonoSels = bonoMode ? currentBonoSelections() : [];
+    const looseIds = bonoMode ? [] : discountEligibleServiceIds();
+    if ((bonoMode && !bonoSels.length) || (!bonoMode && !looseIds.length)) {
       els.discountMsg.textContent = t('discountChooseTreatmentFirst');
       els.discountMsg.className = 'booking-discount-msg error';
       els.discountMsg.style.display = 'block';
@@ -259,13 +275,15 @@
       const res = await fetch(`${BOOKING_API_BASE}/discount-check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, serviceIds: ids }),
+        body: JSON.stringify(bonoMode ? { code, mode: 'bono', bonoSelections: bonoSels } : { code, serviceIds: looseIds }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t('checkoutError'));
       state.discountCode = code.toUpperCase();
       state.discountAmount = data.amountOff;
-      state.discountValidatedIds = ids;
+      state.discountMode = bonoMode ? 'bono' : 'loose';
+      state.discountValidatedIds = bonoMode ? [] : looseIds;
+      state.discountValidatedBonoSig = bonoMode ? bonoSelectionsSignature(bonoSels) : '';
       els.discountMsg.textContent = t('discountApplied')(data.amountOff);
       els.discountMsg.className = 'booking-discount-msg success';
       els.discountMsg.style.display = 'block';
@@ -273,6 +291,7 @@
       state.discountCode = null;
       state.discountAmount = 0;
       state.discountValidatedIds = [];
+      state.discountValidatedBonoSig = '';
       els.discountMsg.textContent = e.message;
       els.discountMsg.className = 'booking-discount-msg error';
       els.discountMsg.style.display = 'block';
@@ -899,6 +918,7 @@
           clientEmail: email || undefined,
           clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
+          discountCode: discountIsStillValid() ? state.discountCode : undefined,
           termsAccepted: true,
           lang: LANG,
         }

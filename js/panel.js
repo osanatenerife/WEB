@@ -967,6 +967,15 @@
           <div class="panel-field"><label>Hasta</label><input type="date" class="dc-until"></div>
           <div class="panel-field"><label>Nota (opcional)</label><input type="text" class="dc-note" placeholder="Ej. lanzamiento Instagram"></div>
         </div>
+        <div class="panel-field-row">
+          <div class="panel-field"><label>¿Aplica a...?</label>
+            <select class="dc-appliesto">
+              <option value="loose">Solo sesiones sueltas</option>
+              <option value="bono">Solo bonos</option>
+              <option value="both">Ambos</option>
+            </select>
+          </div>
+        </div>
         <div class="panel-label" style="margin-top:14px;">¿A qué tratamientos aplica?</div>
         <div class="panel-discount-services" style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:10px 14px;margin-bottom:14px;">
           ${checkboxesHtml}
@@ -985,6 +994,7 @@
     const fromInput = slot.querySelector('.dc-from');
     const untilInput = slot.querySelector('.dc-until');
     const noteInput = slot.querySelector('.dc-note');
+    const appliesToSelect = slot.querySelector('.dc-appliesto');
     const errorEl = slot.querySelector('.panel-error');
     const listEl = slot.querySelector('.dc-list');
 
@@ -1003,7 +1013,7 @@
           body: JSON.stringify({
             code: codeInput.value.trim(), serviceIds: ids, discountType: typeSelect.value,
             discountValue: valueInput.value, validFrom: fromInput.value, validUntil: untilInput.value,
-            note: noteInput.value.trim(),
+            note: noteInput.value.trim(), appliesTo: appliesToSelect.value,
           }),
         });
         codeInput.value = ''; valueInput.value = ''; fromInput.value = ''; untilInput.value = ''; noteInput.value = '';
@@ -1020,6 +1030,7 @@
       const el = document.createElement('div');
       el.className = 'panel-agenda-row';
       const valueLabel = d.discountType === 'percent' ? `${d.discountValue}%` : `${d.discountValue} €`;
+      const appliesToLabel = d.appliesTo === 'bono' ? 'solo bonos' : d.appliesTo === 'both' ? 'sueltas y bonos' : 'solo sueltas';
       const statusPill = !d.active
         ? '<span class="panel-pill panel-pill-warn"><span class="dot"></span>Desactivado</span>'
         : d.live
@@ -1028,7 +1039,7 @@
       el.innerHTML = `
         <div>
           <b>${d.code}</b> — ${valueLabel} en ${d.serviceNames}<br>
-          <span style="font-size:11.5px;color:var(--ink-soft);">${d.validFrom} → ${d.validUntil}${d.note ? ` · ${d.note}` : ''}${d.emailSentAt ? ' · ya enviado por email' : ''}</span>
+          <span style="font-size:11.5px;color:var(--ink-soft);">${d.validFrom} → ${d.validUntil} · ${appliesToLabel}${d.note ? ` · ${d.note}` : ''}${d.emailSentAt ? ' · ya enviado por email' : ''}</span>
         </div>
         <div class="actions">
           ${statusPill}

@@ -868,6 +868,10 @@ const DISCOUNT_TAB_TITLE = 'Descuentos';
 const DISCOUNT_COLUMNS = [
   'discountId', 'code', 'serviceIds', 'serviceNames', 'discountType', 'discountValue',
   'validFrom', 'validUntil', 'active', 'createdAt', 'note', 'emailSentAt',
+  // 'loose' (solo sesiones sueltas), 'bono' (solo bonos) o 'both' — vacío se
+  // trata como 'loose' (así los códigos creados antes de este campo siguen
+  // funcionando exactamente igual que hasta ahora).
+  'appliesTo',
 ];
 const DISCOUNT_LAST_COL = colLetter(DISCOUNT_COLUMNS.length);
 

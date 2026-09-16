@@ -5,6 +5,8 @@
 // código que se va a crear no exista ya).
 // ============================================================
 
+const { getAllDiscounts } = require('./sheets');
+
 function round2(n) {
   return Math.round(n * 100) / 100;
 }
@@ -33,6 +35,15 @@ function findDiscountByCode(discounts, code) {
   return discounts.find((d) => String(d.code || '').trim().toUpperCase() === normalized) || null;
 }
 
+// ¿Este código aplica al tipo de compra actual (sesión suelta o bono)?
+// Vacío = 'loose', para no cambiar el comportamiento de los códigos creados
+// antes de que existiera este campo.
+function discountAppliesToMode(discount, mode) {
+  const scope = discount.appliesTo || 'loose';
+  if (scope === 'both') return true;
+  return scope === mode;
+}
+
 // ¿Aplica a alguno de los tratamientos seleccionados? (basta con que uno coincida)
 function discountAppliesTo(discount, serviceIds) {
   const ids = discountServiceIds(discount);
@@ -57,6 +68,23 @@ function computeDiscountAmount(discount, priceableItems) {
   return Math.min(round2(Number(discount.discountValue) || 0), matchingSum);
 }
 
+// Recalcula el descuento SIEMPRE en el servidor (nunca se confía en un
+// importe que venga del navegador) — a partir del código, los tratamientos
+// realmente seleccionados (con precios resueltos por quien llama) y el tipo
+// de compra (sesión suelta o bono). Compartida entre checkout.js (sesiones
+// sueltas) y bonoCheckout.js (bonos) para no duplicar esta lógica.
+async function resolveDiscount(code, priceableItems, mode) {
+  if (!code) return null;
+  const discounts = await getAllDiscounts();
+  const discount = findDiscountByCode(discounts, code);
+  if (!discount || !isDiscountLive(discount)) return null;
+  if (!discountAppliesToMode(discount, mode)) return null;
+  const amount = computeDiscountAmount(discount, priceableItems);
+  if (!amount) return null;
+  return { code: discount.code, amount };
+}
+
 module.exports = {
-  isDiscountLive, findDiscountByCode, discountAppliesTo, discountServiceIds, computeDiscountAmount,
+  isDiscountLive, findDiscountByCode, discountAppliesTo, discountAppliesToMode,
+  discountServiceIds, computeDiscountAmount, resolveDiscount,
 };

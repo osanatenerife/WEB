@@ -8,6 +8,7 @@ const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
+const { resolveDiscount } = require('../lib/discounts');
 const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
 
@@ -22,6 +23,7 @@ router.post('/bono-checkout', async (req, res) => {
     serviceId, wantsBonoPrimary, primaryBonoSessions, extraServiceIds, extraBonoSelections,
     employeeId, date, time,
     clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, termsAccepted, lang,
+    discountCode,
   } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : lang === 'it' ? '/it/reserva.html' : '/reserva.html';
 
@@ -81,7 +83,16 @@ router.post('/bono-checkout', async (req, res) => {
   }
 
   const totalDuration = [...bonoItems, ...singleItems].reduce((sum, it) => sum + it.service.durationMinutes, 0);
-  const bonoTotal = round2(bonoItems.reduce((sum, it) => sum + it.bono.price, 0));
+
+  // El descuento (si lo hay) solo se aplica a los BONOS de esta compra, no a
+  // los tratamientos sueltos que se hayan añadido a la vez — para eso está
+  // el código de descuento de sesiones sueltas normal. Se calcula sobre el
+  // precio del PAQUETE (bono.price), no el de una sesión suelta.
+  const priceableBonoItems = bonoItems.map((it) => ({ id: it.service.id, price: it.bono.price }));
+  const discount = await resolveDiscount(discountCode, priceableBonoItems, 'bono');
+  const discountAmount = discount ? discount.amount : 0;
+
+  const bonoTotal = round2(round2(bonoItems.reduce((sum, it) => sum + it.bono.price, 0)) - discountAmount);
   const singleTotal = round2(singleItems.reduce((sum, it) => sum + it.service.price, 0));
   const combinedTotal = round2(bonoTotal + singleTotal);
 
@@ -112,6 +123,7 @@ router.post('/bono-checkout', async (req, res) => {
       clientEmail ? `Email: ${clientEmail}` : null,
       ...bonoLines,
       ...singleLines,
+      discount ? `Código de descuento: ${discount.code} (-${discount.amount.toFixed(2)} €)` : null,
       `Precio total: ${combinedTotal.toFixed(2)} €`,
       `Pago online: ${amount.toFixed(2)} € (${paymentType})`,
       amount < combinedTotal ? `Resto a pagar en centro: ${(combinedTotal - amount).toFixed(2)} €` : null,
@@ -175,6 +187,8 @@ router.post('/bono-checkout', async (req, res) => {
         totalPrice: String(combinedTotal),
         amount: String(amount),
         paymentType,
+        discountCode: discount ? discount.code : '',
+        discountAmount: discount ? String(discount.amount) : '',
         termsAcceptedAt: new Date().toISOString(),
         lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
       },

@@ -2383,9 +2383,10 @@ router.post('/panel/gift-redeem', async (req, res) => {
 // a ciertos tratamientos y a un rango de fechas concreto). El código lo
 // reparte el propio centro (Instagram, email...) — no aparece en la web.
 router.post('/panel/discount', async (req, res) => {
-  const { code, serviceIds, discountType, discountValue, validFrom, validUntil, note } = req.body || {};
+  const { code, serviceIds, discountType, discountValue, validFrom, validUntil, note, appliesTo } = req.body || {};
   const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
   const value = Number(discountValue);
+  const scope = ['loose', 'bono', 'both'].includes(appliesTo) ? appliesTo : 'loose';
   if (!code || !code.trim()) return res.status(400).json({ error: 'Indica el código.' });
   if (!ids.length) return res.status(400).json({ error: 'Elige al menos un tratamiento al que aplique.' });
   if (!['percent', 'amount'].includes(discountType)) return res.status(400).json({ error: 'Indica si es % o € de descuento.' });
@@ -2412,6 +2413,7 @@ router.post('/panel/discount', async (req, res) => {
       createdAt: new Date().toISOString(),
       note: note || '',
       emailSentAt: '',
+      appliesTo: scope,
     });
     res.json({ ok: true });
   } catch (err) {
@@ -2430,6 +2432,7 @@ router.get('/panel/discounts', async (req, res) => {
         discountType: d.discountType, discountValue: d.discountValue,
         validFrom: d.validFrom, validUntil: d.validUntil, note: d.note,
         active: d.active !== 'false', live: isDiscountLive(d), emailSentAt: d.emailSentAt || '',
+        appliesTo: d.appliesTo || 'loose',
       }));
     res.json({ discounts: list });
   } catch (err) {
