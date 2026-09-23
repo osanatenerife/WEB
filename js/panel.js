@@ -2560,12 +2560,13 @@
         <div><span class="panel-pill panel-pill-ok"><span class="dot"></span>Confirmada</span></div>
       </div>
       <div class="panel-appt-group-list">${linesHtml}</div>
+      ${!first.isPast ? '<p class="panel-status" style="margin:6px 0 0;">Esta visita todavía no ha pasado — "Cobrar / Cerrar" (dar el resto por cobrado) aparecerá el día de la cita. Para corregir un precio antes de esa fecha, usa "✎ Editar tratamiento" → "Guardar cambios" en la línea que corresponda.</p>' : ''}
       <div class="panel-appt-group-summary"></div>
       <div class="panel-appt-actions panel-appt-group-actions">
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pag-professional-btn">👤 Profesional</button>
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pag-reschedule-btn">Reprogramar</button>
         <button type="button" class="panel-btn panel-btn-ghost panel-btn-sm pag-duration-btn">⏱ Ampliar/recortar tiempo</button>
-        <button type="button" class="panel-btn panel-btn-primary panel-btn-sm pag-close-btn">💶 Cobrar / Cerrar</button>
+        ${first.isPast ? '<button type="button" class="panel-btn panel-btn-primary panel-btn-sm pag-close-btn">💶 Cobrar / Cerrar</button>' : ''}
         <button type="button" class="panel-btn panel-btn-warn panel-btn-sm pag-noshow-btn">Marcar como no-show</button>
         <button type="button" class="panel-btn panel-btn-noshow panel-btn-sm pag-delete-btn">🗑 Eliminar seleccionados</button>
       </div>
@@ -2774,7 +2775,8 @@
     // primero de los marcados y los demás quedan como "cobrado" (importe 0,
     // incluido en el total del primero) — igual que ya se hace hoy con las
     // visitas combinadas creadas desde "Añadir reserva manual". ──
-    el.querySelector('.pag-close-btn').addEventListener('click', () => togglePanel('close', () => {
+    const pagCloseBtn = el.querySelector('.pag-close-btn');
+    if (pagCloseBtn) pagCloseBtn.addEventListener('click', () => togglePanel('close', () => {
       const items = checkedItems();
       const suggestedTotal = items.reduce((s, x) => s + (Number(x.price) || 0), 0);
       const alreadyPaidOnline = items.reduce((s, x) => s + (Number(x.amountPaid) || 0), 0);
@@ -3072,7 +3074,11 @@
     // si ya se ha cobrado algo por adelantado en persona (p.ej. clienta que
     // paga en el centro una cita para más adelante), tiene que poderse
     // cerrar desde ya, sin esperar a esa fecha.
-    const isClosable = b.status === 'confirmed' && (b.isPast || Number(b.amountPaid) > 0);
+    // Solo se puede "cerrar" (dar el resto por cobrado) si la cita ya pasó
+    // de verdad — tener una seña pagada NO la hace cerrable, o se marcaría
+    // como cobrado en el centro un resto que la clienta todavía no ha
+    // pagado (una cita futura con seña).
+    const isClosable = b.status === 'confirmed' && b.isPast;
 
     function bonoFormHtml(targetId, targetName) {
       return `
@@ -3246,7 +3252,7 @@
             </select>
           </div>
         </div>
-        ${!isClosable ? '<button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>' : ''}
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-editbooking">Guardar cambios</button>
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status eb-status" style="display:none;"></p>
 
@@ -3320,10 +3326,11 @@
       });
     });
 
-    // ── Guardar cambios (precio/pagado/profesional/notas) — solo existe este
-    // botón aparte cuando la cita todavía no se puede cerrar; si ya se
-    // puede, "Guardar y cerrar cita" hace las dos cosas de una vez (ver más
-    // abajo, junto a "Cerrar cita").
+    // ── Guardar cambios (precio/pagado/profesional/notas) — siempre
+    // disponible, sin cerrar la cita. Si la cita ya pasó, además aparece
+    // "Cerrar cita" más abajo, que guarda estos mismos campos de una vez
+    // Y da el resto por cobrado — por eso solo se ofrece para citas ya
+    // pasadas (ver isClosable).
     const saveBtn = slot.querySelector('.panel-confirm-editbooking');
     if (saveBtn) {
       saveBtn.addEventListener('click', async (ev) => {
