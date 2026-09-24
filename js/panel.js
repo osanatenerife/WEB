@@ -963,8 +963,8 @@
           <div class="panel-field"><label>Valor</label><input type="number" step="0.01" class="dc-value" placeholder="Ej. 20"></div>
         </div>
         <div class="panel-field-row">
-          <div class="panel-field"><label>Desde</label><input type="date" class="dc-from"></div>
-          <div class="panel-field"><label>Hasta</label><input type="date" class="dc-until"></div>
+          <div class="panel-field"><label>Desde (opcional)</label><input type="date" class="dc-from"></div>
+          <div class="panel-field"><label>Hasta (opcional, vacío = sin caducidad)</label><input type="date" class="dc-until"></div>
           <div class="panel-field"><label>Nota (opcional)</label><input type="text" class="dc-note" placeholder="Ej. lanzamiento Instagram"></div>
         </div>
         <div class="panel-field-row">
@@ -977,6 +977,9 @@
           </div>
         </div>
         <div class="panel-label" style="margin-top:14px;">¿A qué tratamientos aplica?</div>
+        <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:4px 0 10px;font-size:13px;font-weight:600;">
+          <input type="checkbox" class="dc-all-services"> Todos los tratamientos (para una promo general, ej. cumpleaños)
+        </label>
         <div class="panel-discount-services" style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:10px 14px;margin-bottom:14px;">
           ${checkboxesHtml}
         </div>
@@ -997,12 +1000,22 @@
     const appliesToSelect = slot.querySelector('.dc-appliesto');
     const errorEl = slot.querySelector('.panel-error');
     const listEl = slot.querySelector('.dc-list');
+    const allServicesCheckbox = slot.querySelector('.dc-all-services');
+    const servicesBox = slot.querySelector('.panel-discount-services');
+
+    allServicesCheckbox.addEventListener('change', () => {
+      servicesBox.style.display = allServicesCheckbox.checked ? 'none' : 'block';
+      if (allServicesCheckbox.checked) {
+        slot.querySelectorAll('.dc-service:checked').forEach((c) => { c.checked = false; });
+      }
+    });
 
     slot.querySelector('.panel-confirm-discount').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
+      const allServices = allServicesCheckbox.checked;
       const ids = Array.from(slot.querySelectorAll('.dc-service:checked')).map((c) => c.value);
-      if (!codeInput.value.trim() || !ids.length || !valueInput.value || !fromInput.value || !untilInput.value) {
-        errorEl.textContent = 'Completa el código, al menos un tratamiento, el valor y las dos fechas.';
+      if (!codeInput.value.trim() || (!allServices && !ids.length) || !valueInput.value) {
+        errorEl.textContent = 'Completa el código, el valor, y al menos un tratamiento (o marca "todos los tratamientos").';
         errorEl.style.display = 'block';
         return;
       }
@@ -1011,13 +1024,15 @@
         await panelFetch('/panel/discount', {
           method: 'POST',
           body: JSON.stringify({
-            code: codeInput.value.trim(), serviceIds: ids, discountType: typeSelect.value,
+            code: codeInput.value.trim(), serviceIds: ids, allServices, discountType: typeSelect.value,
             discountValue: valueInput.value, validFrom: fromInput.value, validUntil: untilInput.value,
             note: noteInput.value.trim(), appliesTo: appliesToSelect.value,
           }),
         });
         codeInput.value = ''; valueInput.value = ''; fromInput.value = ''; untilInput.value = ''; noteInput.value = '';
         slot.querySelectorAll('.dc-service:checked').forEach((c) => { c.checked = false; });
+        allServicesCheckbox.checked = false;
+        servicesBox.style.display = 'block';
         loadDiscountList();
       } catch (e) {
         errorEl.textContent = e.message;

@@ -2383,16 +2383,18 @@ router.post('/panel/gift-redeem', async (req, res) => {
 // a ciertos tratamientos y a un rango de fechas concreto). El código lo
 // reparte el propio centro (Instagram, email...) — no aparece en la web.
 router.post('/panel/discount', async (req, res) => {
-  const { code, serviceIds, discountType, discountValue, validFrom, validUntil, note, appliesTo } = req.body || {};
+  const { code, serviceIds, allServices, discountType, discountValue, validFrom, validUntil, note, appliesTo } = req.body || {};
   const ids = Array.isArray(serviceIds) ? serviceIds.filter(Boolean) : [];
   const value = Number(discountValue);
   const scope = ['loose', 'bono', 'both'].includes(appliesTo) ? appliesTo : 'loose';
   if (!code || !code.trim()) return res.status(400).json({ error: 'Indica el código.' });
-  if (!ids.length) return res.status(400).json({ error: 'Elige al menos un tratamiento al que aplique.' });
+  if (!allServices && !ids.length) return res.status(400).json({ error: 'Elige al menos un tratamiento al que aplique, o marca "todos los tratamientos".' });
   if (!['percent', 'amount'].includes(discountType)) return res.status(400).json({ error: 'Indica si es % o € de descuento.' });
   if (!value || value <= 0) return res.status(400).json({ error: 'Indica el importe o porcentaje de descuento.' });
-  if (!validFrom || !validUntil) return res.status(400).json({ error: 'Indica la fecha de inicio y de fin.' });
-  if (validUntil < validFrom) return res.status(400).json({ error: 'La fecha de fin no puede ser anterior a la de inicio.' });
+  // Las fechas son opcionales — dejarlas en blanco significa "sin fecha de
+  // inicio/fin" (útil para una promo evergreen como la de cumpleaños, que
+  // no caduca nunca). Si se rellenan las dos, sí se valida el orden.
+  if (validFrom && validUntil && validUntil < validFrom) return res.status(400).json({ error: 'La fecha de fin no puede ser anterior a la de inicio.' });
 
   try {
     const existing = await getAllDiscounts();
@@ -2402,11 +2404,11 @@ router.post('/panel/discount', async (req, res) => {
     if (existing.some((d) => String(d.code).trim().toUpperCase() === code.trim().toUpperCase() && d.active !== 'false')) {
       return res.status(409).json({ error: 'Ya existe un código de descuento ACTIVO con ese nombre — desactívalo primero si quieres reutilizar el texto.' });
     }
-    const serviceNames = ids.map((id) => (services.find((s) => s.id === id) || {}).name || id).join(', ');
+    const serviceNames = allServices ? 'Todos los tratamientos' : ids.map((id) => (services.find((s) => s.id === id) || {}).name || id).join(', ');
     await appendDiscount({
       discountId: crypto.randomUUID(),
       code: code.trim().toUpperCase(),
-      serviceIds: ids.join(','),
+      serviceIds: allServices ? 'ALL' : ids.join(','),
       serviceNames,
       discountType,
       discountValue: value,

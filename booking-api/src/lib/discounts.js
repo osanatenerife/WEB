@@ -19,6 +19,14 @@ function discountServiceIds(discount) {
   return String(discount.serviceIds || '').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
+// Descuentos generales (p.ej. el 15% de cumpleaños) no se restringen a
+// tratamientos concretos — en vez de obligar a marcar uno por uno cada
+// tratamiento del catálogo (y tener que acordarse de añadir los nuevos),
+// se guardan con serviceIds = 'ALL'.
+function discountIsAllServices(discount) {
+  return String(discount.serviceIds || '').trim().toUpperCase() === 'ALL';
+}
+
 // ¿Este código está activo hoy (fechas + no desactivado a mano)?
 function isDiscountLive(discount) {
   if (!discount) return false;
@@ -54,6 +62,7 @@ function discountAppliesToMode(discount, mode) {
 
 // ¿Aplica a alguno de los tratamientos seleccionados? (basta con que uno coincida)
 function discountAppliesTo(discount, serviceIds) {
+  if (discountIsAllServices(discount)) return (serviceIds || []).length > 0;
   const ids = discountServiceIds(discount);
   if (!ids.length) return false;
   return (serviceIds || []).some((id) => ids.includes(id));
@@ -61,10 +70,13 @@ function discountAppliesTo(discount, serviceIds) {
 
 // Importe a descontar del total, dado el servicio principal + tratamientos
 // añadidos (con precio) — solo se descuenta la parte de los que coinciden
-// con el código, nunca el total completo si hay tratamientos ajenos al código.
+// con el código, nunca el total completo si hay tratamientos ajenos al código
+// (salvo que el código sea de "todos los tratamientos", donde aplica a todos).
 function computeDiscountAmount(discount, priceableItems) {
   const ids = discountServiceIds(discount);
-  const matching = (priceableItems || []).filter((item) => ids.includes(item.id));
+  const matching = discountIsAllServices(discount)
+    ? (priceableItems || [])
+    : (priceableItems || []).filter((item) => ids.includes(item.id));
   const matchingSum = matching.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
   if (!matchingSum) return 0;
   if (discount.discountType === 'percent') {
@@ -94,5 +106,5 @@ async function resolveDiscount(code, priceableItems, mode) {
 
 module.exports = {
   isDiscountLive, findDiscountByCode, discountAppliesTo, discountAppliesToMode,
-  discountServiceIds, computeDiscountAmount, resolveDiscount,
+  discountServiceIds, discountIsAllServices, computeDiscountAmount, resolveDiscount,
 };
