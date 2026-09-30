@@ -1234,7 +1234,10 @@ router.post('/panel/reschedule', async (req, res) => {
 
     const oldDate = booking.date;
     const oldTime = booking.time;
-    await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId });
+    // reminderSent se resetea: si ya se había mandado el recordatorio de
+    // 48h para la fecha vieja, sin esto el sistema no lo vuelve a mandar
+    // para la nueva fecha (piensa que esta cita "ya está avisada").
+    await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId, reminderSent: '' });
 
     if (booking.email) {
       sendEmail({
@@ -1347,7 +1350,7 @@ router.post('/panel/reschedule-combined', async (req, res) => {
     }
 
     for (const booking of bookings) {
-      await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId });
+      await updateBookingRow(booking._sheetRow, booking, { date, time, eventId: newEventId, reminderSent: '' });
     }
 
     if (first.email) {

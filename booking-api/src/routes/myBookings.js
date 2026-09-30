@@ -592,6 +592,10 @@ router.post('/my-bookings/reschedule', async (req, res) => {
       // Una ausencia perdonada vuelve a ser una cita normal en cuanto se le
       // pone nueva fecha — ya cumplió su papel de "comodín".
       ...(forgiven ? { status: 'confirmed' } : {}),
+      // Si ya se había mandado el recordatorio de 48h para la fecha vieja,
+      // hay que resetearlo — si no, el sistema no manda uno nuevo para la
+      // fecha nueva (piensa que esta cita "ya está avisada").
+      reminderSent: '',
     });
 
     if (booking.email) {
@@ -764,6 +768,7 @@ router.post('/my-bookings/reschedule-group', async (req, res) => {
       await updateBookingRow(booking._sheetRow, booking, {
         date: newDate, time: newTime, eventId: newEventId,
         ...(changingEmployee ? { employeeId: targetEmployee.id, employeeName: targetEmployee.name, calendarId: targetEmployee.calendarId } : {}),
+        reminderSent: '',
       });
     }
 
