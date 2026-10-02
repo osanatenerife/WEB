@@ -618,15 +618,42 @@ router.post('/panel/edit-booking', async (req, res) => {
       }
     }
 
-    if (employeeId) {
-      // Solo corrige el dato en el registro (para informes y la ficha de la
-      // clienta) — NO mueve el evento ya creado en Google Calendar de una
-      // profesional a otra, eso hay que hacerlo a mano en el calendario si
-      // hiciera falta.
+    if (employeeId && employeeId !== booking.employeeId) {
       const newEmployee = employees.find((e) => e.id === employeeId);
       if (!newEmployee) return res.status(404).json({ error: 'Profesional no encontrada.' });
       updates.employeeId = employeeId;
       updates.employeeName = newEmployee.name;
+      // También se mueve el evento de verdad en Google Calendar, del
+      // calendario de la profesional vieja al de la nueva — si no, el hueco
+      // se queda bloqueado en la agenda de la vieja aunque aquí ya figure
+      // la nueva.
+      if (booking.calendarId && booking.eventId && newEmployee.calendarId) {
+        try {
+          const duration = Number(booking.durationMinutes) || 60;
+          const startISO = localToISO(booking.date, booking.time.length === 5 ? booking.time : `${booking.time}:00`, hours.timezone);
+          const endISO = addMinutes(startISO, duration);
+          const allBookingsForCheck = await getAllBookings();
+          const hasActiveSiblings = hasOtherActiveBookingsOnSameEvent(booking, allBookingsForCheck);
+          const event = await createBookingEvent(newEmployee.calendarId, {
+            summary: booking.serviceName || 'Cita Osana',
+            description: `Clienta: ${booking.name || ''} · ${booking.phone || ''}`,
+            startISO, endISO,
+          });
+          updates.calendarId = newEmployee.calendarId;
+          updates.eventId = event.id;
+          // Si ningún otro tratamiento de esta misma visita sigue con la
+          // profesional vieja, el evento viejo ya no hace falta — se borra
+          // para no dejar el hueco bloqueado sin motivo. Si queda alguno
+          // (otro tratamiento de la visita que no se mueve), se deja tal
+          // cual para esos.
+          if (!hasActiveSiblings) {
+            await deleteEvent(booking.calendarId, booking.eventId).catch((e) => console.error('No se pudo borrar el evento original al cambiar de profesional:', e.message));
+          }
+        } catch (e) {
+          console.error('No se pudo mover el evento de Google Calendar al cambiar de profesional:', e.message);
+          return res.status(502).json({ error: 'No se pudo mover la cita en Google Calendar. No se ha cambiado la profesional — inténtalo de nuevo.' });
+        }
+      }
     }
     if (price !== undefined && price !== '') {
       if (!Number.isFinite(Number(price)) || Number(price) < 0) return res.status(400).json({ error: 'El precio no es un número válido.' });
