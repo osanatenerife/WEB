@@ -1396,6 +1396,82 @@ router.post('/panel/reschedule-combined', async (req, res) => {
   }
 });
 
+// ── Cambiar de profesional varios tratamientos de una misma visita a la
+// vez, de golpe — para que en el calendario de la profesional nueva quede
+// UN solo evento combinado (igual que estaba antes), en vez de uno suelto
+// por tratamiento. No se puede "mover" un evento de un calendario a otro
+// (son calendarios de Google distintos), así que siempre se crea uno
+// nuevo; el o los eventos originales se borran en cuanto se quedan sin
+// ningún tratamiento activo (puede ser más de uno si venían de visitas
+// agendadas por separado aunque cayeran a la misma hora).
+router.post('/panel/reassign-employee', async (req, res) => {
+  const { bookingIds, employeeId } = req.body || {};
+  if (!Array.isArray(bookingIds) || !bookingIds.length || !employeeId) {
+    return res.status(400).json({ error: 'Elige al menos un tratamiento y la nueva profesional.' });
+  }
+  const uniqueIds = [...new Set(bookingIds)];
+  try {
+    return await withLocks(uniqueIds.slice().sort().map((id) => `booking:${id}`), async () => {
+    const newEmployee = employees.find((e) => e.id === employeeId);
+    if (!newEmployee) return res.status(404).json({ error: 'Profesional no encontrada.' });
+
+    const bookings = [];
+    for (const id of uniqueIds) {
+      const booking = await findBookingById(id);
+      if (!booking) return res.status(404).json({ error: 'Una de las citas ya no existe.' });
+      if (booking.status !== 'confirmed') {
+        return res.status(409).json({ error: `"${booking.serviceName}" ya no está activa — no se puede cambiar así.` });
+      }
+      bookings.push(booking);
+    }
+    const first = bookings[0];
+    if (!bookings.every((b) => b.date === first.date && b.time === first.time)) {
+      return res.status(400).json({ error: 'Los tratamientos elegidos no son de la misma visita (fecha/hora).' });
+    }
+    if (bookings.every((b) => b.employeeId === employeeId)) {
+      return res.json({ ok: true });
+    }
+
+    const duration = bookings.reduce((sum, b) => sum + (Number(b.durationMinutes) || 0), 0);
+    const startISO = localToISO(first.date, first.time.length === 5 ? first.time : `${first.time}:00`, hours.timezone);
+    const endISO = addMinutes(startISO, duration);
+
+    const event = await createBookingEvent(newEmployee.calendarId, {
+      summary: bookings.map((b) => b.serviceName).join(' + '),
+      description: `Cliente: ${first.name || ''} · ${first.phone || ''}`,
+      startISO, endISO,
+    });
+
+    const originalEventKeys = [...new Set(bookings.map((b) => `${b.calendarId}|${b.eventId}`))];
+
+    for (const booking of bookings) {
+      await updateBookingRow(booking._sheetRow, booking, {
+        employeeId, employeeName: newEmployee.name, calendarId: newEmployee.calendarId, eventId: event.id,
+      });
+    }
+
+    // Un evento original se borra en cuanto ya no le queda ningún
+    // tratamiento activo (los que se acaban de mover ya no cuentan, porque
+    // su fila ya apunta al evento nuevo) — puede quedar vivo si algún otro
+    // tratamiento de esa misma visita no se marcó para mover.
+    const allBookingsForCheck = await getAllBookings();
+    for (const key of originalEventKeys) {
+      const [calId, evId] = key.split('|');
+      if (!calId || !evId) continue;
+      const stillUsed = allBookingsForCheck.some((b) => b.status === 'confirmed' && b.calendarId === calId && b.eventId === evId);
+      if (!stillUsed) {
+        await deleteEvent(calId, evId).catch((e) => console.error('No se pudo borrar el evento original al cambiar de profesional:', e.message));
+      }
+    }
+
+    res.json({ ok: true });
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo cambiar de profesional.' });
+  }
+});
+
 // ── Ampliar el tiempo bloqueado de una cita (sin cambiar fecha/hora de
 // inicio) — útil cuando una clienta concreta necesita más tiempo del
 // habitual y hay que reservar ese hueco extra en el calendario para que

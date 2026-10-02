@@ -2673,9 +2673,10 @@
         ev.target.disabled = true;
         try {
           const employeeId = slot.querySelector('.pag-employee-select').value;
-          for (const x of items) {
-            await panelFetch('/panel/edit-booking', { method: 'POST', body: JSON.stringify({ bookingId: x.bookingId, employeeId }) });
-          }
+          // Un solo endpoint para todos los marcados a la vez, para que en
+          // el calendario de la profesional nueva quede UN evento
+          // combinado (en vez de uno suelto por tratamiento).
+          await panelFetch('/panel/reassign-employee', { method: 'POST', body: JSON.stringify({ bookingIds: items.map((x) => x.bookingId), employeeId }) });
           doSearch();
         } catch (e) {
           errorEl.textContent = e.message;
