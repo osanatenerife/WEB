@@ -95,10 +95,21 @@
   function addonsPrice() { return state.extraServices.reduce((sum, s) => sum + s.price, 0); }
   function extraBonosDuration() { return state.extraBonos.reduce((sum, b) => sum + ((findServiceById(b.serviceId) || {}).durationMinutes || 0), 0); }
   function extraBonosPrice() { return state.extraBonos.reduce((sum, b) => sum + b.bonoPrice, 0); }
+  // Igual que en el servidor (ver COMBO_ARRIVAL_BUFFER_MINUTES en
+  // pricing.js): con 2+ tratamientos reales en la misma visita, el margen
+  // de llegada solo hace falta una vez — se resta del total aquí también
+  // para que la vista previa coincida con lo que de verdad se reserva.
+  const COMBO_ARRIVAL_BUFFER_MINUTES = 15;
   function totalDuration() {
     const primary = state.service ? state.service.durationMinutes : 0;
     const modifiers = state.wantsBono ? 0 : extrasDuration();
-    return primary + modifiers + addonsDuration() + extraBonosDuration();
+    const naive = primary + modifiers + addonsDuration() + extraBonosDuration();
+    const extraServiceDurations = state.extraServices.map((s) => s.durationMinutes);
+    const extraBonoDurations = state.extraBonos.map((b) => (findServiceById(b.serviceId) || {}).durationMinutes || 0);
+    const itemCount = 1 + extraServiceDurations.length + extraBonoDurations.length;
+    if (itemCount < 2) return naive;
+    const longest = Math.max(primary, ...extraServiceDurations, ...extraBonoDurations);
+    return Math.max(longest, naive - COMBO_ARRIVAL_BUFFER_MINUTES);
   }
   function hasAnyBono() { return state.wantsBono || state.extraBonos.length > 0; }
   // Un código de descuento puede estar restringido a sesiones sueltas, a

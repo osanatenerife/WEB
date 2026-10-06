@@ -26,6 +26,7 @@ const { effectiveStrikeCount, isStrikeExpired } = require('../lib/strikes');
 const { buildQuarterlyReportWorkbook } = require('../lib/quarterlyReport');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
+const { applyComboBuffer } = require('../lib/pricing');
 const hours = require('../config/hours');
 const services = require('../config/services');
 const employees = require('../config/employees');
@@ -931,7 +932,9 @@ router.post('/panel/import-legacy-booking', async (req, res) => {
     // esta visita en concreto — puede ser negativo (el equipo sabe que da
     // tiempo de sobra y quiere liberar ese hueco para más citas).
     const extraMin = Math.round(Number(extraMinutes) || 0);
-    const durationMinutes = Math.max(5, resolvedItems.reduce((sum, r) => sum + r.service.durationMinutes, 0) + extraMin);
+    const naiveDuration = resolvedItems.reduce((sum, r) => sum + r.service.durationMinutes, 0);
+    const longestDuration = Math.max(...resolvedItems.map((r) => r.service.durationMinutes));
+    const durationMinutes = Math.max(5, applyComboBuffer(naiveDuration, resolvedItems.length, longestDuration) + extraMin);
 
     let eventId = '';
     if (accountingOnly) {
@@ -3102,7 +3105,9 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
         return overrideId ? (services.find((s) => s.id === overrideId) || bonoServices[i]) : bonoServices[i];
       });
 
-      const durationMinutes = Math.max(5, displayServices.reduce((sum, s) => sum + s.durationMinutes, 0) + extra);
+      const naiveDuration = displayServices.reduce((sum, s) => sum + s.durationMinutes, 0);
+      const longestDuration = Math.max(...displayServices.map((s) => s.durationMinutes));
+      const durationMinutes = Math.max(5, applyComboBuffer(naiveDuration, displayServices.length, longestDuration) + extra);
       const startISO = localToISO(date, time.length === 5 ? time : `${time}:00`, hours.timezone);
       const endISO = addMinutes(startISO, durationMinutes);
 

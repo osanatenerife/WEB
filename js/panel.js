@@ -1584,11 +1584,18 @@
     // se usa tanto para mostrarla como referencia (render) como para
     // calcular el ajuste que se manda al backend (wire, al confirmar).
     function catalogDurationMinutes() {
-      return vbState.selectedBonoIds
+      const bonoDurations = vbState.selectedBonoIds
         .map((id) => activeBonos.find((bo) => bo.bonoId === id))
         .filter(Boolean)
-        .reduce((sum, bo) => sum + ((allServices.find((s) => s.id === bonoEffectiveServiceId(bo)) || {}).durationMinutes || 0), 0)
-        + vbState.added.reduce((sum, t) => sum + ((allServices.find((s) => s.id === t.serviceId) || {}).durationMinutes || 0), 0);
+        .map((bo) => (allServices.find((s) => s.id === bonoEffectiveServiceId(bo)) || {}).durationMinutes || 0);
+      const addedDurations = vbState.added.map((t) => (allServices.find((s) => s.id === t.serviceId) || {}).durationMinutes || 0);
+      const all = [...bonoDurations, ...addedDurations];
+      const naive = all.reduce((sum, d) => sum + d, 0);
+      if (all.length < 2) return naive;
+      // Igual que en el servidor (COMBO_ARRIVAL_BUFFER_MINUTES, pricing.js):
+      // con 2+ tratamientos en la misma visita, el margen de llegada solo
+      // hace falta una vez — nunca por debajo del tratamiento más largo.
+      return Math.max(Math.max(...all), naive - 15);
     }
 
     function render() {
@@ -1642,7 +1649,7 @@
           <div class="panel-field-row">
             <div class="panel-field"><label>Duración del hueco a reservar (min)</label><input type="number" min="5" step="5" class="vb-duration-input" value="${vbState.durationInput !== '' ? vbState.durationInput : durationMinutes}"></div>
           </div>
-          <p class="panel-status" style="margin:-6px 0 10px;font-size:11.5px;">Duración estándar del catálogo: ${durationMinutes} min — cámbiala si sabes que esta visita en concreto va a durar menos (o más) tiempo real.</p>
+          <p class="panel-status" style="margin:-6px 0 10px;font-size:11.5px;">Duración sugerida: ${durationMinutes} min${vbState.added.length + vbState.selectedBonoIds.length > 1 ? ' (ya descuenta el margen de llegada, al combinar varios tratamientos)' : ''} — cámbiala si sabes que esta visita en concreto va a durar menos (o más) tiempo real.</p>
           ` : ''}
           <div class="panel-field-row">
             <div class="panel-field" style="flex:1;"><label>Notas (potencia, observaciones…) — una nota para toda la visita</label><textarea class="vb-notes" rows="2"></textarea></div>
