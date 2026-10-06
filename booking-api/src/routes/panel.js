@@ -849,6 +849,19 @@ router.post('/panel/book-session', async (req, res) => {
       status: sessionsRemaining <= 0 ? 'completed' : 'active',
     });
 
+    // Igual que en /panel/book-with-items: esta vía no pasa por
+    // Stripe/webhook, así que sin esto la clienta no recibía ningún aviso
+    // cuando el equipo le agenda la siguiente sesión del bono.
+    if (bono.clientEmail) {
+      await sendBookingConfirmationEmail({
+        clientEmail: bono.clientEmail, clientName: bono.clientName, clientPhone: bono.clientPhone,
+        serviceName: `${displayName} (${sessionLabel})`, primaryServiceId: bono.serviceId || baseService.id,
+        date, time, employeeName: employee.name,
+        amountPaid: 0, price: 0, lang: bono.lang || 'es', durationMinutes,
+        bookingIds: [bookingId],
+      });
+    }
+
     res.json({ ok: true, bookingId, sessionsRemaining });
     });
   } catch (err) {
@@ -3174,6 +3187,19 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
           sessionsUsed: fromSession,
           sessionsRemaining,
           status: sessionsRemaining <= 0 ? 'completed' : 'active',
+        });
+      }
+
+      // Igual que en /panel/book-session y /panel/book-with-items: esta vía
+      // no pasa por Stripe/webhook, así que sin esto la clienta no recibía
+      // ningún aviso cuando el equipo le agenda la siguiente sesión.
+      if (bonos[0].clientEmail) {
+        await sendBookingConfirmationEmail({
+          clientEmail: bonos[0].clientEmail, clientName: bonos[0].clientName, clientPhone: bonos[0].clientPhone,
+          serviceName: combinedLabel, primaryServiceId: bonos[0].serviceId || displayServices[0].id,
+          date, time, employeeName: employee.name,
+          amountPaid: 0, price: 0, lang: bonos[0].lang || 'es', durationMinutes,
+          bookingIds,
         });
       }
 
