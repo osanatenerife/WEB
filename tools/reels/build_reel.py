@@ -436,7 +436,8 @@ def main():
     final = os.path.join(args.salida, cfg["salida"] + ".mp4")
     run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", wav,
          "-filter_complex", filtro, "-map", "[v]", "-map", "[a]",
-         "-c:v", "libx264", "-preset", "slow", "-crf", "17", "-profile:v", "high",
+         "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-maxrate", "6500k", "-bufsize", "13000k",
+         "-profile:v", "high",
          "-pix_fmt", "yuv420p", "-r", str(FPS),
          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
          "-movflags", "+faststart", "-t", f"{dur_total:.3f}", final])
