@@ -4,65 +4,91 @@
   "tomas": [
     {
       "bloque": "Gancho",
-      "archivo": "IMG_6366.mov", "inicio": 6.3, "fin": 8.6,
+      "archivo": "IMG_6366.mov",
+      "inicio": 6.3,
+      "fin": 8.6,
       "rotulo": "¿Cuánto dinero llevo en mi *cara*?",
       "maquina": true,
       "dialogo": "¿Cuánto dinero llevo en la cara?"
     },
     {
       "bloque": "Gancho",
-      "archivo": "IMG_6365.mov", "inicio": 4.2, "fin": 7.0,
+      "archivo": "IMG_6365.mov",
+      "inicio": 4.2,
+      "fin": 7.0,
       "rotulo": "Hice las *cuentas*…",
       "dialogo": "Hice las cuentas… y mejor siéntate."
     },
     {
       "bloque": "Mirada",
-      "archivo": "IMG_6365.mov", "inicio": 8.0, "fin": 11.0,
-      "rotulo": "Micro de cejas", "precio": "300€",
+      "archivo": "IMG_6365.mov",
+      "inicio": 8.0,
+      "fin": 11.0,
+      "rotulo": "Micro de cejas",
+      "precio": "300€",
       "dialogo": "Cejas micropigmentadas: trescientos euros."
     },
     {
       "bloque": "Mirada",
-      "archivo": "IMG_6366.mov", "inicio": 7.2, "fin": 9.8,
-      "rotulo": "Lifting de pestañas", "precio": "45€",
+      "archivo": "IMG_6366.mov",
+      "inicio": 7.2,
+      "fin": 9.8,
+      "rotulo": "Lifting de pestañas",
+      "precio": "45€",
       "dialogo": "Lifting de pestañas coreano: cuarenta y cinco."
     },
     {
       "bloque": "Mirada",
-      "archivo": "IMG_6366.mov", "inicio": 9.8, "fin": 12.8,
-      "rotulo": "Laminado de cejas", "precio": "50€",
+      "archivo": "IMG_6366.mov",
+      "inicio": 9.8,
+      "fin": 12.8,
+      "rotulo": "Laminado de cejas",
+      "precio": "50€",
       "dialogo": "Laminado con tinte: cincuenta más."
     },
     {
       "bloque": "Piel",
-      "archivo": "IMG_6368.mov", "inicio": 8.6, "fin": 11.6,
-      "rotulo": "Láser facial", "precio": "50€",
+      "archivo": "IMG_6368.mov",
+      "inicio": 8.6,
+      "fin": 11.6,
+      "rotulo": "Láser facial",
+      "precio": "50€",
       "dialogo": "Láser facial, adiós a la cuchilla: cincuenta."
     },
     {
       "bloque": "Piel",
-      "archivo": "IMG_6368.mov", "inicio": 11.8, "fin": 14.8,
-      "rotulo": "Hollywood peel", "precio": "70€",
+      "archivo": "IMG_6368.mov",
+      "inicio": 11.8,
+      "fin": 14.8,
+      "rotulo": "Hollywood peel",
+      "precio": "70€",
       "dialogo": "Hollywood peel antes de cada evento: setenta."
     },
     {
       "bloque": "Piel",
-      "archivo": "IMG_6368.mov", "inicio": 15.2, "fin": 18.4,
-      "rotulo": "Dermapen", "precio": "75€",
+      "archivo": "IMG_6368.mov",
+      "inicio": 15.2,
+      "fin": 18.4,
+      "rotulo": "Dermapen",
+      "precio": "75€",
       "dialogo": "Y Dermapen para la textura: setenta y cinco."
     },
     {
       "bloque": "Cierre",
-      "archivo": "IMG_6365.mov", "inicio": 11.4, "fin": 14.2,
-      "rotulo": "Total:", "precio": "590€",
+      "archivo": "IMG_6365.mov",
+      "inicio": 11.4,
+      "fin": 14.2,
+      "rotulo": "Total:",
+      "precio": "590€",
       "dialogo": "Quinientos noventa euros. Y vale cada uno."
     },
     {
       "bloque": "Cierre",
-      "archivo": "IMG_6366.mov", "inicio": 13.0, "fin": 16.0,
+      "archivo": "IMG_6366.mov",
+      "inicio": 13.0,
+      "fin": 16.0,
       "rotulo": "Primera consulta *gratis*",
       "dialogo": "¿Lo mejor? Tu primera consulta es gratis."
     }
-  ],
-  "cartela": {"duracion": 1.0, "texto": "Adeje"}
+  ]
 }
