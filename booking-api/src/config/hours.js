@@ -16,11 +16,10 @@ module.exports = {
     5: { open: '10:00', close: '18:00' },              // viernes
     6: { open: '10:00', close: '18:00' },              // sábado
   },
-  // Cuántos días hacia adelante se pueden reservar desde hoy — 6 meses,
-  // para que prácticamente no haya límite real (antes 45 días bloqueaba
-  // reservas legítimas con más antelación, como sesiones de bono muy
-  // espaciadas).
-  bookingWindowDays: 180,
+  // Cuántos días hacia adelante se pueden reservar desde hoy — sin límite
+  // (antes 45 días, luego 180, bloqueaba reservas legítimas con más
+  // antelación, como sesiones de bono muy espaciadas).
+  bookingWindowDays: Infinity,
 
   // Cierres puntuales del centro (vacaciones, reformas...) que bloquean la
   // reserva online aunque esos días caigan dentro del horario semanal normal.

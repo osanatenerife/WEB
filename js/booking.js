@@ -674,7 +674,8 @@
   // ── PASO 3: calendario y hora ──
   const MIN_DATE = new Date();
   MIN_DATE.setHours(0, 0, 0, 0);
-  const MAX_DATE = new Date(MIN_DATE.getTime() + 45 * 86400000);
+  // Sin límite de fecha máxima — igual que bookingWindowDays en
+  // booking-api/src/config/hours.js, que tampoco lo tiene.
   const calendarState = { year: MIN_DATE.getFullYear(), month: MIN_DATE.getMonth() };
 
   function toISODate(d) {
@@ -720,7 +721,7 @@
       const dayOff = empWeekly && (!daySchedule || daySchedule.closed);
       const closures = (state.employee && state.employee.closures) || [];
       const isClosureDay = closures.some((c) => iso >= c.start && iso <= c.end);
-      const disabled = dateObj < MIN_DATE || dateObj > MAX_DATE || dayOff || isClosureDay;
+      const disabled = dateObj < MIN_DATE || dayOff || isClosureDay;
       if (disabled) {
         cell.classList.add('disabled');
         cell.disabled = true;
@@ -740,7 +741,6 @@
     }
 
     els.calPrev.disabled = year === MIN_DATE.getFullYear() && month === MIN_DATE.getMonth();
-    els.calNext.disabled = year === MAX_DATE.getFullYear() && month === MAX_DATE.getMonth();
   }
 
   els.calPrev.addEventListener('click', () => {
