@@ -26,11 +26,13 @@ Releases del repositorio.
 
 ## Imagen: cinematográfica y natural
 
-- Exposición de la cara igualada entre clips: la piel queda al ~60 % de luminancia.
-- Sombras levantadas y algo frías; luces bajadas para quitar brillos de la frente.
-- Piel **neutra, nunca amarilla**: medios sin dominante cálida y saturación contenida (~0,92).
+- Exposición de la cara igualada entre clips: la piel queda al ~58 % de luminancia.
+- Curva suave: sombras apenas levantadas y luces algo bajadas. Si se exagera,
+  la piel se aplana y parece filtrada; a la dueña no le gusta.
+- Piel **neutra, nunca amarilla**, con saturación casi natural (~0,97).
 - Balance de blancos igualado con la pared como referencia.
-- Reducción de ruido suave y nitidez ligera. **Prohibido** el filtro de belleza o el suavizado de piel.
+- **Textura de piel real**: sin reducción de ruido, sin filtro de belleza y sin
+  suavizado. Nitidez ligera y grano finísimo.
 - Viñeta muy suave.
 
 ## Montaje
@@ -61,11 +63,10 @@ Releases del repositorio.
 
 ## Audio
 
-- **Sin música.** Se añade al publicar en Instagram/Edits un audio en
-  tendencia, que ayuda al alcance.
-- Solo efectos sutiles: «pop» cuando aparece un precio, «whoosh» en los
-  destellos y tecleo en el gancho.
-- Opcional `--musica`: versión extra con pad instrumental suave (5–10 %).
+- **El vídeo se entrega sin audio.** La dueña añade al publicar en
+  Instagram/Edits un audio en tendencia, que ayuda al alcance.
+- Los efectos de sonido generados («pop», «whoosh») **no le gustaron**: no
+  usarlos salvo que los pida (`--efectos`). Opcional `--musica`: pad suave.
 
 ## Consejos de grabación para la dueña
 

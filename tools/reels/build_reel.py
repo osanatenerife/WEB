@@ -10,10 +10,9 @@ Requisitos: ffmpeg con libass, numpy y opencv-python-headless<5 (detección de c
 Estilo Osana (guía completa en tools/reels/ESTILO.md):
   - 1080x1920, 30 fps, cortes secos y encuadre que alterna plano medio / plano
     cerrado en cada corte (jump cut), centrado en la cara.
-  - Imagen cinematográfica: exposición de la cara igualada en todos los clips,
-    sombras levantadas y algo frías, luces bajadas (sin brillos), piel neutra
-    (no amarilla), saturación contenida, reducción de ruido, nitidez ligera.
-    Sin suavizado de piel.
+  - Imagen cinematográfica y natural: exposición de la cara igualada en todos
+    los clips, curva suave, piel neutra (no amarilla) con su textura real
+    (sin reducción de ruido ni suavizado), nitidez ligera y grano finísimo.
   - Subtítulos de diálogo grandes justo DEBAJO de la cara (detectada), que se
     construyen palabra a palabra.
   - Tema / precio en un recuadro oscuro redondeado: encima de la cabeza si hay
@@ -21,9 +20,8 @@ Estilo Osana (guía completa en tools/reels/ESTILO.md):
   - Sombra negra suave al 40 % y franja oscura difuminada si el fondo es claro.
   - Zonas libres: 15 % superior y 25 % inferior.
   - Destello suave de 0,25 s entre bloques de tema. Sin cartela final.
-  - Sin música (se añade en Instagram/Edits con un audio en tendencia). Solo
-    efectos de sonido sutiles: «pop» al aparecer un precio, «whoosh» en los
-    destellos y tecleo en el gancho. Con --musica, versión extra con pad suave.
+  - Sin audio: la música se añade en Instagram/Edits con un audio en tendencia.
+    Opcionales: --efectos (pop, whoosh, tecleo) y --musica (pad suave).
 """
 import argparse
 import json
@@ -322,17 +320,22 @@ def correccion(gan, luma_cara):
     """Misma receta para todos los clips; solo cambia el punto que lleva la cara a 0,60."""
     r, g, b = gan
     f = min(max(luma_cara or 0.55, 0.35), 0.75)
-    curva = f"0/0.045 0.15/0.19 {f:.3f}/0.60 0.8/0.78 1/0.92"   # sombras arriba, luces abajo
+    # Curva suave: sombras apenas levantadas y luces algo bajadas. Más lift o
+    # contraste aplanan la piel y la hacen parecer filtrada.
+    curva = f"0/0.02 0.15/0.165 {f:.3f}/0.58 0.85/0.83 1/0.95"
     return (
         f"colorchannelmixer=rr={r:.4f}:gg={g:.4f}:bb={b:.4f},"
         f"curves=master='{curva}',"
-        "hqdn3d=1.2:1.0:3:3,"
+        # Sin reducción de ruido: el 4K reescalado ya está limpio y el
+        # denoise borra la textura de la piel.
         # Cinematográfico: sombras ligeramente frías, medios neutros (piel sin
-        # amarillear), luces apenas cálidas y saturación contenida.
-        "colorbalance=rs=-0.03:gs=0.0:bs=0.035:rm=-0.01:gm=-0.012:bm=0.02:rh=0.015:bh=-0.005,"
-        "eq=saturation=0.92:contrast=1.03,"
-        "unsharp=5:5:0.35:5:5:0,"
-        "vignette=angle=PI/6"
+        # amarillear), luces apenas cálidas y saturación casi natural.
+        "colorbalance=rs=-0.015:bs=0.02:rm=-0.005:gm=-0.006:bm=0.01:rh=0.008,"
+        "eq=saturation=0.97,"
+        "unsharp=5:5:0.25:5:5:0,"
+        "vignette=angle=PI/7,"
+        # Grano finísimo: textura de piel real, nada de aspecto «plástico».
+        "noise=alls=3:allf=t"
     )
 
 
@@ -426,6 +429,8 @@ def main():
     ap.add_argument("tabla")
     ap.add_argument("--fuentes", required=True, help="carpeta con los vídeos originales")
     ap.add_argument("--salida", default=".")
+    ap.add_argument("--efectos", action="store_true",
+                    help="añade efectos de sonido (pop, whoosh, tecleo); por defecto el vídeo va sin audio")
     ap.add_argument("--musica", action="store_true",
                     help="genera además una versión con música suave de fondo")
     ap.add_argument("--volumen-musica", type=float, default=0.08,
@@ -510,19 +515,20 @@ def main():
     )
     os.makedirs(args.salida, exist_ok=True)
     final = os.path.join(args.salida, cfg["salida"] + ".mp4")
+    # Por defecto sin audio: la música se pone al publicar en Instagram/Edits.
+    audio = ["-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"] if args.efectos else ["-an"]
     run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", wav,
-         "-filter_complex", filtro, "-map", "[v]", "-map", "1:a",
+         "-filter_complex", filtro, "-map", "[v]", *audio,
          "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-maxrate", "6500k", "-bufsize", "13000k",
          "-profile:v", "high",
          "-pix_fmt", "yuv420p", "-r", str(FPS),
-         "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
          "-movflags", "+faststart", "-t", f"{dur_total:.3f}", final])
 
     salidas = [final]
     if args.musica:
         con = os.path.join(args.salida, cfg["salida"] + "-con-musica.mp4")
         wav2 = os.path.join(tmp, "mezcla.wav")
-        escribir_wav(wav2, sfx + args.volumen_musica * musica(dur_total)[:len(sfx)])
+        escribir_wav(wav2, (sfx if args.efectos else 0) + args.volumen_musica * musica(dur_total)[:len(sfx)])
         run(["ffmpeg", "-v", "error", "-y", "-i", final, "-i", wav2, "-map", "0:v", "-map", "1:a",
              "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", con])
         salidas.append(con)
