@@ -1,0 +1,78 @@
+{
+  "titulo": "¿Cuánto llevo en mi cara? — Osana",
+  "salida": "osana-reel-cuanto-llevo-en-mi-cara",
+  "ajuste_color": {
+    "IMG_6365.mov": [0.992, 1.002, 1.007],
+    "IMG_6366.mov": [1.020, 1.037, 1.037],
+    "IMG_6368.mov": [0.993, 1.016, 1.026]
+  },
+  "tomas": [
+    {
+      "bloque": "Gancho",
+      "archivo": "IMG_6366.mov", "inicio": 5.9, "fin": 8.4,
+      "rotulo": "¿Cuánto llevo en mi *cara*?",
+      "dialogo": "¿Cuánto dinero llevo en la cara?"
+    },
+    {
+      "bloque": "Gancho",
+      "archivo": "IMG_6365.mov", "inicio": 4.2, "fin": 7.0,
+      "rotulo": "Hice las *cuentas*",
+      "dialogo": "Hice las cuentas… y mejor siéntate."
+    },
+    {
+      "bloque": "Mirada",
+      "archivo": "IMG_6365.mov", "inicio": 8.0, "fin": 11.0,
+      "rotulo": "Micro de *cejas* · 300 €",
+      "dialogo": "Cejas micropigmentadas: trescientos euros.",
+      "suma": 300
+    },
+    {
+      "bloque": "Mirada",
+      "archivo": "IMG_6366.mov", "inicio": 7.2, "fin": 9.8,
+      "rotulo": "Lifting de *pestañas* · 45 €",
+      "dialogo": "Lifting de pestañas coreano: cuarenta y cinco.",
+      "suma": 45
+    },
+    {
+      "bloque": "Mirada",
+      "archivo": "IMG_6366.mov", "inicio": 9.8, "fin": 12.8,
+      "rotulo": "*Laminado* de cejas · 50 €",
+      "dialogo": "Laminado con tinte: cincuenta más.",
+      "suma": 50
+    },
+    {
+      "bloque": "Piel",
+      "archivo": "IMG_6368.mov", "inicio": 8.6, "fin": 11.6,
+      "rotulo": "*Láser* facial · 50 €",
+      "dialogo": "Láser facial, adiós a la cuchilla: cincuenta.",
+      "suma": 50
+    },
+    {
+      "bloque": "Piel",
+      "archivo": "IMG_6368.mov", "inicio": 11.8, "fin": 14.8,
+      "rotulo": "Hollywood *peel* · 70 €",
+      "dialogo": "Hollywood peel antes de cada evento: setenta.",
+      "suma": 70
+    },
+    {
+      "bloque": "Piel",
+      "archivo": "IMG_6368.mov", "inicio": 15.2, "fin": 18.4,
+      "rotulo": "*Dermapen* · 75 €",
+      "dialogo": "Y Dermapen para la textura: setenta y cinco.",
+      "suma": 75
+    },
+    {
+      "bloque": "Cierre",
+      "archivo": "IMG_6365.mov", "inicio": 11.4, "fin": 14.2,
+      "rotulo": "*Total* · 590 €",
+      "dialogo": "Total: quinientos noventa euros. Y vale cada uno."
+    },
+    {
+      "bloque": "Cierre",
+      "archivo": "IMG_6366.mov", "inicio": 13.0, "fin": 16.0,
+      "rotulo": "Primera consulta *gratis*",
+      "dialogo": "¿Lo mejor? Tu primera consulta es gratis."
+    }
+  ],
+  "cartela": {"duracion": 1.0, "texto": "Adeje"}
+}
