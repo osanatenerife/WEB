@@ -106,6 +106,12 @@ const COLUMNS = [
   // futuras que se quedaron sin él (por un fallo de envío puntual) y
   // reintentarlo sola, sin depender de que la clienta pregunte.
   'confirmationEmailSent',
+  // Igual que remainderAmount2/remainderPaidHow2 pero para "amountPaid"
+  // (el "ya pagado" que se cobra en persona antes de que la cita se pueda
+  // cerrar) — por si esa clienta pagó esa parte dividida en dos formas de
+  // pago (p.ej. mitad bizum, mitad efectivo). depositAmount2 es la 2ª
+  // parte; la 1ª es amountPaid menos depositAmount2.
+  'depositAmount2', 'depositPaidHow2',
 ];
 const LAST_COL = colLetter(COLUMNS.length);
 

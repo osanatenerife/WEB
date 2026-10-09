@@ -252,7 +252,7 @@ router.post('/panel/note', async (req, res) => {
 // registrada (por si al darla de alta a mano hubo algún error) ──
 router.post('/panel/edit-booking', async (req, res) => {
   const {
-    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, depositPaidHow, sessionNumber, durationMinutes,
+    bookingId, serviceId, removeServiceId, addServiceId, addWithoutTimeExtend, swapServiceId, employeeId, price, amountPaid, depositPaidHow, depositAmount2, depositPaidHow2, sessionNumber, durationMinutes,
     // Solo para convertToBono: registra de golpe el bono que compró la clienta
     // y engancha esta misma cita como una de sus sesiones — sin tener que
     // borrar la cita y volver a darla de alta a mano desde otro formulario.
@@ -668,6 +668,20 @@ router.post('/panel/edit-booking', async (req, res) => {
     // Stripe) — para poder corregirlo a mano en citas dadas de alta antes
     // de que este campo existiera, o si se equivocó al elegirlo.
     if (depositPaidHow !== undefined) updates.depositPaidHow = depositPaidHow;
+    // Esa misma parte "ya pagada" puede venir dividida en dos formas de
+    // pago (p.ej. mitad bizum, mitad efectivo) — depositAmount2 es la 2ª
+    // parte, nunca mayor que el total pagado.
+    if (depositAmount2 !== undefined && depositAmount2 !== '') {
+      const amt2 = Number(depositAmount2);
+      const totalPaid = amountPaid !== undefined && amountPaid !== '' ? Number(amountPaid) : Number(booking.amountPaid) || 0;
+      if (!Number.isFinite(amt2) || amt2 < 0) return res.status(400).json({ error: 'El 2º importe pagado no es un número válido.' });
+      if (amt2 > totalPaid) return res.status(400).json({ error: 'El 2º importe pagado no puede ser mayor que el total ya pagado.' });
+      updates.depositAmount2 = amt2;
+      updates.depositPaidHow2 = depositPaidHow2 || '';
+    } else if (depositAmount2 === '') {
+      updates.depositAmount2 = '';
+      updates.depositPaidHow2 = '';
+    }
 
     // Si es una sesión de un bono, el nombre lleva "(n/total)" — lo
     // reconstruimos con el total real del bono para no tener que pedirlo.

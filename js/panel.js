@@ -3260,7 +3260,7 @@
 
         <div class="panel-section-label">Cobro</div>
         ${closedNote}
-        ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b>${b.depositPaidHow ? ` (${b.depositPaidHow})` : ''} · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
+        ${!closedNote ? `<p class="panel-status">Ya pagado antes: <b>${alreadyPaid.toFixed(2)} €</b>${b.depositAmount2 ? ` (${(alreadyPaid - Number(b.depositAmount2)).toFixed(2)} € ${b.depositPaidHow || 'sin forma asignada'} + ${Number(b.depositAmount2).toFixed(2)} € ${b.depositPaidHow2 || 'sin forma asignada'})` : (b.depositPaidHow ? ` (${b.depositPaidHow})` : '')} · Queda por cobrar (estimado): <b>${pendingAtCenter.toFixed(2)} €</b></p>` : ''}
         ${unresolvedExtrasTotal > 0 ? `<p class="panel-status">Además, hay <b>${unresolvedExtrasTotal.toFixed(2)} €</b> en extras sin forma de pago asignada — se resuelven solos al cerrar la cita, con la misma forma de pago del resto.</p>` : ''}
         <p style="font-size:11px;color:var(--ink-faint);margin:0 0 10px;">El importe de aquí es solo el del tratamiento propio de esta cita — los extras van aparte y no hace falta sumarlos.</p>
         <div class="panel-field-row">
@@ -3272,6 +3272,17 @@
               <option value="efectivo"${b.depositPaidHow === 'efectivo' ? ' selected' : ''}>Efectivo</option>
               <option value="tarjeta"${b.depositPaidHow === 'tarjeta' ? ' selected' : ''}>Tarjeta</option>
               <option value="bizum"${b.depositPaidHow === 'bizum' ? ' selected' : ''}>Bizum</option>
+            </select>
+          </div>
+        </div>
+        <label class="panel-split-toggle"><input type="checkbox" class="eb-split-deposit"${b.depositAmount2 ? ' checked' : ''}> Ese "ya pagado" se cobró dividido en dos formas de pago</label>
+        <div class="panel-field-row eb-split-deposit-row" style="display:${b.depositAmount2 ? 'flex' : 'none'};">
+          <div class="panel-field"><label>Importe con la 2ª forma de pago (€)</label><input type="number" step="0.01" class="eb-deposit-amount2" value="${b.depositAmount2 || ''}"></div>
+          <div class="panel-field"><label>2ª forma de pago</label>
+            <select class="eb-deposit-paidhow2">
+              <option value="efectivo"${b.depositPaidHow2 === 'efectivo' ? ' selected' : ''}>Efectivo</option>
+              <option value="tarjeta"${b.depositPaidHow2 === 'tarjeta' ? ' selected' : ''}>Tarjeta</option>
+              <option value="bizum"${b.depositPaidHow2 === 'bizum' ? ' selected' : ''}>Bizum</option>
             </select>
           </div>
         </div>
@@ -3354,6 +3365,14 @@
     // "Cerrar cita" más abajo, que guarda estos mismos campos de una vez
     // Y da el resto por cobrado — por eso solo se ofrece para citas ya
     // pasadas (ver isClosable).
+    const splitDepositCheckbox = slot.querySelector('.eb-split-deposit');
+    const splitDepositRow = slot.querySelector('.eb-split-deposit-row');
+    if (splitDepositCheckbox) {
+      splitDepositCheckbox.addEventListener('change', () => {
+        splitDepositRow.style.display = splitDepositCheckbox.checked ? 'flex' : 'none';
+      });
+    }
+
     const saveBtn = slot.querySelector('.panel-confirm-editbooking');
     if (saveBtn) {
       saveBtn.addEventListener('click', async (ev) => {
@@ -3367,6 +3386,9 @@
           const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
           const notesInput = slot.querySelector('.eb-notes');
           const durationInput = slot.querySelector('.eb-duration');
+          const splitOn = splitDepositCheckbox && splitDepositCheckbox.checked;
+          const depositAmount2Input = slot.querySelector('.eb-deposit-amount2');
+          const depositPaidHow2Select = slot.querySelector('.eb-deposit-paidhow2');
           await panelFetch('/panel/edit-booking', {
             method: 'POST',
             body: JSON.stringify({
@@ -3375,6 +3397,8 @@
               price: priceInput.value,
               amountPaid: paidInput.value,
               depositPaidHow: depositPaidHowSelect.value,
+              depositAmount2: splitOn ? depositAmount2Input.value : '',
+              depositPaidHow2: splitOn ? depositPaidHow2Select.value : '',
               durationMinutes: durationInput.value,
             }),
           });
@@ -3768,6 +3792,9 @@
           const depositPaidHowSelect = slot.querySelector('.eb-deposit-paidhow');
           const notesInput = slot.querySelector('.eb-notes');
           const durationInput = slot.querySelector('.eb-duration');
+          const depositSplitOn = splitDepositCheckbox && splitDepositCheckbox.checked;
+          const depositAmount2Input = slot.querySelector('.eb-deposit-amount2');
+          const depositPaidHow2Select = slot.querySelector('.eb-deposit-paidhow2');
           await panelFetch('/panel/edit-booking', {
             method: 'POST',
             body: JSON.stringify({
@@ -3776,6 +3803,8 @@
               price: priceInput.value,
               amountPaid: paidInput.value,
               depositPaidHow: depositPaidHowSelect.value,
+              depositAmount2: depositSplitOn ? depositAmount2Input.value : '',
+              depositPaidHow2: depositSplitOn ? depositPaidHow2Select.value : '',
               durationMinutes: durationInput.value,
             }),
           });
