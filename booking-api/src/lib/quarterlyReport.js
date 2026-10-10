@@ -75,7 +75,17 @@ function buildMonthlyAggregates({ year, quarter, bookings, productSales, customQ
     const category = accountingCategoryFor(firstServiceId(b.serviceId));
     const onlinePaid = Number(b.amountPaid) || 0;
     if (!b.date) return;
-    addRevenue(b.date, category, onlinePaid, 'tarjeta'); // el pago online siempre es tarjeta (Stripe)
+    // depositPaidHow solo se rellena cuando "amountPaid" se cobró en
+    // persona (no por Stripe) — ver el comentario de esa columna en
+    // sheets.js. Si está en blanco, es un pago online real y siempre es
+    // tarjeta/Klarna (Stripe); si no, hay que respetar lo que diga, para
+    // que una corrección hecha en "Guardar cambios" (p.ej. de efectivo a
+    // tarjeta, o al revés) se refleje aquí también. También puede venir
+    // dividido en 2 formas de pago (depositAmount2/depositPaidHow2).
+    const depositPart2 = Math.max(0, Math.min(onlinePaid, Number(b.depositAmount2) || 0));
+    const depositPart1 = round2(onlinePaid - depositPart2);
+    if (depositPart1 > 0) addRevenue(b.date, category, depositPart1, b.depositPaidHow || 'tarjeta');
+    if (depositPart2 > 0) addRevenue(b.date, category, depositPart2, b.depositPaidHow2 || 'tarjeta');
 
     const finalAmount = b.finalAmount !== undefined && b.finalAmount !== '' ? Number(b.finalAmount) : null;
     if (finalAmount !== null) {
