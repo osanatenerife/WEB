@@ -88,6 +88,33 @@ Releases del repositorio.
 - No usar planos donde se vea la cara de un cliente salvo que ella confirme que
   tiene su permiso.
 
+## Serie «Te lo cuento» (entrevista)
+
+- Herramienta: `te_lo_cuento.py` con una tabla por pregunta (`te-lo-cuento-c1-p1.json`…).
+  Una pregunta, un clip de 30–60 s. Si hay varias tomas de la misma respuesta, se
+  elige la más clara y que no repita lo que ya cuenta otra pregunta del capítulo.
+- Arranca en el silencio de después de la pregunta, como en las entrevistas de
+  referencia: la pregunta aparece grande, palabra a palabra, sobre la cortina a la
+  izquierda de la cara, con letra editorial (Inter Display fina, cursiva fina y la
+  palabra clave en negrita con dorado degradado #FFE8AA→#D2A050) y un halo oscuro
+  muy suave para que se lea sobre fondo claro. Ese primer plano va algo cerrado y
+  desplazado para dejar el hueco de la pregunta.
+- Desde el primer corte, la pregunta queda arriba en pequeño con la etiqueta
+  «TE LO CUENTO · CAPÍTULO N» durante todo el clip (la cabeza, siempre por debajo).
+- Cortes: fuera las pausas de más de ~0,5 s; en cada corte se alterna plano abierto
+  (100 %) y cerrado (114 %). Los planos de más de ~5 s se parten en dos encuadres sin
+  cortar el audio. Los puntos de corte se comprueban transcribiendo el audio unido,
+  para que no se coma ninguna sílaba; titubeos y frases a medias se quitan con
+  `corte_inicio` / `corte_fin`.
+- Subtítulos pequeños, en minúsculas, de 2 a 4 palabras, blancos con sombra al 40 %,
+  a la altura del pecho (sobre la ropa oscura).
+- Una frase clave por clip: zoom al 122 % con los ojos en el tercio superior, rótulo
+  en mayúsculas (Montserrat ExtraBold) con la palabra clave en dorado degradado y
+  franja oscura difuminada. Lo que ya dice el rótulo no se repite en subtítulos.
+- El último plano termina en una mirada o una sonrisa (nunca en un parpadeo) y
+  después va el buscador: «osana.es» escribiéndose sobre fondo crema, sin sonido.
+- Sin música (la pone ella al publicar) y voz sin reducción de ruido.
+
 ## Textos
 
 - Zonas libres: 15 % superior y 25 % inferior de la pantalla.

@@ -1,0 +1,27 @@
+{
+  "titulo": "Te lo cuento · Capítulo 1 · P4 · ¿Qué es lo que nunca le vas a vender a nadie?",
+  "salida": "osana-te-lo-cuento-c1-p4-lo-que-nunca-le-vas-a-vender",
+  "archivo": "todo.mov",
+  "serie": "Te lo cuento · Capítulo 1",
+  "pregunta": "¿qué es lo que|_nunca_ le vas|a vender|*a nadie?*",
+  "intro": 405.3,
+  "fin": 470.45,
+  "portada": 405.2,
+  "frases": [
+    {"inicio": 406.74, "fin": 408.3, "texto": "un tratamiento que no necesite."},
+    {"inicio": 409.08, "fin": 411.5, "corte_fin": 411.5, "texto": "de hecho, he tenido clientas que me dicen: «pero véndeme más»"},
+    {"inicio": 413.39, "fin": 416.6, "corte_inicio": 413.367, "texto": "como de forma insistente, y para mí es que no hay más."},
+    {"inicio": 417.14, "fin": 422.66, "texto": "o sea, no quiero aprovecharme de esa necesidad del cliente cuando yo sé que realmente no necesita nada."},
+    {"inicio": 428.52, "fin": 430.22, "corte_inicio": 428.52, "texto": "por ejemplo, hay muchas veces que"},
+    {"inicio": 430.66, "fin": 436.52, "texto": "yo sé que me encuentro limitado en ciertos servicios, porque simplemente no los he querido ofrecer o porque no estoy especializada en ello,"},
+    {"inicio": 443.82, "fin": 446.48, "texto": "y termino recomendando hasta a mi misma competencia."},
+    {"inicio": 447.18, "fin": 448.53, "texto": "que a veces eso puede ser un fallo,"},
+    {"inicio": 448.53, "fin": 450.06, "texto": "pero es que prefiero ser sincera,", "clave": "Prefiero ser *sincera*"},
+    {"inicio": 450.64, "fin": 452.2, "texto": "y el cliente lo ha valorado mucho."},
+    {"inicio": 453.44, "fin": 455.94, "texto": "realmente prefiero decirle"},
+    {"inicio": 456.54, "fin": 457.64, "texto": "algo que le va a funcionar"},
+    {"inicio": 458.24, "fin": 460.08, "texto": "antes de yo intentar"},
+    {"inicio": 460.5, "fin": 463.94, "texto": "aprovecharme de ese cliente una vez, porque sé que no me va a volver."},
+    {"inicio": 464.74, "fin": 469.9, "texto": "al final, valora muchísimo la honestidad, y hoy en día es algo que falta en este sector."}
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "titulo": "Te lo cuento · Capítulo 1 · P1 · ¿Por qué abriste OSANA?",
+  "salida": "osana-te-lo-cuento-c1-p1-por-que-abriste-osana",
+  "archivo": "todo.mov",
+  "serie": "Te lo cuento · Capítulo 1",
+  "pregunta": "¿por qué|_abriste_|*OSANA?*",
+  "intro": 4.6,
+  "fin": 53.55,
+  "portada": 5.0,
+  "frases": [
+    {"inicio": 6.22, "fin": 7.5, "texto": "siempre quise como abrir"},
+    {"inicio": 7.94, "fin": 10.42, "texto": "algo mío, no lo tenía muy claro,"},
+    {"inicio": 10.8, "fin": 15.74, "texto": "pero siempre tenía una libretita llena de 20.000 ideas, pero no encontraba como ese momento"},
+    {"inicio": 16.74, "fin": 18.28, "texto": "después de mi último trabajo."},
+    {"inicio": 19.3, "fin": 25.62, "corte_fin": 25.62, "texto": "la verdad es que me encargué de básicamente todo: empleados, ventas, contabilidad…"},
+    {"inicio": 28.02, "fin": 30.64, "texto": "al final, era lo mismo que tener mi propio negocio."},
+    {"inicio": 31.42, "fin": 35.76, "texto": "viví fuera mucho tiempo y sabía tratar con clientes un poco más exigentes,"},
+    {"inicio": 36.22, "fin": 40.16, "texto": "y sabía que al volver no quería volver por ese tipo de trabajos donde"},
+    {"inicio": 40.58, "fin": 44.04, "texto": "había un mal ambiente, donde te pagaban salarios precarios."},
+    {"inicio": 44.6, "fin": 49.06, "texto": "y dije: «mira, lo abro y me arriesgo». y sabía que si lo hacía…"},
+    {"inicio": 49.68, "fin": 51.16, "texto": "y ofrecer servicios de calidad"},
+    {"inicio": 51.16, "fin": 53.08, "texto": "y un sitio a donde yo iría.", "clave": "Un sitio a donde *yo iría*"}
+  ]
+}

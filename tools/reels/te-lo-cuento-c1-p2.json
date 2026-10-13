@@ -1,0 +1,28 @@
+{
+  "titulo": "Te lo cuento · Capítulo 1 · P2 · ¿Cómo fueron los comienzos?",
+  "salida": "osana-te-lo-cuento-c1-p2-como-fueron-los-comienzos",
+  "archivo": "todo.mov",
+  "serie": "Te lo cuento · Capítulo 1",
+  "pregunta": "¿cómo fueron|_los_|*comienzos?*",
+  "intro": 108.85,
+  "fin": 163.3,
+  "portada": 109.7,
+  "frases": [
+    {"inicio": 110.32, "fin": 111.04, "texto": "empecé sola."},
+    {"inicio": 112.0, "fin": 113.16, "texto": "en un local pequeño,"},
+    {"inicio": 114.28, "fin": 119.5, "texto": "con poco presupuesto, escondido, con un préstamo, con una máquina que pocos tenían."},
+    {"inicio": 120.18, "fin": 123.06, "texto": "creo que eso fue también una ventaja que jugó a mi favor,"},
+    {"inicio": 123.72, "fin": 125.64, "texto": "pero también ofrecer un servicio de calidad."},
+    {"inicio": 126.18, "fin": 129.78, "texto": "muchos lo sintieron, y hoy en día esos clientes del inicio"},
+    {"inicio": 130.36, "fin": 134.48, "texto": "siguen estando conmigo, siguen repitiendo, y eso también me llena muchísimo de emoción."},
+    {"inicio": 135.46, "fin": 137.02, "texto": "con el tiempo llegó Vanessa"},
+    {"inicio": 137.6, "fin": 138.46, "texto": "y este local,"},
+    {"inicio": 139.18, "fin": 143.12, "texto": "que hoy en día es mucho más grande. y yo pedía como el crecer,"},
+    {"inicio": 143.56, "fin": 144.74, "texto": "pero no sabía cómo."},
+    {"inicio": 145.28, "fin": 147.96, "texto": "hoy en día tengo tres cabinas grandes, ¿sabes?"},
+    {"inicio": 148.64, "fin": 151.4, "texto": "a Vanessa, que al final se ha convertido como en mi mano derecha."},
+    {"inicio": 151.48, "fin": 154.24, "texto": "muchos piensan que somos socios por la afinidad que hay."},
+    {"inicio": 156.84, "fin": 158.8, "texto": "todo llegó como en el momento preciso,", "clave": "Todo llegó en el *momento preciso*"},
+    {"inicio": 158.8, "fin": 162.76, "texto": "y ha sido de verdad que solo crecimiento."}
+  ]
+}
