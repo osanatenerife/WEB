@@ -57,6 +57,13 @@ Releases del repositorio.
   Las frases largas se parten en dos tomas seguidas con distinto encuadre.
 - En demostraciones (máquina, brazo, cabezal) el encuadre se fija en la tabla
   con `zoom` y `centro_x` para que se vea la acción, no solo la cara.
+- **No ir con prisa en los pasos y demostraciones**: después de cada paso, un
+  plano de recurso de 2,5–3 s sin diálogo mostrando la acción (extender el gel,
+  ponerse las gafas, coger el cabezal…), y la prueba del tratamiento alargada
+  (~5–8 s en total). La dueña quiere que se vea bien el tratamiento. En la
+  tabla: toma sin `dialogo`, con `volumen` ~0,6 para el sonido ambiente.
+- En los planos de recurso, zoom moderado (~1,4) para que se vean a la vez la
+  cara y la acción; con zoom mayor la cara queda cortada en el borde.
 - Entre bloques de tema: destello suave de 0,25 s con un «whoosh».
 - **Sin cartela final ni logo.**
 
