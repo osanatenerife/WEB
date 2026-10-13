@@ -1,0 +1,244 @@
+{
+  "titulo": "Láser SHR en hombre — montaje dinámico",
+  "salida": "osana-reel-laser-shr-dinamico",
+  "bpm": 120,
+  "destellos": {
+    "duracion": 0.16,
+    "alfa": 0.85
+  },
+  "tomas": [
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 8.9,
+      "dur": 2.0,
+      "velocidad": 1.0,
+      "mov": "punch",
+      "zoom": 1.1,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Así de *rápido* es el láser SHR",
+      "maquina": true,
+      "posicion": "arriba"
+    },
+    {
+      "archivo": "IMG_6379.mov",
+      "inicio": 1.0,
+      "dur": 1.0,
+      "velocidad": 1.8,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 1 · *Gel*"
+    },
+    {
+      "archivo": "IMG_6382.mov",
+      "inicio": 0.5,
+      "dur": 1.0,
+      "velocidad": 1.8,
+      "mov": "out",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 1 · *Gel*"
+    },
+    {
+      "archivo": "IMG_6385.mov",
+      "inicio": 3.0,
+      "dur": 1.0,
+      "velocidad": 1.6,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 1 · *Gel*"
+    },
+    {
+      "archivo": "IMG_6380.mov",
+      "inicio": 7.8,
+      "dur": 1.0,
+      "velocidad": 1.6,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 1 · *Gel*"
+    },
+    {
+      "archivo": "IMG_6379.mov",
+      "inicio": 15.8,
+      "dur": 1.0,
+      "velocidad": 1.8,
+      "mov": "out",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 1 · *Gel*"
+    },
+    {
+      "archivo": "IMG_6385.mov",
+      "inicio": 10.0,
+      "dur": 1.0,
+      "velocidad": 1.8,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 1 · *Gel*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 12.0,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 2 · *Láser SHR*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 20.5,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 2 · *Láser SHR*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 63.2,
+      "dur": 1.5,
+      "velocidad": 1.0,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 2 · *Láser SHR*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 113.0,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "in",
+      "zoom": 1.15,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Paso 2 · *Láser SHR*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 45.0,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "out",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "*Sin* dolor"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 95.5,
+      "dur": 1.0,
+      "velocidad": 1.0,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "*Sin* dolor"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 23.5,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "*Sin* dolor"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 117.5,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "out",
+      "zoom": 1.15,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "*Sin* dolor"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 101.0,
+      "dur": 1.0,
+      "velocidad": 1.0,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Rápido y *efectivo*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 32.0,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Rápido y *efectivo*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 52.0,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Rápido y *efectivo*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 110.2,
+      "dur": 1.5,
+      "velocidad": 1.0,
+      "mov": "punch",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Rápido y *efectivo*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 122.0,
+      "dur": 1.0,
+      "velocidad": 1.5,
+      "mov": "in",
+      "zoom": 1.15,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "Rápido y *efectivo*"
+    },
+    {
+      "archivo": "IMG_6383.mov",
+      "inicio": 96.6,
+      "dur": 2.5,
+      "velocidad": 1.0,
+      "mov": "in",
+      "zoom": 1.0,
+      "centro_x": 0.5,
+      "centro_y": 0.5,
+      "rotulo": "¿Te animas? *Reserva* tu sesión"
+    }
+  ]
+}
