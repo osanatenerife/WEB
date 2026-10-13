@@ -142,7 +142,8 @@ def ajustar_a_voz(tm, fuentes):
     if len(idx):
         a0 = tm["inicio"]
         tm["inicio"] = a0 + max(0.0, idx[0] * 0.02 - 0.08)
-        tm["fin"] = min(tm["fin"], a0 + (idx[-1] + 1) * 0.02 + 0.2)
+        # «margen_fin» en la tabla: más aire tras la última palabra si termina muy suave.
+        tm["fin"] = min(tm["fin"], a0 + (idx[-1] + 1) * 0.02 + tm.get("margen_fin", 0.2))
         voz = voz[int(round((tm["inicio"] - a0) / 0.02)):]
     tm["_voz"] = voz
 
@@ -332,8 +333,12 @@ Style: Sub,Montserrat ExtraBold,{F_SUB},{BLANCO},&H000000FF,&H00000000,&H0000000
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     ev = []
+    previo = None
     for tm in tomas:
         a, b = tm["_t0"], tm["_t1"]
+        # Si el plano anterior tenía el mismo recuadro, sigue fijo (sin fundido que parpadee).
+        mismo = previo is not None and previo.get("rotulo") == tm.get("rotulo")
+        previo = tm
         caja_top, ancho, alto, lineas = tm["_caja"]
         sub_top = tm["_sub_top"]
 
@@ -354,7 +359,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         if not tm.get("rotulo"):
             continue
         x0 = (W - ancho) // 2
-        entrada = r"\fad(120,0)"
+        entrada = "" if mismo else r"\fad(120,0)"
         ev.append(
             f"Dialogue: 3,{ts(a)},{ts(b)},Rotulo,,0,0,0,,"
             + r"{\an7\pos(" + f"{x0},{caja_top}" + r")\p1\bord0\shad0\blur1\1c&H000000&\1a" + CAJA_ALFA + entrada + "}"
@@ -362,7 +367,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         )
         y = caja_top + PAD_Y
         rot = dorar(r"\N".join(lineas), BLANCO)
-        if tm.get("maquina"):
+        if tm.get("maquina") and not mismo:
             ev += con_sombra(4, a, b, "Rotulo", 540, y, "", maquina(rot))
         else:
             ev += con_sombra(4, a, b, "Rotulo", 540, y, entrada, rot)

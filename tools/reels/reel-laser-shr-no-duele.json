@@ -79,13 +79,14 @@
       "fin": 117.8,
       "zoom": 1.5,
       "rotulo": "Paso 3 · *Potencia*",
-      "dialogo": "Tercero, controlamos muy bien la potencia."
+      "dialogo": "Tercero, controlamos muy bien la potencia.",
+      "margen_fin": 0.5
     },
     {
       "bloque": "Pasos",
       "archivo": "IMG_6759.mov",
-      "inicio": 127.4,
-      "fin": 130.6,
+      "inicio": 129.3,
+      "fin": 131.4,
       "zoom": 1.15,
       "rotulo": "Paso 3 · *Potencia*",
       "volumen": 0.6,
