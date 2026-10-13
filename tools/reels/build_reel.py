@@ -24,6 +24,7 @@ Estilo Osana (guía completa en tools/reels/ESTILO.md):
     Opcionales: --efectos (pop, whoosh, tecleo) y --musica (pad suave).
 """
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -32,7 +33,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import wave
+from concurrent.futures import ThreadPoolExecutor
 
 import cv2
 import numpy as np
@@ -63,6 +66,21 @@ F_ROT, LH_ROT, ROT_MAX_CHARS = 58, 70, 20
 F_PRE, LH_PRE = 104, 116
 PAD_X, PAD_Y, RADIO = 44, 30, 26
 CAJA_ALFA = "&H70&"                    # negro al ~56 %
+
+
+VERSION_ANALISIS = 2      # subir si cambia analizar(): invalida la caché de análisis
+VERSION_TOMA = 2          # subir si cambia cómo se codifica cada toma
+
+
+def huella(*partes):
+    """Clave corta y estable para la caché a partir de los parámetros de un paso."""
+    return hashlib.sha1(json.dumps(partes, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def en_paralelo(funcion, elementos, hilos=3):
+    """Ejecuta funcion(elemento) en paralelo (cada una lanza su propio ffmpeg)."""
+    with ThreadPoolExecutor(max_workers=hilos) as ex:
+        return list(ex.map(funcion, elementos))
 
 
 def run(cmd):
@@ -146,6 +164,18 @@ def ajustar_a_voz(tm, fuentes):
         tm["fin"] = min(tm["fin"], a0 + (idx[-1] + 1) * 0.02 + tm.get("margen_fin", 0.2))
         voz = voz[int(round((tm["inicio"] - a0) / 0.02)):]
     tm["_voz"] = voz
+
+
+def analizar_con_cache(tm, fuentes, cache):
+    clave = huella("analisis", VERSION_ANALISIS, tm["archivo"], round(tm["inicio"], 3), round(tm["fin"], 3))
+    ruta = os.path.join(cache, f"analisis_{clave}.npz")
+    if os.path.exists(ruta):
+        d = np.load(ruta)
+        tm["_imgs"] = list(d["imgs"])
+        tm["_cara"] = json.loads(str(d["cara"]))
+        return
+    analizar(tm, fuentes)
+    np.savez_compressed(ruta, imgs=np.stack(tm["_imgs"]), cara=json.dumps(tm["_cara"]))
 
 
 def completar_caras(tomas):
@@ -548,19 +578,23 @@ def main():
                     help="genera además una versión con música suave de fondo")
     ap.add_argument("--volumen-musica", type=float, default=0.08,
                     help="volumen de la música (0.05–0.10 = 5–10 %%)")
+    ap.add_argument("--cache", help="carpeta de caché (por defecto <salida>/.cache-reel): "
+                                    "los planos que no cambian no se vuelven a procesar")
     args = ap.parse_args()
 
     cfg = json.load(open(args.tabla, encoding="utf-8"))
     tomas = cfg["tomas"]
     tmp = tempfile.mkdtemp(prefix="reel-")
+    cache = args.cache or os.path.join(args.salida, ".cache-reel")
+    os.makedirs(cache, exist_ok=True)
+    reloj = [("inicio", time.time())]
 
     # 1) Analizar caras y luz; igualar blancos y exposición por clip.
     if cfg.get("voz"):
         for tm in tomas:
             if tm.get("dialogo"):        # los planos de recurso (sin diálogo) no se recortan
                 ajustar_a_voz(tm, args.fuentes)
-    for tm in tomas:
-        analizar(tm, args.fuentes)
+    en_paralelo(lambda tm: analizar_con_cache(tm, args.fuentes, cache), tomas, hilos=4)
     completar_caras(tomas)
     for i, tm in enumerate(tomas):
         encuadre(tm, i)
@@ -573,8 +607,10 @@ def main():
         lumas = [tm["_cara"]["luma"] for tm in ts_ if tm["_cara"]["luma"]]
         receta[archivo] = correccion(blancos(imgs), float(np.mean(lumas)) if lumas else None)
 
-    # 2) Cortar, encuadrar y corregir cada toma.
-    piezas, voces, t = [], [], 0.0
+    reloj.append(("análisis", time.time()))
+
+    # 2) Cortar, encuadrar y corregir cada toma (en paralelo y con caché).
+    trabajos, piezas, voces, t = [], [], [], 0.0
     for i, tm in enumerate(tomas):
         n = round((tm["fin"] - tm["inicio"]) * FPS)
         dur = n / FPS
@@ -585,22 +621,34 @@ def main():
             f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
             f"scale={W}:{H}:flags=lanczos,fps={FPS},{receta[tm['archivo']]},setsar=1,format=yuv420p"
         )
-        out = os.path.join(tmp, f"toma{i:02d}.mp4")
-        run(["ffmpeg", "-v", "error", "-y", "-ss", str(tm["inicio"]),
-             "-i", os.path.join(args.fuentes, tm["archivo"]),
-             "-frames:v", str(n), "-an", "-vf", vf,
-             "-c:v", "libx264", "-preset", "medium", "-crf", "12", out])
+        fuente = os.path.join(args.fuentes, tm["archivo"])
+        out = os.path.join(cache, f"toma_{huella('toma', VERSION_TOMA, tm['archivo'], round(tm['inicio'], 3), n, vf)}.mp4")
         piezas.append(out)
+        if not os.path.exists(out):
+            # Intermedio casi sin pérdida pero rápido; la calidad final la fija la última pasada.
+            trabajos.append(["ffmpeg", "-v", "error", "-y", "-ss", f"{tm['inicio']:.3f}", "-i", fuente,
+                             "-frames:v", str(n), "-an", "-vf", vf,
+                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "14", out + ".tmp.mp4"])
         if cfg.get("voz"):
             # Voz original de la toma, con microfundidos para que el corte no chasquee.
-            wv = os.path.join(tmp, f"voz{i:02d}.wav")
-            run(["ffmpeg", "-v", "error", "-y", "-ss", str(tm["inicio"]),
-                 "-i", os.path.join(args.fuentes, tm["archivo"]), "-t", f"{dur:.4f}",
-                 "-vn", "-ac", "1", "-ar", "48000",
-                 "-af", f"volume={tm.get('volumen', 1.0)},"
-                        f"afade=t=in:d=0.012,afade=t=out:st={dur - 0.015:.4f}:d=0.015",
-                 "-c:a", "pcm_s16le", wv])
+            vol = tm.get("volumen", 1.0)
+            wv = os.path.join(cache, f"voz_{huella('voz', tm['archivo'], round(tm['inicio'], 3), round(dur, 4), vol)}.wav")
             voces.append(wv)
+            if not os.path.exists(wv):
+                trabajos.append(["ffmpeg", "-v", "error", "-y", "-ss", f"{tm['inicio']:.3f}", "-i", fuente,
+                                 "-t", f"{dur:.4f}", "-vn", "-ac", "1", "-ar", "48000",
+                                 "-af", f"volume={vol},afade=t=in:d=0.012,"
+                                        f"afade=t=out:st={dur - 0.015:.4f}:d=0.015",
+                                 "-c:a", "pcm_s16le", wv + ".tmp.wav"])
+
+    def ejecutar(cmd):
+        run(cmd)
+        os.replace(cmd[-1], cmd[-1][:-len(".tmp.mp4")] if cmd[-1].endswith(".tmp.mp4")
+                   else cmd[-1][:-len(".tmp.wav")])
+    print(f"Planos: {len(piezas)} ({len(piezas) - sum(1 for c in trabajos if c[-1].endswith('.mp4'))} reutilizados)",
+          file=sys.stderr)
+    en_paralelo(ejecutar, trabajos, hilos=3)
+    reloj.append(("planos", time.time()))
 
     dur_total = t
 
@@ -667,7 +715,7 @@ def main():
     audio = ["-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"] if con_audio else ["-an"]
     run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", wav,
          "-filter_complex", filtro, "-map", "[v]", *audio,
-         "-c:v", "libx264", "-preset", "slow", "-crf", "19",
+         "-c:v", "libx264", "-preset", "medium", "-crf", "19",
          "-maxrate", f"{tasa}k", "-bufsize", f"{2 * tasa}k",
          "-profile:v", "high",
          "-pix_fmt", "yuv420p", "-r", str(FPS),
@@ -682,6 +730,9 @@ def main():
              "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", con])
         salidas.append(con)
 
+    reloj.append(("final", time.time()))
+    print("Tiempos: " + ", ".join(f"{n} {t1 - t0:.0f} s" for (_, t0), (n, t1) in zip(reloj, reloj[1:])),
+          file=sys.stderr)
     for tm in tomas:
         print(f"{tm['_t0']:5.2f}s {tm['archivo']} zoom={1 / tm['_crop'][2]:.2f} "
               f"subs_y={tm['_sub_top']} recuadro_y={tm['_caja'][0]} franja={tm['_franja']}", file=sys.stderr)
