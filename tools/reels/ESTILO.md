@@ -248,7 +248,13 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
     muy baja por debajo: en «Volumen», audio de la cámara al 100 % y canción al 5–10 %.
   - Montajes sin voz: canción en tendencia (↗) al 100 %.
   - Un Reel que se quiera promocionar (pagar publicidad) no puede llevar música con
-    derechos de autor: solo su voz o música libre de la biblioteca de Instagram.
+    derechos de autor: solo su voz o música apta para uso comercial (p. ej., la
+    Colección de sonidos de Meta). Tampoco vale meter la canción dentro del vídeo antes
+    de subirlo: Instagram la reconoce igual y puede silenciar el Reel o rechazar el
+    anuncio. Su voz y los sonidos reales (la máquina) no dan ningún problema.
+  - Decidir antes de publicar: el Reel que se va a promocionar, solo con su voz; los
+    demás pueden llevar la canción en tendencia. Si uno ya se publicó con canción, el
+    anuncio se crea en el Administrador de anuncios con el archivo sin canción.
 
 ## Consejos de grabación para la dueña
 
