@@ -106,7 +106,9 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
 
 - Herramienta: `te_lo_cuento.py` con una tabla por pregunta (`te-lo-cuento-c1-p1.json`…).
   Una pregunta, un clip de 30–60 s. Si hay varias tomas de la misma respuesta, se
-  elige la más clara y que no repita lo que ya cuenta otra pregunta.
+  elige la más clara y que no repita lo que ya cuenta otra pregunta (ni frases
+  repetidas dentro del mismo clip, como «un buen ambiente, un buen ambiente»).
+  Requisitos: `pip install mediapipe` y, en Linux sin pantalla, `apt-get install libegl1 libgles2`.
 - **Sin filtro**: la luz y el color como se grabaron. El filtro anterior le dejaba la
   piel blanca y poco cálida y le oscurecía los ojos («un manchón negro»).
 - **Sin «Capítulo 1, 2…»** ni etiqueta de serie en el vídeo (si acaso, en el pie de foto).
@@ -127,7 +129,15 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   referencias.
 - Al final, **«osana.es» pequeño y centrado debajo de las últimas palabras**, que se
   quedan en pantalla hasta el final. Nada de buscador ni cartela.
-- El último plano termina en una mirada o una sonrisa (nunca en un parpadeo).
+- **La cara, siempre bien en cada corte**: nunca ojos a medio cerrar, boca abierta en
+  un silencio ni gestos raros. `gestos.py` mide ojos y boca en cada fotograma
+  (MediaPipe) y el montaje mueve cada corte unos fotogramas hasta uno bueno, sin
+  comerse la voz; si parpadea justo al acabar la última palabra, se congela el último
+  fotograma bueno (1–3 fotogramas, ya en silencio). Aun así, revisar a ojo el primer y
+  el último fotograma de cada plano.
+- El clip termina justo al acabar de hablar, con los ojos abiertos y antes de que cambie
+  la cara; el primer fotograma, con la expresión que lleva la respuesta (p. ej. la
+  cara extrañada de «¿qué es lo que nunca…?»), no sonriendo para luego cambiar.
 - Sin música (la pone ella al publicar) y voz sin reducción de ruido.
 
 ## Textos

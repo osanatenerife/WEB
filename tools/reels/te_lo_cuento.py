@@ -18,8 +18,11 @@ Estilo natural (lo que pidió la dueña tras ver la primera versión y sus refer
   - Subtítulos pequeños en mayúsculas espaciadas, blancos, de 2 o 3 palabras, al
     ritmo de la voz y a la altura del pecho.
   - Al final, «osana.es» pequeño y centrado debajo de las últimas palabras.
-  - Dientes: con la luz cálida salían amarillentos o con manchas; se blanquean de
-    forma natural, solo dentro de la boca (dientes.py).
+  - Dientes: con la luz cálida salían amarillentos o con manchas; se igualan las
+    manchas al tono de sus dientes, solo dentro de la boca (dientes.py).
+  - Ningún corte con los ojos a medio cerrar: cada inicio y final de plano se mueve
+    unos fotogramas hasta uno con los ojos abiertos (gestos.py), sin comerse la voz;
+    si el parpadeo coincide con la última palabra, se congela el último fotograma bueno.
   - Voz natural (sin reducción de ruido), compresión ligera y -14 LUFS. Sin música:
     la pone ella al publicar.
 
@@ -52,6 +55,7 @@ from PIL import ImageFont
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_reel as br  # noqa: E402  (reutiliza análisis de cara, voz y caché)
 import dientes as dt  # noqa: E402  (blanqueado natural de dientes)
+import gestos as gs  # noqa: E402  (ojos y boca en cada fotograma)
 
 W, H, FPS = br.W, br.H, br.FPS
 VERSION_TOMA = 3
@@ -231,10 +235,85 @@ def encuadre(p):
 
 
 def filtro_plano(p):
-    """Solo encuadre: la luz y el color, tal como se grabaron."""
+    """Solo encuadre: la luz y el color, tal como se grabaron. Con «fin_imagen», los
+    últimos fotogramas repiten el último bueno (la voz sigue hasta acabar la palabra)."""
     x0, y0, cw, ch = p["_crop"]
-    return (f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
-            f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p")
+    vf = (f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
+          f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p")
+    if p.get("fin_imagen"):
+        n = round((p["fin"] - p["inicio"]) * FPS)
+        visibles = round((p["fin_imagen"] - p["inicio"]) * FPS)
+        if 0 < visibles < n:
+            vf += f",trim=end_frame={visibles},tpad=stop_mode=clone:stop={n - visibles}"
+    return vf
+
+
+def pulir_cortes(planos, cfg, g):
+    """Que ningún corte caiga en un parpadeo. Cada inicio de tramo se mueve (sin pasar
+    del comienzo de la voz) hasta un fotograma con los ojos abiertos; cada final, hasta
+    uno bueno sin cortar la última palabra (si no lo hay, se congela el último bueno);
+    y los cambios de encuadre dentro de una frase, a un punto sin parpadeo."""
+    k = lambda t: int(round(t * FPS))  # noqa: E731
+
+    def bien(a, b, umbral=gs.OJOS_MAL):
+        return all(v[0] <= umbral for v in g.tramo(a / FPS, b / FPS).values())
+    cambios = []
+    for i, p in enumerate(planos):
+        previo = planos[i - 1] if i else None
+        siguiente = planos[i + 1] if i + 1 < len(planos) else None
+        # Inicio de tramo (entra la voz): más tarde, nunca después de empezar a hablar.
+        if previo is None or previo["tramo"] != p["tramo"]:
+            s0 = k(p["inicio"])
+            voz = k(p["frases"][0]["inicio"]) - (6 if i == 0 else 1)
+            fijo = i == 0 or "corte_inicio" in p["frases"][0]
+            # Si parpadea justo antes de hablar, se empieza un poco antes, aún en silencio
+            # (hasta 0,4 s y nunca dentro de la frase anterior).
+            n_frase = cfg["frases"].index(p["frases"][0])
+            antes = cfg["frases"][n_frase - 1]["fin"] if n_frase else None
+            minimo = s0 if fijo else max(s0 - 12, k(antes + 0.08) if antes is not None and antes < p["inicio"] else s0 - 12)
+            candidatos = sorted(range(minimo, max(voz, s0) + 1), key=lambda c: (c < s0, abs(c - s0)))
+            nuevo = next((c for c in candidatos if bien(c, c + 3)), s0)
+            if nuevo != s0:
+                cambios.append(f"inicio {p['inicio']:.2f} → {nuevo / FPS:.2f}")
+                p["inicio"] = nuevo / FPS
+        # Final de tramo (acaba la voz): sin comerse la última palabra.
+        if siguiente is None or siguiente["tramo"] != p["tramo"]:
+            e0 = k(p["fin"])
+            fin_voz = p["frases"][-1]["fin"]
+            voz = k(fin_voz + 0.06)
+            fijo = siguiente is None and "fin" in cfg or "corte_fin" in p["frases"][-1]
+            # Hasta 0,3 s más de pausa, sin llegar a la frase siguiente del original.
+            n_frase = cfg["frases"].index(p["frases"][-1])
+            despues = cfg["frases"][n_frase + 1]["inicio"] if n_frase + 1 < len(cfg["frases"]) else None
+            maximo = e0 if fijo else min(e0 + 9, k(despues - 0.1) if despues and despues > fin_voz else e0 + 9)
+            # La última imagen del clip se queda en la retina: ahí, ojos bien abiertos.
+            umbral = 0.15 if siguiente is None else gs.OJOS_MAL
+            candidatos = sorted(range(min(voz, e0), max(maximo, min(voz, e0)) + 1), key=lambda c: (c > e0, abs(c - e0)))
+            nuevo = next((c for c in candidatos if bien(c - 4, c - 1, umbral)), None)
+            if nuevo is None:
+                # Parpadeo justo al acabar de hablar: se congela el último fotograma bueno,
+                # solo si lo congelado es ya casi silencio (si no, se notaría la boca quieta).
+                bueno = next((c for c in range(min(voz, e0) - 1, min(voz, e0) - 12, -1)
+                              if bien(c - 3, c, umbral)), None)
+                if bueno is not None and bueno + 1 >= k(fin_voz - 0.08):
+                    if not fijo:
+                        p["fin"] = min(voz, e0) / FPS      # congelado lo justo para acabar la palabra
+                    p["fin_imagen"] = (bueno + 1) / FPS
+                    cambios.append(f"final {e0 / FPS:.2f}: imagen congelada desde {(bueno + 1) / FPS:.2f}")
+                else:
+                    cambios.append(f"final {e0 / FPS:.2f}: parpadeo sin arreglo automático (revisar)")
+            elif nuevo != e0:
+                cambios.append(f"final {p['fin']:.2f} → {nuevo / FPS:.2f}")
+                p["fin"] = nuevo / FPS
+        # Cambio de encuadre dentro del mismo tramo (la voz sigue): a un punto sin parpadeo.
+        elif siguiente is not None and abs(siguiente["inicio"] - p["fin"]) < 1e-6:
+            c0 = k(p["fin"])
+            candidatos = sorted(range(c0 - 6, c0 + 7), key=lambda c: abs(c - c0))
+            nuevo = next((c for c in candidatos if bien(c - 3, c + 2)), c0)
+            if nuevo != c0:
+                cambios.append(f"corte {p['fin']:.2f} → {nuevo / FPS:.2f}")
+                p["fin"] = siguiente["inicio"] = nuevo / FPS
+    return cambios
 
 
 # ---------------------------------------------------------------- textos
@@ -375,6 +454,8 @@ def main():
     ap.add_argument("--salida", default=".")
     ap.add_argument("--cache")
     ap.add_argument("--solo-portada", action="store_true", help="genera solo la portada (JPG)")
+    ap.add_argument("--sin-gestos", action="store_true",
+                    help="no comprueba los ojos en los cortes (si no hay mediapipe)")
     args = ap.parse_args()
 
     cfg = json.load(open(args.tabla, encoding="utf-8"))
@@ -387,6 +468,11 @@ def main():
 
     planos = partir_largos(segmentos_y_planos(cfg), ruta)
     tipos_de_plano(planos)
+    if not args.sin_gestos:
+        g = gs.Gestos(ruta, cache)
+        for c in pulir_cortes(planos, cfg, g):
+            print("Ojos:", c, file=sys.stderr)
+        g.cerrar()
     tomas = [dict(archivo=cfg["archivo"], inicio=p["inicio"], fin=p["fin"]) for p in planos]
     br.en_paralelo(lambda tm: br.analizar_con_cache(tm, args.fuentes, cache), tomas, hilos=4)
     br.completar_caras(tomas)
