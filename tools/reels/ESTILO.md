@@ -77,16 +77,24 @@ Releases del repositorio.
   planos de 1,5–2,5 s, el láser a velocidad normal («que se vea que es rápido, no
   acelerarlo»), el gel como mucho ×1,2, zoom suave (7 %) y un destello corto solo
   cuando cambia el texto. El resplandor rojo del láser hace de destello natural.
-- Textos: **beneficios**, no «Paso 1, Paso 2». Recuadro oscuro (`&H40&`) con letra
-  grande (84 px). Gancho arriba con máquina de escribir; el resto abajo. Cierre con
-  «Reserva en osana.es». Sin audio: ella pone la canción o la voz en off.
-- Evitar afirmaciones absolutas o comparativas que no se puedan demostrar
-  («100 %», «más efectivo que el diodo», «la mitad de sesiones»), salvo que ella
-  aporte datos del fabricante: en publicidad tienen que poder demostrarse.
+- **Para su Instagram, sin textos** (`--sin-texto`): los recuadros de texto «no
+  gustan» en su cuenta. El mensaje (beneficios y llamada a reservar) va en el pie
+  del Reel. Los destellos se quedan donde cambiaba el texto. Sin audio: ella pone
+  la canción o la voz en off.
+- Si alguna vez se piden textos: **beneficios**, no «Paso 1, Paso 2». Recuadro oscuro
+  (`&H40&`) con letra grande (84 px), gancho arriba con máquina de escribir y cierre
+  con «Reserva en osana.es».
+- Se puede decir **«láser»** e **«indoloro»** (confirmado por la dueña). Evitar otras
+  afirmaciones absolutas o comparativas que no se puedan demostrar («100 %», «más
+  efectivo que el diodo», «la mitad de sesiones», «definitiva»), salvo que ella aporte
+  datos del fabricante: en publicidad tienen que poder demostrarse.
 - Piel: cada clip se lleva a un mismo tono natural (R/G 1,18, R/B 1,42, al 75 %);
   los clips con gel salen muy naranjas sin esta corrección.
-- No usar planos donde se vea la cara de un cliente salvo que ella confirme que
-  tiene su permiso.
+- Las personas de los vídeos de láser de octubre son **modelos**: se pueden mostrar.
+  Con clientes reales, solo con su permiso por escrito.
+- Pie del Reel: breve, gancho en la primera línea, beneficios, sesión de prueba
+  gratis y cómo reservar; como mucho **5 hashtags** (límite de Instagram desde
+  diciembre de 2025).
 
 ## Serie «Te lo cuento» (entrevista)
 

@@ -127,6 +127,9 @@ def main():
     ap.add_argument("--fuentes", required=True)
     ap.add_argument("--salida", default=".")
     ap.add_argument("--cache")
+    ap.add_argument("--sin-texto", action="store_true",
+                    help="sin recuadros de texto (para su Instagram: el mensaje va en el pie del Reel); "
+                         "los destellos se quedan donde cambiaba el texto")
     args = ap.parse_args()
 
     cfg = json.load(open(args.tabla, encoding="utf-8"))
@@ -210,12 +213,15 @@ def main():
             + f"fade=out:st={subida}:d={dur_f}:alpha=1,setpts=PTS+{max(c - subida, 0):.3f}/TB[f{k}];"
             f"[{previo}][f{k}]overlay=eof_action=pass:format=auto[v{k}];")
         previo = f"v{k}"
-    ass = os.path.join(tmp, "textos.ass")
-    escribir_ass(ass, tomas, cfg.get("texto"))
-    filtro += f"[{previo}]subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}',format=yuv420p[v]"
+    if args.sin_texto:
+        filtro += f"[{previo}]format=yuv420p[v]"
+    else:
+        ass = os.path.join(tmp, "textos.ass")
+        escribir_ass(ass, tomas, cfg.get("texto"))
+        filtro += f"[{previo}]subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}',format=yuv420p[v]"
 
     os.makedirs(args.salida, exist_ok=True)
-    final = os.path.join(args.salida, cfg["salida"] + ".mp4")
+    final = os.path.join(args.salida, cfg["salida"] + ("-sin-texto" if args.sin_texto else "") + ".mp4")
     tasa = int(min(8000, 27e6 * 8 / dur_total / 1000 - 100))
     br.run(["ffmpeg", "-v", "error", "-y", "-i", base, "-filter_complex", filtro, "-map", "[v]", "-an",
             "-c:v", "libx264", "-preset", "medium", "-crf", "18",
