@@ -73,12 +73,16 @@ Releases del repositorio.
 ## Montaje dinámico sin voz (anuncios, TikTok)
 
 - Herramienta: `montaje_dinamico.py` con una tabla como `montaje-laser-shr-hombre.json`.
-- Cortes al ritmo (120 BPM: 0,5–1,5 s por plano), zoom en movimiento en cada plano
-  (`mov`: `in`, `out`, `punch`), destello blanco/cálido de 0,16 s en cada corte, el
-  gel acelerado (×1,6–1,8) y los disparos del láser a velocidad normal (el
-  resplandor rojo que capta la cámara hace de destello natural).
-- Recuadros del estilo Osana: gancho arriba con máquina de escribir; pasos y cierre
-  abajo. Sin audio: ella pone la canción o la voz en off al publicar.
+- **Dinámico pero sin prisa** (la primera versión, muy acelerada, no le gustó):
+  planos de 1,5–2,5 s, el láser a velocidad normal («que se vea que es rápido, no
+  acelerarlo»), el gel como mucho ×1,2, zoom suave (7 %) y un destello corto solo
+  cuando cambia el texto. El resplandor rojo del láser hace de destello natural.
+- Textos: **beneficios**, no «Paso 1, Paso 2». Recuadro oscuro (`&H40&`) con letra
+  grande (84 px). Gancho arriba con máquina de escribir; el resto abajo. Cierre con
+  «Reserva en osana.es». Sin audio: ella pone la canción o la voz en off.
+- Evitar afirmaciones absolutas o comparativas que no se puedan demostrar
+  («100 %», «más efectivo que el diodo», «la mitad de sesiones»), salvo que ella
+  aporte datos del fabricante: en publicidad tienen que poder demostrarse.
 - Piel: cada clip se lleva a un mismo tono natural (R/G 1,18, R/B 1,42, al 75 %);
   los clips con gel salen muy naranjas sin esta corrección.
 - No usar planos donde se vea la cara de un cliente salvo que ella confirme que

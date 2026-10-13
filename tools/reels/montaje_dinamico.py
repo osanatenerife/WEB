@@ -60,17 +60,24 @@ def recorte(dim, zoom, cx, cy):
     return par(cw), par(ch), par(x), par(y)
 
 
-def zoom_animado(mov, n):
-    """Expresión de zoompan: «in» acerca despacio, «out» se aleja, «punch» golpe de zoom."""
+def zoom_animado(mov, n, fuerza=0.08):
+    """Expresión de zoompan: «in» acerca despacio, «out» se aleja, «punch» golpe de zoom
+    suave. «fuerza» es cuánto se acerca en total (0,08 = un 8 %)."""
     n = max(n, 1)
     return {
-        "in": f"1+0.12*on/{n}",
-        "out": f"1.12-0.12*on/{n}",
-        "punch": f"1+0.20*exp(-on/3)+0.05*on/{n}",
+        "in": f"1+{fuerza}*on/{n}",
+        "out": f"{1 + fuerza}-{fuerza}*on/{n}",
+        "punch": f"1+{fuerza * 1.5}*exp(-on/5)+{fuerza / 2}*on/{n}",
     }.get(mov, "1")
 
 
-def escribir_ass(ruta, tomas):
+def escribir_ass(ruta, tomas, texto_cfg=None):
+    tc = texto_cfg or {}
+    fs = tc.get("tamano", br.F_ROT)                 # tamaño de letra del recuadro
+    lh = int(fs * 1.2)
+    max_chars = tc.get("max_letras", br.ROT_MAX_CHARS)
+    alfa_caja = tc.get("alfa_caja", br.CAJA_ALFA)  # &H00& opaco … &HFF& transparente
+    pad_x, pad_y = int(br.PAD_X * fs / br.F_ROT), int(br.PAD_Y * fs / br.F_ROT)
     cab = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {W}
@@ -80,7 +87,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Rotulo,Montserrat ExtraBold,{br.F_ROT},{br.BLANCO},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,0,0,8,40,40,0,1
+Style: Rotulo,Montserrat ExtraBold,{fs},{br.BLANCO},&H000000FF,&H00000000,&H00000000,0,0,0,0,100,100,1,0,1,0,0,8,40,40,0,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -95,21 +102,21 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             grupos.append({"rotulo": tm["rotulo"], "a": tm["_t0"], "b": tm["_t1"],
                            "maquina": tm.get("maquina"), "posicion": tm.get("posicion")})
     for g in grupos:
-        lineas = br.partir(g["rotulo"].upper(), br.ROT_MAX_CHARS)
-        alto = 2 * br.PAD_Y + len(lineas) * br.LH_ROT
-        ancho = int(min(W - 80, max(2 * br.PAD_X + max(br.ancho_texto(l, br.F_ROT) for l in lineas), 360)))
+        lineas = br.partir(g["rotulo"].upper(), max_chars)
+        alto = 2 * pad_y + len(lineas) * lh
+        ancho = int(min(W - 60, max(2 * pad_x + max(br.ancho_texto(l, fs) for l in lineas), 360)))
         top = int(H * 0.2) if g["posicion"] == "arriba" else br.LIMITE_INF - alto
         x0 = (W - ancho) // 2
         a, b = g["a"], g["b"]
         entrada = r"\fad(100,0)\fscx108\fscy108\t(0,140,\fscx100\fscy100)"
         ev.append(f"Dialogue: 3,{br.ts(a)},{br.ts(b)},Rotulo,,0,0,0,,"
                   + r"{\an7\pos(" + f"{x0},{top}" + r")\p1\bord0\shad0\blur1\1c&H000000&\1a"
-                  + br.CAJA_ALFA + r"\fad(100,0)}" + br.rect_redondeado(ancho, alto, br.RADIO))
+                  + alfa_caja + r"\fad(100,0)}" + br.rect_redondeado(ancho, alto, int(br.RADIO * fs / br.F_ROT)))
         texto = br.dorar(r"\N".join(lineas), br.BLANCO)
         if g["maquina"]:
-            ev += br.con_sombra(4, a, b, "Rotulo", 540, top + br.PAD_Y, "", br.maquina(texto))
+            ev += br.con_sombra(4, a, b, "Rotulo", 540, top + pad_y, "", br.maquina(texto))
         else:
-            ev += br.con_sombra(4, a, b, "Rotulo", 540, top + br.PAD_Y, entrada, texto)
+            ev += br.con_sombra(4, a, b, "Rotulo", 540, top + pad_y, entrada, texto)
     with open(ruta, "w", encoding="utf-8") as f:
         f.write(cab + "\n".join(ev) + "\n")
 
@@ -158,7 +165,7 @@ def main():
                                tm.get("centro_x", 0.5), tm.get("centro_y", 0.5))
         vf = (f"setpts=PTS/{tm.get('velocidad', 1.0)},fps={FPS},crop={cw}:{ch}:{x}:{y},"
               f"scale={SUPER[0]}:{SUPER[1]}:flags=lanczos,"
-              f"zoompan=z='{zoom_animado(tm.get('mov', 'in'), n)}':x='iw/2-(iw/zoom/2)':"
+              f"zoompan=z='{zoom_animado(tm.get('mov', 'in'), n, cfg.get('zoom_mov', 0.08))}':x='iw/2-(iw/zoom/2)':"
               f"y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},"
               f"{receta[tm['archivo']]},setsar=1,format=yuv420p")
         out = os.path.join(cache, "dinamica_" + br.huella("dinamica", VERSION_TOMA, tm["archivo"],
@@ -189,7 +196,11 @@ def main():
     d = cfg.get("destellos", {})
     dur_f, alfa = d.get("duracion", 0.16), d.get("alfa", 0.85)
     colores = d.get("colores", ["0xFFFFFF", "0xFFE4C4"])
-    cortes = [0.0] + [tm["_t0"] for tm in tomas[1:] if tm.get("destello", True)]
+    if d.get("solo_al_cambiar_texto"):
+        cortes = [0.0] + [tm["_t0"] for prev, tm in zip(tomas, tomas[1:])
+                          if tm.get("rotulo") != prev.get("rotulo") or tm.get("destello")]
+    else:
+        cortes = [0.0] + [tm["_t0"] for tm in tomas[1:] if tm.get("destello", True)]
     filtro, previo = "", "0:v"
     for k, c in enumerate(cortes):
         subida = 0.0 if c == 0 else 0.04
@@ -200,7 +211,7 @@ def main():
             f"[{previo}][f{k}]overlay=eof_action=pass:format=auto[v{k}];")
         previo = f"v{k}"
     ass = os.path.join(tmp, "textos.ass")
-    escribir_ass(ass, tomas)
+    escribir_ass(ass, tomas, cfg.get("texto"))
     filtro += f"[{previo}]subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}',format=yuv420p[v]"
 
     os.makedirs(args.salida, exist_ok=True)
