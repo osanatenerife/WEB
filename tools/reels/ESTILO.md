@@ -1,8 +1,72 @@
 # Estilo de Reels de Osana
 
 Guía fija para editar todos los vídeos de Instagram de Osana con el mismo
-acabado profesional. La herramienta `build_reel.py` aplica todo esto de forma
-automática a partir de una tabla de tomas en JSON.
+acabado profesional. Las herramientas de esta carpeta (`te_lo_cuento.py`,
+`build_reel.py`, `montaje_dinamico.py`) aplican todo esto de forma automática a
+partir de una tabla en JSON.
+
+## Formatos fijos (no cambiar sin que lo pida la dueña)
+
+La dueña quiere que sus formatos sean **iguales casi siempre**. Hay dos formatos
+aprobados: cada vídeo nuevo usa uno de ellos tal cual y solo cambia el contenido.
+`test_formatos.py` comprueba que la letra, los tamaños, los colores, las posiciones y
+el ritmo no han cambiado, y que la letra se dibuja de verdad (ejecutarlo antes de
+montar). Si ella pide un cambio, se cambian a la vez el código, esta guía y el test.
+
+| | Formato 1 · Entrevista | Formato 2 · Explicación con prueba |
+|---|---|---|
+| Para | Entrevistas y vídeos de ella hablando a cámara (**formato por defecto**) | Enseñar un tratamiento paso a paso mientras se lo hace ella |
+| Aprobado con | «Te lo cuento», capítulo 1 (octubre de 2026) | «¿Duele el láser SHR? Me lo pruebo yo» (octubre de 2026) |
+| Herramienta | `te_lo_cuento.py` | `build_reel.py` |
+| Plantilla | `te-lo-cuento-c1-p1.json` | `reel-laser-shr-no-duele.json` |
+| Letra | **Raleway SemiBold** (`fonts/Raleway-600.ttf`) | **Montserrat ExtraBold** (`fonts/Montserrat-800.ttf`) |
+| Imagen | Su luz, sin filtro; manchas de los dientes igualadas | Su luz, sin filtro (`"filtro": false`) |
+| Audio | Su voz a -14 LUFS, sin música ni efectos | Su voz a -14 LUFS y el sonido real de la máquina, sin efectos |
+
+**Raleway SemiBold es la letra de la marca en vídeo**: cualquier vídeo nuevo que no sea
+del formato 2 la usa, en mayúsculas espaciadas, en blanco o en el marrón de la marca
+(nunca dorado ni amarillo, que no son colores de Osana).
+
+### Formato 1 · Entrevista (medidas)
+
+- **Pregunta o título** (opcional), solo al inicio: desde 0,1 s hasta 2–2,8 s, con
+  fundido de 0,25 s al entrar y 0,3 s al salir. Mayúsculas en Raleway SemiBold de
+  hasta 104 px (se ajusta para caber a la izquierda de la cara), espaciado entre letras
+  del 6 %, arriba a la izquierda (x 72, y 330); «|» separa las líneas. En el **marrón de
+  la marca #6E5A3C**; si el fondo de detrás es oscuro (luz < 0,6) sale sola en blanco
+  con sombra suave (`"color_pregunta"` lo fija a mano).
+- **Subtítulos**: Raleway SemiBold 56 px en mayúsculas, espaciado 16 %, blancos con
+  sombra negra muy suave (35 %), 2 o 3 palabras (como mucho 18 letras), sin puntuación,
+  centrados a la altura del pecho (y 1300). Las últimas palabras se quedan hasta el final.
+- **Final**: «osana.es» en 44 px (espaciado 14 %), centrado justo debajo de las últimas
+  palabras, en los últimos 1,8 s.
+- **Encuadre y ritmo**: el primer plano al 114 % y anclado arriba a la izquierda (deja
+  sitio a la pregunta); después, abierto (100 %) y cerrado (114 %) alternos y la frase
+  clave al 122 %, con los ojos en el tercio superior. Fuera las pausas de más de 0,55 s;
+  los planos de más de 5,2 s, en dos encuadres sin cortar el audio. Ningún corte con los
+  ojos a medio cerrar.
+- 1080×1920, 30 fps, 30–60 s, menos de 30 MB y portada JPG con la pregunta.
+- Detalles y motivos: «Formato 1 · Entrevista: serie «Te lo cuento»», más abajo.
+
+### Formato 2 · Explicación con prueba (medidas)
+
+- **Estructura** (bloques de la tabla): gancho con la pregunta en el recuadro y efecto
+  máquina de escribir («¿Duele el láser *SHR*?») → «Me lo pruebo *yo*» → pasos
+  («Paso 1 · *Gel*», «Paso 2 · *Gafas*», «Paso 3 · *Potencia*», «Paso 4 · *Láser*») →
+  sensaciones («Solo un *calor* ligero», «No duele *nada*», «Rápido y *efectivo*») →
+  cierre («¿Te animas a *probarlo*?», «Sesión de prueba *gratis*»). Unos 50 s, sin
+  cartela final.
+- **Cada paso**: la toma en la que lo explica y un plano de recurso de 2,5–5 s con la
+  acción. Si la máquina suena (los pitidos al ajustar la potencia), el recurso lleva su
+  sonido real con `"volumen": 1.4`: es «el motivo» del plano. Fuera los gestos de paso
+  (coger el cabezal): se va directo a la acción, con el cabezal ya en la mano.
+- **Recuadro**: negro al ~56 % con esquinas redondeadas, Montserrat ExtraBold 58 px en
+  mayúsculas blancas y la palabra clave en **dorado #EEC662** (entre `*asteriscos*` en la
+  tabla). Encima de la cabeza si cabe; si no, abajo. Si el plano siguiente lleva el mismo
+  recuadro, se queda en el mismo sitio y sin fundido.
+- **Subtítulos**: Montserrat ExtraBold 80 px, blancos con sombra suave, justo debajo de la
+  barbilla, construyéndose palabra a palabra en grupos de hasta 3 (16 letras).
+- Detalles: secciones «Montaje», «Textos» y «Audio».
 
 ## Cómo se trabaja
 
@@ -18,7 +82,12 @@ automática a partir de una tabla de tomas en JSON.
    exactas. Nunca se añaden promociones o datos que ella no diga.
 3. Se monta con:
    ```
-   pip install numpy "opencv-python-headless<5"
+   pip install numpy pillow "opencv-python-headless<5"
+   python3 tools/reels/test_formatos.py        # la letra y los formatos, intactos
+   # Formato 1 · Entrevista
+   python3 tools/reels/te_lo_cuento.py tools/reels/<tabla>.json \
+       --fuentes <carpeta-videos> --salida <carpeta-salida>
+   # Formato 2 · Explicación con prueba (y reels con diálogo escrito)
    python3 tools/reels/build_reel.py tools/reels/reel-<tema>.json \
        --fuentes <carpeta-videos> --salida <carpeta-salida>
    ```
@@ -99,7 +168,7 @@ Releases del repositorio.
   gratis y cómo reservar; como mucho **5 hashtags** (límite de Instagram desde
   diciembre de 2025).
 
-## Serie «Te lo cuento» (entrevista)
+## Formato 1 · Entrevista: serie «Te lo cuento»
 
 Estilo **natural**, como las referencias de entrevista que eligió la dueña
 (@karbonblackcapilar): su luz tal cual, pocos textos y subtítulos discretos.
@@ -109,6 +178,10 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   elige la más clara y que no repita lo que ya cuenta otra pregunta (ni frases
   repetidas dentro del mismo clip, como «un buen ambiente, un buen ambiente»).
   Requisitos: `pip install mediapipe` y, en Linux sin pantalla, `apt-get install libegl1 libgles2`.
+  Ojo: mediapipe instala `opencv-contrib-python` 5, que rompe la detección de caras; después:
+  `pip uninstall -y opencv-contrib-python && pip install --force-reinstall "opencv-python-headless<5"`.
+- Sirve también para cualquier vídeo de ella hablando a cámara: sin `pregunta` no sale
+  ningún texto al inicio y, sin `intro`, el vídeo empieza con la voz.
 - **Sin filtro**: la luz y el color como se grabaron. El filtro anterior le dejaba la
   piel blanca y poco cálida y le oscurecía los ojos («un manchón negro»).
 - **Sin «Capítulo 1, 2…»** ni etiqueta de serie en el vídeo (si acaso, en el pie de foto).
@@ -140,7 +213,7 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   cara extrañada de «¿qué es lo que nunca…?»), no sonriendo para luego cambiar.
 - Sin música (la pone ella al publicar) y voz sin reducción de ruido.
 
-## Textos
+## Textos (formato 2 y reels con `build_reel.py`)
 
 - Zonas libres: 15 % superior y 25 % inferior de la pantalla.
 - **Nunca sobre la cara.** La cara se detecta automáticamente en cada toma.
@@ -169,6 +242,13 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
 - **Sin reducción de ruido en la voz** (afftdn): se comía las sílabas finales
   suaves («potenc…» en vez de «potencia»). Solo filtro de graves, compresión
   ligera y -14 LUFS.
+- **Al publicar** (lo que se le explica a la dueña):
+  - Vídeos con su voz: o solo su voz (sale «Audio original · osana_tenerife» con su
+    foto; se renombra, p. ej. «Te lo cuento · OSANA»), o una canción en tendencia (↗)
+    muy baja por debajo: en «Volumen», audio de la cámara al 100 % y canción al 5–10 %.
+  - Montajes sin voz: canción en tendencia (↗) al 100 %.
+  - Un Reel que se quiera promocionar (pagar publicidad) no puede llevar música con
+    derechos de autor: solo su voz o música libre de la biblioteca de Instagram.
 
 ## Consejos de grabación para la dueña
 

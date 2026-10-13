@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Clips de la serie «Te lo cuento» (la entrevista de Osana): una pregunta, un clip.
+"""Formato 1 · Entrevista de Osana: la serie «Te lo cuento» (una pregunta, un clip) y
+cualquier vídeo de ella hablando a cámara. Es un formato fijo (ver «Formatos fijos» en
+ESTILO.md): letra, tamaños, colores y posiciones no se cambian salvo que ella lo pida.
 
 Uso:
     python3 tools/reels/te_lo_cuento.py tools/reels/te-lo-cuento-c1-p1.json \
@@ -10,8 +12,9 @@ Estilo natural (lo que pidió la dueña tras ver la primera versión y sus refer
     (el filtro le blanqueaba la piel y oscurecía los ojos).
   - Sin etiqueta de serie ni capítulo (eso va, si acaso, en el pie de foto).
   - La pregunta aparece y desaparece rápido, solo al inicio, en el silencio antes de
-    responder: mayúsculas espaciadas en Raleway (la letra de la web) y en el marrón
-    de la marca, sobre la cortina, a la izquierda de la cara.
+    responder: mayúsculas espaciadas en Raleway SemiBold (la letra de la web) y en el
+    marrón de la marca, sobre la cortina, a la izquierda de la cara (en blanco si el
+    fondo de detrás es oscuro y el marrón no se leería).
   - Se quitan las pausas largas. En cada corte el encuadre alterna plano abierto y
     plano cerrado (dos cámaras); los planos largos se parten en dos encuadres sin
     cortar el audio. La frase clave va algo más cerca, sin rótulo.
@@ -28,9 +31,10 @@ Estilo natural (lo que pidió la dueña tras ver la primera versión y sus refer
 
 Tabla (JSON):
     archivo     vídeo de la entrevista (en --fuentes)
-    pregunta    pregunta del inicio; «|» separa líneas
-    intro       segundo del original donde empieza el silencio de la pregunta
-                (termina donde empieza la primera frase)
+    pregunta    (opcional) pregunta o título del inicio; «|» separa líneas
+    color_pregunta  (opcional) "marron" o "blanco"; si no se pone, se elige según el fondo
+    intro       (opcional) segundo del original donde empieza el silencio de la pregunta
+                (termina donde empieza la primera frase); si no, se empieza con la voz
     fin         (opcional) segundo del original donde acaba el último plano
     portada     (opcional) segundo del original para la portada del Reel
     frases      [{inicio, fin, texto}] en orden: inicio y fin de la voz (s del
@@ -49,6 +53,7 @@ import tempfile
 import time
 from functools import lru_cache
 
+import cv2
 import numpy as np
 from PIL import ImageFont
 
@@ -86,6 +91,7 @@ FS_SUB, ESP_SUB = 56, 0.16
 SUB_MAX_PALABRAS, SUB_MAX_LETRAS = 3, 18
 FS_WEB, ESP_WEB = 44, 0.14
 Y_SUB = 1300                # subtítulos a la altura del pecho
+LUZ_MARRON = 0.6            # fondo de la pregunta más oscuro que esto: en blanco
 
 # Fuente ASS → (archivo, factor ancho libass / Pillow)
 FUENTES = {
@@ -151,7 +157,7 @@ def segmentos_y_planos(cfg):
     for n, tramo in enumerate(tramos):
         a = tramo[0].get("corte_inicio", tramo[0]["inicio"] - PRE)
         if n == 0:
-            a = cfg["intro"]
+            a = cfg.get("intro", a)
         ultimo = n == len(tramos) - 1
         b = tramo[-1].get("corte_fin", tramo[-1]["fin"] + (FINAL_EXTRA + POST if ultimo else POST))
         if ultimo and "fin" in cfg:
@@ -202,11 +208,11 @@ def partir_largos(planos, ruta):
     return out
 
 
-def tipos_de_plano(planos):
+def tipos_de_plano(planos, pregunta=True):
     """Abierto / cerrado alternos (dos cámaras); la frase clave, más cerrada."""
     previo = None
     for i, p in enumerate(planos):
-        if i == 0:
+        if i == 0 and pregunta:
             p["tipo"] = "pregunta"
         elif p["clave"]:
             p["tipo"] = "clave"
@@ -384,14 +390,35 @@ def maquetar_pregunta(cfg, p0):
     return 40, lineas
 
 
+def color_pregunta(cfg, p0, imgs):
+    """Marrón de la marca sobre fondo claro (la cortina); blanco con sombra suave si lo
+    de detrás es oscuro y el marrón no se leería. Devuelve (color, luz del fondo)."""
+    if cfg.get("color_pregunta"):
+        return {"marron": MARRON, "blanco": BLANCO}[cfg["color_pregunta"]], None
+    fs, lineas = maquetar_pregunta(cfg, p0)
+    x0, y0, cw, ch = p0["_crop"]
+    derecha = X0 + max(ancho(l, "Raleway SemiBold", fs, fs * ESP_PREGUNTA) for l in lineas)
+    abajo = Y_PREGUNTA + fs * 1.05 * len(lineas)
+    # De píxeles de pantalla a los fotogramas de análisis (el original entero, AW×AH).
+    xa, xb = (int((x0 + cw * x / W) * br.AW) for x in (X0, derecha))
+    ya, yb = (int((y0 + ch * y / H) * br.AH) for y in (Y_PREGUNTA, abajo))
+    luz = float(np.mean([cv2.cvtColor(i, cv2.COLOR_BGR2GRAY)[ya:yb, xa:xb].mean() for i in imgs])) / 255
+    return (MARRON if luz >= LUZ_MARRON else BLANCO), luz
+
+
 def eventos_pregunta(cfg, p0, t0, t1, fundido=True):
-    """La pregunta, en el marrón de la marca: entra y sale con un fundido rápido."""
+    """La pregunta, en el marrón de la marca (o en blanco sobre fondo oscuro): entra y
+    sale con un fundido rápido."""
     fs, lineas = maquetar_pregunta(cfg, p0)
     fad = r"\fad(250,300)" if fundido else ""
     out, y = [], Y_PREGUNTA
     for l in lineas:
-        out.append(ev(4, t0, t1, rf"\an7\pos({X0},{y:.0f})\fnRaleway SemiBold\fs{fs}\fsp{fs * ESP_PREGUNTA:.1f}"
-                                 rf"\bord0\shad0\1c{MARRON}" + fad, l))
+        if p0.get("_color_pregunta", MARRON) == BLANCO:
+            out += con_sombra(4, t0, t1, X0, round(y),
+                              rf"\fnRaleway SemiBold\fs{fs}\fsp{fs * ESP_PREGUNTA:.1f}" + fad, l, an=7)
+        else:
+            out.append(ev(4, t0, t1, rf"\an7\pos({X0},{y:.0f})\fnRaleway SemiBold\fs{fs}\fsp{fs * ESP_PREGUNTA:.1f}"
+                                     rf"\bord0\shad0\1c{MARRON}" + fad, l))
         y += fs * 1.05
     return out
 
@@ -400,9 +427,10 @@ def escribir_ass(ruta, cfg, planos, dur_video):
     eventos = []
     p0 = planos[0]
     # 1) La pregunta: solo al inicio, aparece y desaparece rápido.
-    dur_intro = p0["_a_salida"](cfg["frases"][0]["inicio"]) - p0["_t0"]
-    t_fin = min(p0["_t1"], max(PREGUNTA_MIN, min(PREGUNTA_MAX, dur_intro + 1.0)))
-    eventos += eventos_pregunta(cfg, p0, p0["_t0"] + 0.1, t_fin)
+    if cfg.get("pregunta"):
+        dur_intro = p0["_a_salida"](cfg["frases"][0]["inicio"]) - p0["_t0"]
+        t_fin = min(p0["_t1"], max(PREGUNTA_MIN, min(PREGUNTA_MAX, dur_intro + 1.0)))
+        eventos += eventos_pregunta(cfg, p0, p0["_t0"] + 0.1, t_fin)
 
     # 2) Subtítulos.
     subs = []
@@ -431,10 +459,11 @@ def escribir_ass(ruta, cfg, planos, dur_video):
 def portada(cfg, p0, ruta, salida):
     """Portada del Reel: un fotograma del plano de la pregunta, con la pregunta.
     «portada» en la tabla = segundo del original con buena expresión."""
-    t = cfg.get("portada", cfg["intro"])
+    t = cfg.get("portada", p0["inicio"])
     ass, png = salida + ".ass", salida + ".png"
+    textos = eventos_pregunta(cfg, p0, 0, 5, fundido=False) if cfg.get("pregunta") else []
     with open(ass, "w", encoding="utf-8") as f:
-        f.write(cabecera_ass() + "\n".join(eventos_pregunta(cfg, p0, 0, 5, fundido=False)) + "\n")
+        f.write(cabecera_ass() + "\n".join(textos) + "\n")
     dt.procesar(["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", ruta, "-frames:v", "1",
                  "-vf", filtro_plano(p0), "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
                 ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
@@ -467,7 +496,7 @@ def main():
     reloj = [("inicio", time.time())]
 
     planos = partir_largos(segmentos_y_planos(cfg), ruta)
-    tipos_de_plano(planos)
+    tipos_de_plano(planos, pregunta=bool(cfg.get("pregunta")))
     if not args.sin_gestos:
         g = gs.Gestos(ruta, cache)
         for c in pulir_cortes(planos, cfg, g):
@@ -479,6 +508,11 @@ def main():
     for p, tm in zip(planos, tomas):
         p["_cara"], p["_ruta"] = tm["_cara"], ruta
         encuadre(p)
+    if cfg.get("pregunta"):
+        color, luz = color_pregunta(cfg, planos[0], tomas[0]["_imgs"])
+        planos[0]["_color_pregunta"] = color
+        print(f"Pregunta en {'marrón' if color == MARRON else 'blanco'}"
+              + (f" (luz del fondo {luz:.2f})" if luz is not None else " (fijado en la tabla)"), file=sys.stderr)
     reloj.append(("análisis", time.time()))
     portada_jpg = os.path.join(args.salida, cfg["salida"] + "-portada.jpg")
     if args.solo_portada:
