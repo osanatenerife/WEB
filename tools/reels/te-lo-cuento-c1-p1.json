@@ -1,8 +1,7 @@
 {
-  "titulo": "Te lo cuento · Capítulo 1 · P1 · ¿Por qué abriste OSANA?",
+  "titulo": "Te lo cuento · P1 · ¿Por qué abriste OSANA?",
   "salida": "osana-te-lo-cuento-c1-p1-por-que-abriste-osana",
   "archivo": "todo.mov",
-  "serie": "Te lo cuento · Capítulo 1",
   "pregunta": "¿por qué|_abriste_|*OSANA?*",
   "intro": 4.6,
   "fin": 53.55,
@@ -19,6 +18,6 @@
     {"inicio": 40.58, "fin": 44.04, "texto": "había un mal ambiente, donde te pagaban salarios precarios."},
     {"inicio": 44.6, "fin": 49.06, "texto": "y dije: «mira, lo abro y me arriesgo». y sabía que si lo hacía…"},
     {"inicio": 49.68, "fin": 51.16, "texto": "y ofrecer servicios de calidad"},
-    {"inicio": 51.16, "fin": 53.08, "texto": "y un sitio a donde yo iría.", "clave": "Un sitio a donde *yo iría*"}
+    {"inicio": 51.16, "fin": 53.08, "texto": "y un sitio a donde yo iría.", "clave": true}
   ]
 }

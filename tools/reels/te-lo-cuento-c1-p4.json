@@ -1,8 +1,7 @@
 {
-  "titulo": "Te lo cuento · Capítulo 1 · P4 · ¿Qué es lo que nunca le vas a vender a nadie?",
+  "titulo": "Te lo cuento · P4 · ¿Qué es lo que nunca le vas a vender a nadie?",
   "salida": "osana-te-lo-cuento-c1-p4-lo-que-nunca-le-vas-a-vender",
   "archivo": "todo.mov",
-  "serie": "Te lo cuento · Capítulo 1",
   "pregunta": "¿qué es lo que|_nunca_ le vas|a vender|*a nadie?*",
   "intro": 405.3,
   "fin": 470.45,
@@ -16,7 +15,7 @@
     {"inicio": 430.66, "fin": 436.52, "texto": "yo sé que me encuentro limitado en ciertos servicios, porque simplemente no los he querido ofrecer o porque no estoy especializada en ello,"},
     {"inicio": 443.82, "fin": 446.48, "texto": "y termino recomendando hasta a mi misma competencia."},
     {"inicio": 447.18, "fin": 448.53, "texto": "que a veces eso puede ser un fallo,"},
-    {"inicio": 448.53, "fin": 450.06, "texto": "pero es que prefiero ser sincera,", "clave": "Prefiero ser *sincera*"},
+    {"inicio": 448.53, "fin": 450.06, "texto": "pero es que prefiero ser sincera,", "clave": true},
     {"inicio": 450.64, "fin": 452.2, "texto": "y el cliente lo ha valorado mucho."},
     {"inicio": 453.44, "fin": 455.94, "texto": "realmente prefiero decirle"},
     {"inicio": 456.54, "fin": 457.64, "texto": "algo que le va a funcionar"},

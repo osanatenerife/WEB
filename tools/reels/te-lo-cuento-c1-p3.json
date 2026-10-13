@@ -1,8 +1,7 @@
 {
-  "titulo": "Te lo cuento · Capítulo 1 · P3 · ¿Qué sientes cuando abres la puerta cada mañana?",
+  "titulo": "Te lo cuento · P3 · ¿Qué sientes cuando abres la puerta cada mañana?",
   "salida": "osana-te-lo-cuento-c1-p3-que-sientes-al-abrir-la-puerta",
   "archivo": "todo.mov",
-  "serie": "Te lo cuento · Capítulo 1",
   "pregunta": "¿qué sientes|cuando abres|_la puerta_|*cada mañana?*",
   "intro": 321.15,
   "fin": 362.45,
@@ -11,7 +10,7 @@
     {"inicio": 322.32, "fin": 324.24, "texto": "me siento afortunada,"},
     {"inicio": 324.96, "fin": 325.34, "texto": "de verdad.", "unir": true},
     {"inicio": 326.88, "fin": 330.84, "texto": "poder llegar al trabajo y sentir esa calma, y decir:"},
-    {"inicio": 330.84, "fin": 332.58, "texto": "«este es mi espacio, es mi casa».", "clave": "Este es mi espacio, *es mi casa*"},
+    {"inicio": 330.84, "fin": 332.58, "texto": "«este es mi espacio, es mi casa».", "clave": true},
     {"inicio": 333.62, "fin": 339.1, "texto": "y que voy a estar a gusto desde que comienzo hasta que me voy, que no me importa a veces hasta hacer horas extras,"},
     {"inicio": 339.96, "fin": 343.74, "texto": "porque realmente siento calma, y esa calma también se transmite"},
     {"inicio": 344.34, "fin": 349.5, "texto": "en los clientes. ellos disfrutan de venir y sentir que, así sea el tratamiento muy corto,"},
