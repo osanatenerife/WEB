@@ -3,8 +3,8 @@
 Con luz cálida los dientes salen amarillentos o con manchas. Aquí se corrigen solo
 los dientes: se busca la boca bajo la cara detectada, se separan los labios (la
 barra de labios tiene un tono magenta distinto del de la piel), y dentro del hueco
-que encierran se quita parte del amarillo y se aclara un poco lo claro y poco
-saturado (los dientes). Nada de blanco artificial: ella prefiere lo natural.
+que encierran se igualan las manchas (zonas más amarillas u oscuras) al tono de sus
+propios dientes. Nada de blanco artificial: un blanqueado fuerte le parece «filtro».
 """
 import subprocess
 
@@ -13,7 +13,7 @@ import numpy as np
 
 import build_reel as br
 
-VERSION = 1
+VERSION = 2
 
 
 def caja_cara(img):
@@ -54,10 +54,15 @@ def blanquear(img, caja):
         return img
     m = cv2.GaussianBlur(dientes.astype(np.float32), (0, 0), 1.6)[..., None]
     lab = cv2.cvtColor(roi, cv2.COLOR_BGR2LAB).astype(np.float32)
+    # Solo se igualan las manchas (zonas más amarillas o más oscuras que el resto del
+    # diente) hacia el tono medio de sus propios dientes; el color general apenas cambia,
+    # para que no parezca un filtro.
+    L, B = lab[..., 0], lab[..., 2]
+    l_med, b_med = np.median(L[dientes]), np.median(B[dientes])
     nuevo = lab.copy()
-    nuevo[..., 2] = 128 + (lab[..., 2] - 128) * 0.35      # menos amarillo
-    nuevo[..., 1] = 128 + (lab[..., 1] - 128) * 0.75      # un poco menos rojo
-    nuevo[..., 0] = lab[..., 0] + (255 - lab[..., 0]) * 0.10  # un pelín más claros
+    nuevo[..., 2] = np.where(B > b_med, b_med + (B - b_med) * 0.3, B)
+    nuevo[..., 2] = 128 + (nuevo[..., 2] - 128) * 0.85     # un poco menos amarillo
+    nuevo[..., 0] = np.where(L < l_med, l_med - (l_med - L) * 0.6, L)
     mezcla = lab * (1 - m) + nuevo * m
     out = img.copy()
     out[y0:y1, x0:x1] = cv2.cvtColor(np.clip(mezcla, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
