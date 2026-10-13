@@ -4,7 +4,7 @@
   "archivo": "todo.mov",
   "pregunta": "¿qué sientes|cuando abres|_la puerta_|*cada mañana?*",
   "intro": 321.15,
-  "fin": 362.45,
+  "fin": 361.767,
   "portada": 321.4,
   "frases": [
     {"inicio": 322.32, "fin": 324.24, "texto": "me siento afortunada,"},
