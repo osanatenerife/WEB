@@ -458,6 +458,39 @@ def efectos(dur, eventos):
     return pista[:int(dur * SR)]
 
 
+SONIDOS = os.path.join(AQUI, "sonidos")
+
+
+def cargar_sonido(nombre):
+    """Sonido de tools/reels/sonidos (CC0) como mono 48 kHz en [-1, 1]."""
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", os.path.join(SONIDOS, nombre + ".ogg"),
+         "-ac", "1", "-ar", str(SR), "-f", "s16le", "-"],
+        capture_output=True, check=True).stdout
+    return np.frombuffer(raw, "<i2").astype(float) / 32768
+
+
+def clics(tomas, dur, cfg):
+    """Clic suave al aparecer un recuadro nuevo y al entrar en un plano de recurso,
+    para que pasos y demostraciones no queden en silencio (sin «llenar» de ruido)."""
+    sonido = cargar_sonido(cfg.get("sonido", "soft-press"))
+    vol = cfg.get("volumen", 0.2)
+    vol_recurso = cfg.get("volumen_recurso", vol * 0.75)
+    pista = np.zeros(int((dur + 1) * SR))
+    previo = None
+    for tm in tomas:
+        t, gan = None, 0.0
+        if tm.get("rotulo") and (previo is None or previo.get("rotulo") != tm.get("rotulo")):
+            t, gan = tm["_t0"], vol
+        elif not tm.get("dialogo") and cfg.get("en_recursos", True):
+            t, gan = tm["_t0"], vol_recurso
+        previo = tm
+        if t is not None:
+            i = int(t * SR)
+            pista[i:i + len(sonido)] += gan * sonido[:len(pista) - i]
+    return pista[:int(dur * SR)]
+
+
 def escribir_wav(ruta, mono):
     mono = np.clip(mono, -1, 1)
     est = np.stack([mono, mono], 1)
@@ -604,6 +637,8 @@ def main():
         previo = f"v{k}"
         eventos.append(("whoosh", c, None))
     sfx = efectos(dur_total, eventos) if args.efectos else np.zeros(int(dur_total * SR))
+    if cfg.get("clics"):
+        sfx = sfx + clics(tomas, dur_total, cfg["clics"])
     if voces:
         # Voz: limpieza suave, compresión ligera y volumen estándar de redes (-14 LUFS).
         lista_v = os.path.join(tmp, "voces.txt")
@@ -628,7 +663,7 @@ def main():
     os.makedirs(args.salida, exist_ok=True)
     final = os.path.join(args.salida, cfg["salida"] + ".mp4")
     # Sin voz ni efectos, el vídeo va sin audio: la música se pone al publicar.
-    con_audio = bool(voces) or args.efectos
+    con_audio = bool(voces) or args.efectos or bool(cfg.get("clics"))
     audio = ["-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"] if con_audio else ["-an"]
     run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", wav,
          "-filter_complex", filtro, "-map", "[v]", *audio,

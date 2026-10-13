@@ -90,7 +90,12 @@ Releases del repositorio.
   baja por debajo de la voz al publicar.
 - **Sin voz**: el vídeo se entrega sin audio y ella añade la música al publicar
   en Instagram/Edits (ayuda al alcance).
-- Los efectos de sonido generados («pop», «whoosh») **no le gustaron**: no
+- **Clic suave** (`"clics"` en la tabla, sonido `soft-press`, volumen 0,2):
+  al aparecer cada recuadro nuevo y al entrar en cada plano de recurso, para
+  que pasos y demostraciones no queden en silencio. Sonidos CC0 en
+  `tools/reels/sonidos/` (alternativas: `minimal-press`, `studio-press`,
+  `zen-progress-step`; para precios, `soft-purchase`).
+- Los efectos sintéticos antiguos («pop», «whoosh») **no le gustaron**: no
   usarlos salvo que los pida (`--efectos`). Opcional `--musica`: pad suave.
 
 ## Consejos de grabación para la dueña
