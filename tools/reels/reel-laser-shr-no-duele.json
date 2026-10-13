@@ -5,73 +5,114 @@
   "tomas": [
     {
       "bloque": "Gancho",
-      "archivo": "IMG_6757.mov", "inicio": 14.30, "fin": 17.48, "zoom": 1.45,
-      "rotulo": "¿Duele el láser *SHR*?", "maquina": true,
+      "archivo": "IMG_6757.mov",
+      "inicio": 14.3,
+      "fin": 17.48,
+      "zoom": 1.45,
+      "rotulo": "¿Duele el láser *SHR*?",
+      "maquina": true,
       "dialogo": "Acompáñame a hacerme una sesión de depilación láser SHR"
     },
     {
       "bloque": "Gancho",
-      "archivo": "IMG_6757.mov", "inicio": 17.48, "fin": 21.90, "zoom": 1.0,
+      "archivo": "IMG_6757.mov",
+      "inicio": 17.48,
+      "fin": 21.9,
+      "zoom": 1.1,
       "rotulo": "Me lo pruebo *yo*",
       "dialogo": "para que veas que realmente nuestro láser no duele."
     },
     {
       "bloque": "Pasos",
-      "archivo": "IMG_6757.mov", "inicio": 85.60, "fin": 87.78, "zoom": 1.15, "centro_x": 0.55,
+      "archivo": "IMG_6757.mov",
+      "inicio": 85.6,
+      "fin": 87.78,
+      "zoom": 1.15,
+      "centro_x": 0.55,
       "rotulo": "Paso 1 · *Gel*",
       "dialogo": "Primero me aplico un poco de gel conductor"
     },
     {
       "bloque": "Pasos",
-      "archivo": "IMG_6757.mov", "inicio": 87.78, "fin": 91.10, "zoom": 1.5,
+      "archivo": "IMG_6757.mov",
+      "inicio": 87.78,
+      "fin": 91.1,
+      "zoom": 1.5,
       "rotulo": "Paso 1 · *Gel*",
       "dialogo": "para ayudar a que el cabezal deslice muy bien."
     },
     {
       "bloque": "Pasos",
-      "archivo": "IMG_6759.mov", "inicio": 104.90, "fin": 107.90, "zoom": 1.15, "centro_x": 0.6,
+      "archivo": "IMG_6759.mov",
+      "inicio": 104.9,
+      "fin": 107.9,
+      "zoom": 1.15,
+      "centro_x": 0.6,
       "rotulo": "Paso 2 · *Gafas*",
       "dialogo": "Segundo, nos ponemos las gafas protectoras."
     },
     {
       "bloque": "Pasos",
-      "archivo": "IMG_6759.mov", "inicio": 114.70, "fin": 117.80, "zoom": 1.5,
+      "archivo": "IMG_6759.mov",
+      "inicio": 114.7,
+      "fin": 117.8,
+      "zoom": 1.5,
       "rotulo": "Paso 3 · *Potencia*",
       "dialogo": "Tercero, controlamos muy bien la potencia."
     },
     {
       "bloque": "Pasos",
-      "archivo": "IMG_6759.mov", "inicio": 136.40, "fin": 139.65, "zoom": 1.15, "centro_x": 0.55,
+      "archivo": "IMG_6759.mov",
+      "inicio": 136.4,
+      "fin": 139.65,
+      "zoom": 1.15,
+      "centro_x": 0.55,
       "rotulo": "Paso 4 · *Láser*",
       "dialogo": "Y por último ya comenzamos a trabajar la zona."
     },
     {
       "bloque": "Resultado",
-      "archivo": "IMG_6759.mov", "inicio": 144.90, "fin": 147.62, "zoom": 1.5,
+      "archivo": "IMG_6759.mov",
+      "inicio": 144.9,
+      "fin": 147.62,
+      "zoom": 1.5,
       "rotulo": "Solo un *calor* ligero",
       "dialogo": "Como ven, es un calor muy ligero y realmente es que"
     },
     {
       "bloque": "Resultado",
-      "archivo": "IMG_6759.mov", "inicio": 147.62, "fin": 149.95, "zoom": 1.15, "centro_x": 0.55,
+      "archivo": "IMG_6759.mov",
+      "inicio": 147.62,
+      "fin": 149.95,
+      "zoom": 1.15,
+      "centro_x": 0.55,
       "rotulo": "No duele *nada*",
       "dialogo": "no duele absolutamente nada."
     },
     {
       "bloque": "Resultado",
-      "archivo": "IMG_6759.mov", "inicio": 154.00, "fin": 157.00, "zoom": 1.5,
+      "archivo": "IMG_6759.mov",
+      "inicio": 154.0,
+      "fin": 157.0,
+      "zoom": 1.5,
       "rotulo": "Rápido y *efectivo*",
       "dialogo": "Y ya estaría, así de rápido y efectivo."
     },
     {
       "bloque": "Cierre",
-      "archivo": "IMG_6757.mov", "inicio": 367.20, "fin": 370.84, "zoom": 1.15,
+      "archivo": "IMG_6757.mov",
+      "inicio": 367.2,
+      "fin": 370.84,
+      "zoom": 1.15,
       "rotulo": "¿Te animas a *probarlo*?",
       "dialogo": "Si tú también quieres probarlo y comprobar que realmente no duele,"
     },
     {
       "bloque": "Cierre",
-      "archivo": "IMG_6757.mov", "inicio": 370.84, "fin": 374.20, "zoom": 1.5,
+      "archivo": "IMG_6757.mov",
+      "inicio": 370.84,
+      "fin": 374.2,
+      "zoom": 1.5,
       "rotulo": "Sesión de prueba *gratis*",
       "dialogo": "escríbenos para agendarte una sesión totalmente gratuita."
     }

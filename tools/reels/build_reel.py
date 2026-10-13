@@ -100,7 +100,10 @@ def analizar(tm, fuentes, n=6):
         f = CARAS.detectMultiScale(g, 1.1, 6, minSize=(24, 24))
         if len(f):
             x, y, w, h = max(f, key=lambda r: r[2] * r[3])
-            caras.append((x, y, w, h, g[y + h // 4:y + 3 * h // 4, x + w // 4:x + 3 * w // 4].mean()))
+            # Piel: mejillas y nariz, descartando lo oscuro (gafas de sol, cejas, pelo).
+            zona = g[y + int(h * 0.45):y + int(h * 0.8), x + w // 5:x + 4 * w // 5]
+            piel = zona[zona > 70]
+            caras.append((x, y, w, h, float(np.median(piel)) if piel.size > 50 else float(zona.mean())))
     if caras:
         c = np.array(caras, float)
         cx = np.median(c[:, 0] + c[:, 2] / 2) / AW
@@ -115,6 +118,33 @@ def analizar(tm, fuentes, n=6):
     else:
         tm["_cara"] = None          # p. ej. con gafas de sol: se toma de otras tomas del clip
     tm["_imgs"] = imgs
+
+
+def energia_voz(ruta, a, b):
+    """Energía de la voz (dB) cada 20 ms entre a y b."""
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-ss", f"{a:.3f}", "-i", ruta, "-t", f"{b - a:.3f}",
+         "-vn", "-ac", "1", "-ar", "16000", "-af", "highpass=f=80", "-f", "s16le", "-"],
+        capture_output=True, check=True).stdout
+    x = np.frombuffer(raw, "<i2").astype(float) / 32768
+    n = 320
+    m = len(x) // n
+    return 20 * np.log10(np.sqrt((x[:m * n].reshape(m, n) ** 2).mean(1)) + 1e-9)
+
+
+def ajustar_a_voz(tm, fuentes):
+    """Empieza y termina la toma con la voz (fuera silencios y miradas en blanco),
+    y guarda qué tramos tienen voz para sincronizar los subtítulos."""
+    ruta = os.path.join(fuentes, tm["archivo"])
+    e = energia_voz(ruta, tm["inicio"], tm["fin"])
+    voz = e > max(e.max() - 28, -42)
+    idx = np.where(voz)[0]
+    if len(idx):
+        a0 = tm["inicio"]
+        tm["inicio"] = a0 + max(0.0, idx[0] * 0.02 - 0.08)
+        tm["fin"] = min(tm["fin"], a0 + (idx[-1] + 1) * 0.02 + 0.2)
+        voz = voz[int(round((tm["inicio"] - a0) / 0.02)):]
+    tm["_voz"] = voz
 
 
 def completar_caras(tomas):
@@ -218,16 +248,31 @@ def rect_redondeado(w, h, r):
             f"l 0 {r} b 0 {k} {k} 0 {r} 0")
 
 
-def bloques_subtitulo(frase, ini, fin):
-    """Subtítulos que se construyen palabra a palabra, en grupos cortos (una línea)."""
+def bloques_subtitulo(frase, ini, fin, voz=None, t_toma=0.0):
+    """Subtítulos que se construyen palabra a palabra, en grupos cortos (una línea).
+    Con «voz» (tramos de 20 ms con voz) las palabras se reparten solo por los
+    momentos en que se habla, así siguen el ritmo real y no se adelantan."""
     palabras = frase.split()
     pesos = [len(p) + 3 for p in palabras]
     total = sum(pesos)
-    tiempos, t = [], ini
-    for w in pesos:
-        d = (fin - ini) * w / total
-        tiempos.append((t, t + d))
-        t += d
+    tiempos = []
+    habla = np.where(voz)[0] if voz is not None else np.array([])
+    if len(habla) > 5:
+        def instante(fr):
+            return t_toma + habla[min(int(fr * len(habla)), len(habla) - 1)] * 0.02
+        acum = 0
+        for w in pesos:
+            tiempos.append((instante(acum / total), instante((acum + w) / total)))
+            acum += w
+        tiempos = [(max(a, ini), b) for a, b in tiempos]
+        tiempos[-1] = (tiempos[-1][0], fin)
+        tiempos = [(a, tiempos[k + 1][0] if k + 1 < len(tiempos) else b) for k, (a, b) in enumerate(tiempos)]
+    else:
+        t = ini
+        for w in pesos:
+            d = (fin - ini) * w / total
+            tiempos.append((t, t + d))
+            t += d
     grupos, actual = [], []
     for i, p in enumerate(palabras):
         if actual and (len(" ".join(palabras[j] for j in actual + [i])) > SUB_MAX_CHARS or len(actual) == 3):
@@ -300,7 +345,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 + r"{\an7\pos(" + f"{fx},{sub_top - pad}" + r")\p1\bord0\shad0\blur32\1c&H000000&\1a&H9A&}"
                 + rect_redondeado(ancho_f, LH_SUB + 2 * pad, 60)
             )
-        for txt, t0, t1 in bloques_subtitulo(tm["dialogo"], a + 0.08, b - 0.06):
+        for txt, t0, t1 in bloques_subtitulo(tm["dialogo"], a + 0.05, b - 0.04, tm.get("_voz"), a):
             ev += con_sombra(1, t0, t1, "Sub", tm["_sub_x"], sub_top, "", txt)
 
         # Recuadro con el tema / precio (opcional).
@@ -346,9 +391,11 @@ def correccion(gan, luma_cara):
     """Misma receta para todos los clips; solo cambia el punto que lleva la cara a 0,60."""
     r, g, b = gan
     f = min(max(luma_cara or 0.55, 0.35), 0.75)
+    # Nunca se mueve la piel más de 0,05: subir mucho la deja blanca y «filtrada».
+    destino = f + min(max(0.58 - f, -0.05), 0.05)
     # Curva suave: sombras apenas levantadas y luces algo bajadas. Más lift o
     # contraste aplanan la piel y la hacen parecer filtrada.
-    curva = f"0/0.02 0.15/0.165 {f:.3f}/0.58 0.85/0.83 1/0.95"
+    curva = f"0/0.02 0.15/0.165 {f:.3f}/{destino:.3f} 0.85/0.83 1/0.95"
     return (
         f"colorchannelmixer=rr={r:.4f}:gg={g:.4f}:bb={b:.4f},"
         f"curves=master='{curva}',"
@@ -468,6 +515,9 @@ def main():
     tmp = tempfile.mkdtemp(prefix="reel-")
 
     # 1) Analizar caras y luz; igualar blancos y exposición por clip.
+    if cfg.get("voz"):
+        for tm in tomas:
+            ajustar_a_voz(tm, args.fuentes)
     for tm in tomas:
         analizar(tm, args.fuentes)
     completar_caras(tomas)
