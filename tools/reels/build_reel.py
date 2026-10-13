@@ -54,7 +54,7 @@ SOMBRA_ALFA = "&H99&"                  # negro al 40 %
 # Tamaño de la cara (alto / alto de pantalla) que se busca en cada toma: alterna
 # plano medio y plano cerrado para dar ritmo a los cortes.
 PLANOS = [0.19, 0.245]
-ZOOM_MAX = 1.8                         # el original es 4K: hasta 2x sin perder nitidez
+ZOOM_MAX = 2.0                         # el original es 4K: hasta 2x sin perder nitidez
 
 # Subtítulos de diálogo: grandes, justo debajo de la cara.
 F_SUB, LH_SUB, SUB_MAX_CHARS = 80, 96, 16
@@ -97,7 +97,7 @@ def analizar(tm, fuentes, n=6):
         img = fotograma(ruta, t)
         imgs.append(img)
         g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        f = CARAS.detectMultiScale(g, 1.1, 6, minSize=(50, 50))
+        f = CARAS.detectMultiScale(g, 1.1, 6, minSize=(24, 24))
         if len(f):
             x, y, w, h = max(f, key=lambda r: r[2] * r[3])
             caras.append((x, y, w, h, g[y + h // 4:y + 3 * h // 4, x + w // 4:x + 3 * w // 4].mean()))
@@ -111,10 +111,23 @@ def analizar(tm, fuentes, n=6):
         # El pelo sobresale ~40 % del alto de la caja por encima de ella.
         cabeza = np.min(c[:, 1] - c[:, 3] * 0.4) / AH
         luma = float(np.mean(c[:, 4])) / 255
+        tm["_cara"] = dict(cx=cx, cy=cy, alto=alto, barbilla=barbilla, cabeza=cabeza, luma=luma)
     else:
-        cx, cy, alto, barbilla, cabeza, luma = 0.5, 0.3, 0.15, 0.4, 0.15, None
-    tm["_cara"] = dict(cx=cx, cy=cy, alto=alto, barbilla=barbilla, cabeza=cabeza, luma=luma)
+        tm["_cara"] = None          # p. ej. con gafas de sol: se toma de otras tomas del clip
     tm["_imgs"] = imgs
+
+
+def completar_caras(tomas):
+    """Tomas sin cara detectada: usan la mediana de las demás tomas del mismo clip."""
+    defecto = dict(cx=0.5, cy=0.3, alto=0.15, barbilla=0.4, cabeza=0.15, luma=None)
+    for tm in tomas:
+        if tm["_cara"] is None:
+            otras = [o["_cara"] for o in tomas if o["archivo"] == tm["archivo"] and o["_cara"]]
+            if otras:
+                tm["_cara"] = {k: (float(np.median([o[k] for o in otras])) if k != "luma" else None)
+                               for k in defecto}
+            else:
+                tm["_cara"] = dict(defecto)
 
 
 def blancos(imgs):
@@ -129,14 +142,21 @@ def blancos(imgs):
 
 
 def encuadre(tm, i):
+    """Encuadre de la toma. En la tabla se puede fijar «zoom» (1 = plano completo) y
+    «centro_x» (0–1) cuando la acción no está en la cara (p. ej. una demostración)."""
     c = tm["_cara"]
-    z = min(ZOOM_MAX, max(1.0, PLANOS[i % 2] / max(c["alto"], 1e-3)))
+    if "zoom" in tm:
+        z = min(ZOOM_MAX, max(1.0, float(tm["zoom"])))
+    else:
+        z = min(ZOOM_MAX, max(1.0, PLANOS[i % 2] / max(c["alto"], 1e-3)))
     cw = ch = 1 / z
-    x0 = min(max(c["cx"] - cw / 2, 0), 1 - cw)
+    centro = tm.get("centro_x", c["cx"])
+    x0 = min(max(centro - cw / 2, 0), 1 - cw)
     y0 = min(max(c["cy"] - 0.30 * ch, 0), 1 - ch)   # ojos en el tercio superior
     tm["_crop"] = (x0, y0, cw, ch)
     tm["_barbilla_px"] = (c["barbilla"] - y0) / ch * H
     tm["_cabeza_px"] = (c["cabeza"] - y0) / ch * H
+    tm["_cara_x_px"] = (c["cx"] - x0) / cw * W
 
 
 # ---------------------------------------------------------------- textos
@@ -231,7 +251,7 @@ def ancho_texto(texto, fs, factor=0.66):
 def maquetar(tm):
     """Coloca subtítulos (bajo la barbilla) y recuadro (encima de la cabeza o abajo)."""
     sub_top = int(min(max(tm["_barbilla_px"] + 45, LIMITE_SUP), LIMITE_INF - LH_SUB))
-    lineas = partir(tm["rotulo"].upper(), ROT_MAX_CHARS)
+    lineas = partir((tm.get("rotulo") or "").upper(), ROT_MAX_CHARS)
     alto = 2 * PAD_Y + len(lineas) * LH_ROT + (LH_PRE if tm.get("precio") else 0)
     ancho = 2 * PAD_X + max([ancho_texto(l, F_ROT) for l in lineas]
                             + ([ancho_texto(tm["precio"], F_PRE, 0.62)] if tm.get("precio") else []))
@@ -242,6 +262,8 @@ def maquetar(tm):
     else:
         caja_top = int(max(LIMITE_INF - alto, sub_top + LH_SUB + 30))
     tm["_sub_top"] = sub_top
+    # Subtítulos centrados bajo la cara (sin salirse de pantalla).
+    tm["_sub_x"] = int(min(max(tm["_cara_x_px"], W / 2 - 150), W / 2 + 150))
     tm["_caja"] = (caja_top, ancho, alto, lineas)
 
 
@@ -270,16 +292,20 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         # Franja oscura difuminada detrás de los subtítulos si el fondo es claro.
         if tm["_franja"]:
-            pad = 50
+            # Solo detrás del texto (no a todo el ancho) para que no parezca una mancha.
+            pad, ancho_f = 34, 720
+            fx = int(min(max(tm["_sub_x"] - ancho_f / 2, 0), W - ancho_f))
             ev.append(
                 f"Dialogue: 0,{ts(a)},{ts(b)},Sub,,0,0,0,,"
-                + r"{\an7\pos(0," + str(sub_top - pad) + r")\p1\bord0\shad0\blur40\1c&H000000&\1a&H80&}"
-                + f"m 0 0 l {W} 0 l {W} {LH_SUB + 2 * pad} l 0 {LH_SUB + 2 * pad}"
+                + r"{\an7\pos(" + f"{fx},{sub_top - pad}" + r")\p1\bord0\shad0\blur32\1c&H000000&\1a&H9A&}"
+                + rect_redondeado(ancho_f, LH_SUB + 2 * pad, 60)
             )
         for txt, t0, t1 in bloques_subtitulo(tm["dialogo"], a + 0.08, b - 0.06):
-            ev += con_sombra(1, t0, t1, "Sub", 540, sub_top, "", txt)
+            ev += con_sombra(1, t0, t1, "Sub", tm["_sub_x"], sub_top, "", txt)
 
-        # Recuadro con el tema / precio.
+        # Recuadro con el tema / precio (opcional).
+        if not tm.get("rotulo"):
+            continue
         x0 = (W - ancho) // 2
         entrada = r"\fad(120,0)"
         ev.append(
@@ -442,8 +468,10 @@ def main():
     tmp = tempfile.mkdtemp(prefix="reel-")
 
     # 1) Analizar caras y luz; igualar blancos y exposición por clip.
-    for i, tm in enumerate(tomas):
+    for tm in tomas:
         analizar(tm, args.fuentes)
+    completar_caras(tomas)
+    for i, tm in enumerate(tomas):
         encuadre(tm, i)
     por_clip = {}
     for tm in tomas:
@@ -455,7 +483,7 @@ def main():
         receta[archivo] = correccion(blancos(imgs), float(np.mean(lumas)) if lumas else None)
 
     # 2) Cortar, encuadrar y corregir cada toma.
-    piezas, t = [], 0.0
+    piezas, voces, t = [], [], 0.0
     for i, tm in enumerate(tomas):
         n = round((tm["fin"] - tm["inicio"]) * FPS)
         dur = n / FPS
@@ -472,6 +500,15 @@ def main():
              "-frames:v", str(n), "-an", "-vf", vf,
              "-c:v", "libx264", "-preset", "medium", "-crf", "12", out])
         piezas.append(out)
+        if cfg.get("voz"):
+            # Voz original de la toma, con microfundidos para que el corte no chasquee.
+            wv = os.path.join(tmp, f"voz{i:02d}.wav")
+            run(["ffmpeg", "-v", "error", "-y", "-ss", str(tm["inicio"]),
+                 "-i", os.path.join(args.fuentes, tm["archivo"]), "-t", f"{dur:.4f}",
+                 "-vn", "-ac", "1", "-ar", "48000",
+                 "-af", f"afade=t=in:d=0.012,afade=t=out:st={dur - 0.015:.4f}:d=0.015",
+                 "-c:a", "pcm_s16le", wv])
+            voces.append(wv)
 
     dur_total = t
 
@@ -507,19 +544,34 @@ def main():
         )
         previo = f"v{k}"
         eventos.append(("whoosh", c, None))
-    sfx = efectos(dur_total, eventos)
-    wav = os.path.join(tmp, "efectos.wav")
+    sfx = efectos(dur_total, eventos) if args.efectos else np.zeros(int(dur_total * SR))
+    if voces:
+        # Voz: limpieza suave, compresión ligera y volumen estándar de redes (-14 LUFS).
+        lista_v = os.path.join(tmp, "voces.txt")
+        with open(lista_v, "w") as f:
+            f.writelines(f"file '{v}'\n" for v in voces)
+        voz = os.path.join(tmp, "voz.wav")
+        run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lista_v,
+             "-af", "highpass=f=80,afftdn=nf=-30,acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120,"
+                    "loudnorm=I=-14:TP=-1.5:LRA=7,aresample=48000",
+             "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", voz])
+        with wave.open(voz) as w:
+            pista = np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(float) / 32767
+        pista = np.pad(pista, (0, max(0, len(sfx) - len(pista))))[:len(sfx)]
+        sfx = sfx + pista
+    wav = os.path.join(tmp, "audio.wav")
     escribir_wav(wav, sfx)
     filtro += (
         f"[{previo}]subtitles='{ass}':fontsdir='{FUENTES_TIPO}',format=yuv420p[v]"
     )
     os.makedirs(args.salida, exist_ok=True)
     final = os.path.join(args.salida, cfg["salida"] + ".mp4")
-    # Por defecto sin audio: la música se pone al publicar en Instagram/Edits.
-    audio = ["-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"] if args.efectos else ["-an"]
+    # Sin voz ni efectos, el vídeo va sin audio: la música se pone al publicar.
+    con_audio = bool(voces) or args.efectos
+    audio = ["-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"] if con_audio else ["-an"]
     run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", wav,
          "-filter_complex", filtro, "-map", "[v]", *audio,
-         "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-maxrate", "6500k", "-bufsize", "13000k",
+         "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-maxrate", "6000k", "-bufsize", "12000k",
          "-profile:v", "high",
          "-pix_fmt", "yuv420p", "-r", str(FPS),
          "-movflags", "+faststart", "-t", f"{dur_total:.3f}", final])
@@ -528,7 +580,7 @@ def main():
     if args.musica:
         con = os.path.join(args.salida, cfg["salida"] + "-con-musica.mp4")
         wav2 = os.path.join(tmp, "mezcla.wav")
-        escribir_wav(wav2, (sfx if args.efectos else 0) + args.volumen_musica * musica(dur_total)[:len(sfx)])
+        escribir_wav(wav2, sfx + args.volumen_musica * musica(dur_total)[:len(sfx)])
         run(["ffmpeg", "-v", "error", "-y", "-i", final, "-i", wav2, "-map", "0:v", "-map", "1:a",
              "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", con])
         salidas.append(con)

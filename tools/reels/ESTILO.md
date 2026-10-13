@@ -10,12 +10,24 @@ automática a partir de una tabla de tomas en JSON.
    de GitHub de `osanatenerife/WEB`, en la zona «Attach binaries» (admite hasta 2 GB por archivo).
    Se descargan por la API (`Accept: application/octet-stream`).
 2. Se miran los clips (hojas de contacto con marca de tiempo) y se escribe la
-   tabla de tomas: `reel-<tema>.json`, siguiendo `reel-cuanto-llevo-en-mi-cara.json`.
+   tabla de tomas: `reel-<tema>.json`. Ejemplos: `reel-cuanto-llevo-en-mi-cara.json`
+   (sin voz, diálogo inventado) y `reel-laser-shr-no-duele.json` (con voz real).
+   **Si hay voz**: se transcribe todo con `transcribir.py` (ver abajo), se elige
+   la mejor toma de cada frase (la dueña repite varias veces la misma frase) y
+   se corta en las pausas reales entre palabras. Los subtítulos usan sus palabras
+   exactas. Nunca se añaden promociones o datos que ella no diga.
 3. Se monta con:
    ```
    pip install numpy "opencv-python-headless<5"
    python3 tools/reels/build_reel.py tools/reels/reel-<tema>.json \
        --fuentes <carpeta-videos> --salida <carpeta-salida>
+   ```
+   Transcripción (los hosts de modelos habituales están bloqueados; GitHub no):
+   ```
+   pip install sherpa-onnx soundfile
+   curl -L -o w.tar.bz2 https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-small.tar.bz2
+   curl -L -o silero_vad.onnx https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx
+   python3 tools/reels/transcribir.py <carpeta-modelos> <audio-16k.wav> <salida.json>
    ```
 4. Se revisan fotogramas antes de entregar: textos nunca sobre la cara, color
    igual en todos los clips. El vídeo final debe pesar menos de 30 MB.
@@ -42,6 +54,9 @@ Releases del repositorio.
   sale de plano y los silencios.
 - Encuadre que alterna **plano medio y plano cerrado** en cada corte (jump cut
   tipo dos cámaras), siempre centrado en la cara, con los ojos en el tercio superior.
+  Las frases largas se parten en dos tomas seguidas con distinto encuadre.
+- En demostraciones (máquina, brazo, cabezal) el encuadre se fija en la tabla
+  con `zoom` y `centro_x` para que se vea la acción, no solo la cara.
 - Entre bloques de tema: destello suave de 0,25 s con un «whoosh».
 - **Sin cartela final ni logo.**
 
@@ -63,8 +78,11 @@ Releases del repositorio.
 
 ## Audio
 
-- **El vídeo se entrega sin audio.** La dueña añade al publicar en
-  Instagram/Edits un audio en tendencia, que ayuda al alcance.
+- **Con voz real** (`"voz": true` en la tabla): se mantiene su voz, limpia,
+  comprimida suavemente y a -14 LUFS. Ella añade la música en tendencia muy
+  baja por debajo de la voz al publicar.
+- **Sin voz**: el vídeo se entrega sin audio y ella añade la música al publicar
+  en Instagram/Edits (ayuda al alcance).
 - Los efectos de sonido generados («pop», «whoosh») **no le gustaron**: no
   usarlos salvo que los pida (`--efectos`). Opcional `--musica`: pad suave.
 
