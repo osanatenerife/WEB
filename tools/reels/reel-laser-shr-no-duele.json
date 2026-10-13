@@ -2,6 +2,7 @@
   "titulo": "¿Duele el láser SHR? Me lo pruebo yo — Osana",
   "salida": "osana-reel-laser-shr-no-duele",
   "voz": true,
+  "filtro": false,
   "tomas": [
     {
       "bloque": "Gancho",
@@ -85,15 +86,15 @@
     },
     {
       "bloque": "Pasos",
-      "archivo": "IMG_6759.mov",
-      "inicio": 129.3,
-      "fin": 131.4,
-      "zoom": 1.6,
+      "archivo": "IMG_6757.mov",
+      "inicio": 110.8,
+      "fin": 115.55,
+      "zoom": 1.2,
       "rotulo": "Paso 3 · *Potencia*",
-      "volumen": 0.6,
+      "volumen": 1.4,
       "recurso": true,
-      "centro_x": 0.58,
-      "centro_y": 0.62
+      "centro_x": 0.47,
+      "centro_y": 0.45
     },
     {
       "bloque": "Pasos",

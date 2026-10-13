@@ -610,7 +610,10 @@ def main():
     for archivo, ts_ in por_clip.items():
         imgs = [im for tm in ts_ for im in tm["_imgs"]]
         lumas = [tm["_cara"]["luma"] for tm in ts_ if tm["_cara"]["luma"]]
-        receta[archivo] = correccion(blancos(imgs), float(np.mean(lumas)) if lumas else None)
+        # «"filtro": false» en la tabla: la luz tal como se grabó (si ya es buena, ella
+        # prefiere su luz natural sin corrección de color).
+        receta[archivo] = (correccion(blancos(imgs), float(np.mean(lumas)) if lumas else None)
+                           if cfg.get("filtro", True) else "null")
 
     reloj.append(("análisis", time.time()))
 
@@ -668,6 +671,14 @@ def main():
     for tm in tomas:
         maquetar(tm)
         tm["_franja"] = necesita_franja(tm)
+    # Mismo recuadro que el plano anterior: se queda en el mismo sitio (que no salte de
+    # abajo a arriba al cambiar de plano), salvo que ahí tape la cabeza.
+    for previo, tm in zip(tomas, tomas[1:]):
+        if tm.get("rotulo") and tm.get("rotulo") == previo.get("rotulo"):
+            top, ancho, alto, lineas = tm["_caja"]
+            nuevo = previo["_caja"][0]
+            if nuevo >= LIMITE_INF - alto - 1 or nuevo + alto <= tm["_cabeza_px"] - 30:
+                tm["_caja"] = (nuevo, ancho, alto, lineas)
     escribir_ass(ass, tomas, dur_total)
     eventos = []
     for tm in tomas:
