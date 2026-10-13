@@ -64,6 +64,9 @@ Releases del repositorio.
   tabla: toma sin `dialogo`, con `volumen` ~0,6 para el sonido ambiente.
 - En los planos de recurso, zoom moderado (~1,4) para que se vean a la vez la
   cara y la acción; con zoom mayor la cara queda cortada en el borde.
+- **Nunca un plano en silencio con la boca abierta o un gesto raro** (se nota
+  y queda mal). Si en un recurso pasa eso, encuadrar solo el detalle (manos,
+  cabezal, máquina) con `centro_y` (~0,6) y sin la cara.
 - Entre bloques de tema: destello suave de 0,25 s con un «whoosh».
 - **Sin cartela final ni logo.**
 
@@ -85,18 +88,17 @@ Releases del repositorio.
 
 ## Audio
 
-- **Con voz real** (`"voz": true` en la tabla): se mantiene su voz, limpia,
+- **Con voz real** (`"voz": true` en la tabla): se mantiene su voz natural,
   comprimida suavemente y a -14 LUFS. Ella añade la música en tendencia muy
   baja por debajo de la voz al publicar.
 - **Sin voz**: el vídeo se entrega sin audio y ella añade la música al publicar
   en Instagram/Edits (ayuda al alcance).
-- **Clic suave** (`"clics"` en la tabla, sonido `soft-press`, volumen 0,2):
-  al aparecer cada recuadro nuevo y al entrar en cada plano de recurso, para
-  que pasos y demostraciones no queden en silencio. Sonidos CC0 en
-  `tools/reels/sonidos/` (alternativas: `minimal-press`, `studio-press`,
-  `zen-progress-step`; para precios, `soft-purchase`).
-- Los efectos sintéticos antiguos («pop», «whoosh») **no le gustaron**: no
-  usarlos salvo que los pida (`--efectos`). Opcional `--musica`: pad suave.
+- **Ningún efecto de sonido**: ni los sintéticos («pop», «whoosh») ni los clics
+  de `tools/reels/sonidos/` le gustaron («son horribles»). No añadir efectos
+  salvo que ella misma los pida y los apruebe con una muestra.
+- **Sin reducción de ruido en la voz** (afftdn): se comía las sílabas finales
+  suaves («potenc…» en vez de «potencia»). Solo filtro de graves, compresión
+  ligera y -14 LUFS.
 
 ## Consejos de grabación para la dueña
 

@@ -203,8 +203,9 @@ def blancos(imgs):
 
 
 def encuadre(tm, i):
-    """Encuadre de la toma. En la tabla se puede fijar «zoom» (1 = plano completo) y
-    «centro_x» (0–1) cuando la acción no está en la cara (p. ej. una demostración)."""
+    """Encuadre de la toma. En la tabla se puede fijar «zoom» (1 = plano completo),
+    «centro_x» (0–1) cuando la acción no está en la cara (p. ej. una demostración) y
+    «centro_y» (0–1) para un plano de detalle sin la cara."""
     c = tm["_cara"]
     if "zoom" in tm:
         z = min(ZOOM_MAX, max(1.0, float(tm["zoom"])))
@@ -213,7 +214,11 @@ def encuadre(tm, i):
     cw = ch = 1 / z
     centro = tm.get("centro_x", c["cx"])
     x0 = min(max(centro - cw / 2, 0), 1 - cw)
-    y0 = min(max(c["cy"] - 0.30 * ch, 0), 1 - ch)   # ojos en el tercio superior
+    if "centro_y" in tm:
+        # Plano de detalle (manos, cabezal…): se encuadra por debajo de la cara.
+        y0 = min(max(tm["centro_y"] - ch / 2, 0), 1 - ch)
+    else:
+        y0 = min(max(c["cy"] - 0.30 * ch, 0), 1 - ch)   # ojos en el tercio superior
     tm["_crop"] = (x0, y0, cw, ch)
     tm["_barbilla_px"] = (c["barbilla"] - y0) / ch * H
     tm["_cabeza_px"] = (c["cabeza"] - y0) / ch * H
@@ -688,14 +693,15 @@ def main():
     if cfg.get("clics"):
         sfx = sfx + clics(tomas, dur_total, cfg["clics"])
     if voces:
-        # Voz: limpieza suave, compresión ligera y volumen estándar de redes (-14 LUFS).
+        # Voz: compresión ligera y volumen estándar de redes (-14 LUFS).
         lista_v = os.path.join(tmp, "voces.txt")
         with open(lista_v, "w") as f:
             f.writelines(f"file '{v}'\n" for v in voces)
         voz = os.path.join(tmp, "voz.wav")
         run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lista_v,
-             "-af", "highpass=f=80,afftdn=nf=-30,acompressor=threshold=-20dB:ratio=2.5:attack=8:release=120,"
-                    "loudnorm=I=-14:TP=-1.5:LRA=7,aresample=48000",
+             # Sin reducción de ruido: se comía los finales de palabra suaves («potenc…»).
+             "-af", "highpass=f=80,acompressor=threshold=-20dB:ratio=2:attack=10:release=150,"
+                    "loudnorm=I=-14:TP=-1.5:LRA=9,aresample=48000",
              "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", voz])
         with wave.open(voz) as w:
             pista = np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(float) / 32767
