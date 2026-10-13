@@ -253,6 +253,8 @@ def bloques_subtitulo(frase, ini, fin, voz=None, t_toma=0.0):
     Con «voz» (tramos de 20 ms con voz) las palabras se reparten solo por los
     momentos en que se habla, así siguen el ritmo real y no se adelantan."""
     palabras = frase.split()
+    if not palabras:                      # plano de recurso: sin subtítulos
+        return []
     pesos = [len(p) + 3 for p in palabras]
     total = sum(pesos)
     tiempos = []
@@ -336,7 +338,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         sub_top = tm["_sub_top"]
 
         # Franja oscura difuminada detrás de los subtítulos si el fondo es claro.
-        if tm["_franja"]:
+        if tm["_franja"] and tm.get("dialogo"):
             # Solo detrás del texto (no a todo el ancho) para que no parezca una mancha.
             pad, ancho_f = 34, 720
             fx = int(min(max(tm["_sub_x"] - ancho_f / 2, 0), W - ancho_f))
@@ -345,7 +347,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 + r"{\an7\pos(" + f"{fx},{sub_top - pad}" + r")\p1\bord0\shad0\blur32\1c&H000000&\1a&H9A&}"
                 + rect_redondeado(ancho_f, LH_SUB + 2 * pad, 60)
             )
-        for txt, t0, t1 in bloques_subtitulo(tm["dialogo"], a + 0.05, b - 0.04, tm.get("_voz"), a):
+        for txt, t0, t1 in bloques_subtitulo(tm.get("dialogo", ""), a + 0.05, b - 0.04, tm.get("_voz"), a):
             ev += con_sombra(1, t0, t1, "Sub", tm["_sub_x"], sub_top, "", txt)
 
         # Recuadro con el tema / precio (opcional).
@@ -517,7 +519,8 @@ def main():
     # 1) Analizar caras y luz; igualar blancos y exposición por clip.
     if cfg.get("voz"):
         for tm in tomas:
-            ajustar_a_voz(tm, args.fuentes)
+            if tm.get("dialogo"):        # los planos de recurso (sin diálogo) no se recortan
+                ajustar_a_voz(tm, args.fuentes)
     for tm in tomas:
         analizar(tm, args.fuentes)
     completar_caras(tomas)
@@ -556,7 +559,8 @@ def main():
             run(["ffmpeg", "-v", "error", "-y", "-ss", str(tm["inicio"]),
                  "-i", os.path.join(args.fuentes, tm["archivo"]), "-t", f"{dur:.4f}",
                  "-vn", "-ac", "1", "-ar", "48000",
-                 "-af", f"afade=t=in:d=0.012,afade=t=out:st={dur - 0.015:.4f}:d=0.015",
+                 "-af", f"volume={tm.get('volumen', 1.0)},"
+                        f"afade=t=in:d=0.012,afade=t=out:st={dur - 0.015:.4f}:d=0.015",
                  "-c:a", "pcm_s16le", wv])
             voces.append(wv)
 
@@ -614,6 +618,8 @@ def main():
     filtro += (
         f"[{previo}]subtitles='{ass}':fontsdir='{FUENTES_TIPO}',format=yuv420p[v]"
     )
+    # Tope de bitrate para que el archivo final pese menos de 30 MB sea cual sea la duración.
+    tasa = int(min(6000, 27e6 * 8 / dur_total / 1000 - 200))
     os.makedirs(args.salida, exist_ok=True)
     final = os.path.join(args.salida, cfg["salida"] + ".mp4")
     # Sin voz ni efectos, el vídeo va sin audio: la música se pone al publicar.
@@ -621,7 +627,8 @@ def main():
     audio = ["-map", "1:a", "-c:a", "aac", "-b:a", "192k", "-ar", "48000"] if con_audio else ["-an"]
     run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", wav,
          "-filter_complex", filtro, "-map", "[v]", *audio,
-         "-c:v", "libx264", "-preset", "slow", "-crf", "19", "-maxrate", "6000k", "-bufsize", "12000k",
+         "-c:v", "libx264", "-preset", "slow", "-crf", "19",
+         "-maxrate", f"{tasa}k", "-bufsize", f"{2 * tasa}k",
          "-profile:v", "high",
          "-pix_fmt", "yuv420p", "-r", str(FPS),
          "-movflags", "+faststart", "-t", f"{dur_total:.3f}", final])

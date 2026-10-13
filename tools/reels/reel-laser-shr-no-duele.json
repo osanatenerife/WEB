@@ -27,8 +27,7 @@
       "archivo": "IMG_6757.mov",
       "inicio": 85.6,
       "fin": 87.78,
-      "zoom": 1.15,
-      "centro_x": 0.55,
+      "zoom": 1.5,
       "rotulo": "Paso 1 · *Gel*",
       "dialogo": "Primero me aplico un poco de gel conductor"
     },
@@ -37,9 +36,21 @@
       "archivo": "IMG_6757.mov",
       "inicio": 87.78,
       "fin": 91.1,
-      "zoom": 1.5,
+      "zoom": 1.15,
       "rotulo": "Paso 1 · *Gel*",
-      "dialogo": "para ayudar a que el cabezal deslice muy bien."
+      "dialogo": "para ayudar a que el cabezal deslice muy bien.",
+      "centro_x": 0.55
+    },
+    {
+      "bloque": "Pasos",
+      "archivo": "IMG_6757.mov",
+      "inicio": 75.4,
+      "fin": 78.4,
+      "zoom": 1.4,
+      "rotulo": "Paso 1 · *Gel*",
+      "volumen": 0.6,
+      "recurso": true,
+      "centro_x": 0.64
     },
     {
       "bloque": "Pasos",
@@ -54,11 +65,32 @@
     {
       "bloque": "Pasos",
       "archivo": "IMG_6759.mov",
+      "inicio": 108.0,
+      "fin": 110.6,
+      "zoom": 1.5,
+      "rotulo": "Paso 2 · *Gafas*",
+      "volumen": 0.6,
+      "recurso": true
+    },
+    {
+      "bloque": "Pasos",
+      "archivo": "IMG_6759.mov",
       "inicio": 114.7,
       "fin": 117.8,
       "zoom": 1.5,
       "rotulo": "Paso 3 · *Potencia*",
       "dialogo": "Tercero, controlamos muy bien la potencia."
+    },
+    {
+      "bloque": "Pasos",
+      "archivo": "IMG_6759.mov",
+      "inicio": 127.4,
+      "fin": 130.6,
+      "zoom": 1.15,
+      "rotulo": "Paso 3 · *Potencia*",
+      "volumen": 0.6,
+      "recurso": true,
+      "centro_x": 0.6
     },
     {
       "bloque": "Pasos",
@@ -69,6 +101,28 @@
       "centro_x": 0.55,
       "rotulo": "Paso 4 · *Láser*",
       "dialogo": "Y por último ya comenzamos a trabajar la zona."
+    },
+    {
+      "bloque": "Pasos",
+      "archivo": "IMG_6759.mov",
+      "inicio": 139.6,
+      "fin": 142.2,
+      "zoom": 1.4,
+      "rotulo": "Paso 4 · *Láser*",
+      "volumen": 0.6,
+      "recurso": true,
+      "centro_x": 0.64
+    },
+    {
+      "bloque": "Pasos",
+      "archivo": "IMG_6759.mov",
+      "inicio": 142.2,
+      "fin": 144.8,
+      "zoom": 1.15,
+      "rotulo": "Paso 4 · *Láser*",
+      "volumen": 0.6,
+      "recurso": true,
+      "centro_x": 0.55
     },
     {
       "bloque": "Resultado",
@@ -92,18 +146,30 @@
     {
       "bloque": "Resultado",
       "archivo": "IMG_6759.mov",
+      "inicio": 149.4,
+      "fin": 152.4,
+      "zoom": 1.4,
+      "rotulo": "No duele *nada*",
+      "volumen": 0.6,
+      "recurso": true,
+      "centro_x": 0.64
+    },
+    {
+      "bloque": "Resultado",
+      "archivo": "IMG_6759.mov",
       "inicio": 154.0,
       "fin": 157.0,
-      "zoom": 1.5,
+      "zoom": 1.15,
       "rotulo": "Rápido y *efectivo*",
-      "dialogo": "Y ya estaría, así de rápido y efectivo."
+      "dialogo": "Y ya estaría, así de rápido y efectivo.",
+      "centro_x": 0.55
     },
     {
       "bloque": "Cierre",
       "archivo": "IMG_6757.mov",
       "inicio": 367.2,
       "fin": 370.84,
-      "zoom": 1.15,
+      "zoom": 1.5,
       "rotulo": "¿Te animas a *probarlo*?",
       "dialogo": "Si tú también quieres probarlo y comprobar que realmente no duele,"
     },
@@ -112,7 +178,7 @@
       "archivo": "IMG_6757.mov",
       "inicio": 370.84,
       "fin": 374.2,
-      "zoom": 1.5,
+      "zoom": 1.15,
       "rotulo": "Sesión de prueba *gratis*",
       "dialogo": "escríbenos para agendarte una sesión totalmente gratuita."
     }
