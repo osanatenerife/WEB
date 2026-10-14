@@ -4,16 +4,16 @@
   "archivo": "IMG_6801.mov",
   "pregunta": "¿qué es lo|primero que|haces en un|facial?",
   "intro": 45.4,
-  "fin": 76.4,
+  "fin": 68.83,
   "portada": 45.8,
   "frases": [
     {"inicio": 46.64, "fin": 48.6, "texto": "lo primero es realizar un diagnóstico facial."},
     {"inicio": 49.24, "fin": 52.28, "texto": "si queremos realizar un buen programa, un buen protocolo"},
     {"inicio": 52.74, "fin": 57.14, "texto": "y tener unos buenos resultados, necesitamos saber cómo se encuentra cada"},
     {"inicio": 58.02, "fin": 58.84, "unir": true, "texto": "capa de la piel:"},
-    {"inicio": 59.52, "fin": 63.88, "texto": "si tienes mucho sebo, cómo están las manchas, cómo está la hidratación,"},
-    {"inicio": 64.32, "fin": 68.54, "texto": "y ver realmente qué es lo que te está pidiendo la piel, según el grado de urgencia."},
-    {"inicio": 69.54, "fin": 70.52, "texto": "porque a veces vienen,"},
-    {"inicio": 70.94, "fin": 75.96, "clave": true, "texto": "quieren un tratamiento de manchas, pero es que tienen la piel extremadamente seca."}
+    {"inicio": 59.52, "fin": 63.88, "corte_fin": 64.1, "texto": "si tienes mucho sebo, cómo están las manchas, cómo está la hidratación."},
+    {"inicio": 69.54, "fin": 70.52, "corte_inicio": 69.4, "texto": "porque a veces vienen,"},
+    {"inicio": 70.94, "fin": 75.96, "corte_fin": 76.2, "clave": true, "texto": "quieren un tratamiento de manchas, pero es que tienen la piel extremadamente seca."},
+    {"inicio": 64.32, "fin": 68.54, "corte_inicio": 64.1, "texto": "y ver realmente qué es lo que te está pidiendo la piel, según el grado de urgencia."}
   ]
 }
