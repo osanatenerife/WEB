@@ -4,7 +4,7 @@
   "archivo": "copy_FD5C448A-576D-45E6-AE19-C1EA5DE34C17.mov",
   "pregunta": "¿por qué|elegiste|tu láser?",
   "intro": 60.9,
-  "fin": 270.1,
+  "fin": 284.15,
   "portada": 61.3,
   "frases": [
     {"inicio": 61.98, "fin": 62.6, "texto": "porque la probé."},
@@ -19,6 +19,10 @@
     {"inicio": 253.24, "fin": 256.0, "texto": "y casi siempre, a las que han pasado por otro tipo de láser,"},
     {"inicio": 256.36, "fin": 258.82, "texto": "les pasa lo mismo, lo que pasa es que ya la conozco"},
     {"inicio": 259.36, "fin": 260.14, "texto": "y conozco la sensación."},
-    {"inicio": 260.74, "fin": 269.94, "texto": "pero el cambio, lo que sienten es un calor súper ligero, porque el frío del gel y luego el calor del láser, es que no se siente absolutamente nada.", "clave": true}
+    {"inicio": 260.74, "fin": 269.94, "texto": "pero el cambio, lo que sienten es un calor súper ligero, porque el frío del gel y luego el calor del láser, es que no se siente absolutamente nada."},
+    {"inicio": 270.44, "fin": 273.3, "texto": "luego lo rápido, lo seguro con lo que trabajamos, porque"},
+    {"inicio": 273.76, "fin": 278.66, "texto": "ha pasado todas las pruebas y controles, y yo sé que aun así, aumentando la potencia"},
+    {"inicio": 279.04, "fin": 281.58, "texto": "y trabajando en una piel morena, que yo soy morena,"},
+    {"inicio": 281.94, "fin": 283.76, "clave": true, "texto": "es que no pasa absolutamente nada."}
   ]
 }

@@ -183,6 +183,9 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   atacado es porque sabe que lo está haciendo»). Una frase solo se quita por cara, voz o
   repetición, no por prudencia. En el texto de los anuncios de pago sí se cuenta como su
   experiencia («yo me depilaba con diodo y necesitaba crema anestésica»).
+- Mejor sus argumentos concretos a favor de la máquina («en una piel morena, que yo soy
+  morena, es que no pasa absolutamente nada») que las comparaciones («es como una
+  Dyson de la depilación láser» le sobraba). Ningún argumento en dos clips a la vez.
 - Los cortes dentro de una frase se hacen en una pausa real: se buscan con la energía
   de la voz cada 10 ms y se comprueban transcribiendo el trozo. Una palabra suave al
   principio («que…») puede quedar fuera de la frase que marca la transcripción: se
