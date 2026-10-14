@@ -168,6 +168,36 @@ Releases del repositorio.
   gratis y cómo reservar; como mucho **5 hashtags** (límite de Instagram desde
   diciembre de 2025).
 
+### Montaje de tratamiento limpio (su estilo de Instagram)
+
+Como sus tres referencias editadas con Edits (octubre de 2026): primeros planos del
+tratamiento (gel y láser), tomas cortas que cambian todo el rato, **sin textos, sin
+sonido y sin efectos añadidos**; ella pone después una canción movida (y los textos,
+si los quiere). Plantillas: `montaje-laser-piernas-1.json` y `-2.json`, con
+`"modo": "limpio"` en `montaje_dinamico.py` (no hace falta `--sin-texto`).
+
+- **Cortes secos** cada 1, 1,5 o 2 s, siempre en múltiplos de medio segundo (15
+  fotogramas): con una canción de ~120 BPM caen en el golpe. Unos 12 planos y ~17 s.
+- Orden: gancho de 1–1,5 s (disparos del láser o un macro del gel), el gel (llega,
+  se extiende, brilla) y el láser cada vez con más disparos. Cierre limpio (levanta el
+  cabezal con el botón rojo, o los últimos disparos) que enlaza bien con el inicio
+  cuando el Reel vuelve a empezar.
+- **El láser dispara uno de cada tres fotogramas** (10 por segundo): ni la primera ni
+  la última imagen de un plano puede ser un destello (empezar 2 fotogramas después de
+  uno). Láser a velocidad normal; nada acelerado.
+- Varios montajes del mismo material: **ninguna toma se repite** entre ellos, y dentro
+  de cada uno dos planos con el mismo ángulo van separados por al menos dos planos.
+- Encuadre algo cerrado: zoom 1,15–1,2 (1,12 en los macros). Zoom animado solo en
+  planos quietos y muy suave (`"mov": "in"`, 4 %); sus referencias no llevan zooms.
+- **Color igualado plano a plano**: la sábana a blanco limpio (R/G 1,0, B/G 0,985) y la
+  piel a un tostado natural (R/G 1,31, R/B 1,80), la sábana manda un 65 %; luz de la
+  piel ~0,585 y de la sábana ~0,85 con curva suave, sin quemar las luces, +6 % de
+  viveza y algo de contraste. Sin viñeta ni grano (en una sábana blanca se ven sucios).
+- **Estabilizado solo del temblor fino** (gaussiana de 3 fotogramas): el iPhone ya
+  quita el grande, y con más suavizado el encuadre «flota» y pelea con los movimientos
+  de cámara hechos a propósito. Nunca bordes negros (la herramienta lo comprueba).
+- Salida: 1080×1920, 30 fps, H.264 High bt709 (~9 Mbps, ~20 MB), sin pista de audio.
+
 ## Formato 1 · Entrevista: serie «Te lo cuento»
 
 Estilo **natural**, como las referencias de entrevista que eligió la dueña

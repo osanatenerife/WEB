@@ -1,0 +1,105 @@
+{
+  "titulo": "Depilación láser en piernas — montaje dinámico 2 (para su Instagram, limpio)",
+  "salida": "osana-laser-piernas-montaje-2",
+  "modo": "limpio",
+  "zoom_mov": 0.04,
+  "notas": "Cortes cada 1, 1,5 o 2 s (múltiplos de medio segundo): con una canción de ~120 BPM caen en el golpe. Sin textos, sin audio y sin destellos añadidos: el rojo es el del láser. Ninguna toma se repite en el montaje 1.",
+  "tomas": [
+    {
+      "archivo": "IMG_6564.mov",
+      "inicio": 7.4,
+      "dur": 1.5,
+      "zoom": 1.12,
+      "mov": "none",
+      "nota": "gancho: macro, la espátula trae más gel"
+    },
+    {
+      "archivo": "IMG_6562.mov",
+      "inicio": 16.0,
+      "dur": 2.0,
+      "zoom": 1.2,
+      "mov": "none",
+      "nota": "extiende el gel (mano y espátula)"
+    },
+    {
+      "archivo": "IMG_6563.mov",
+      "inicio": 0.0,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "mano con la espátula, de cerca"
+    },
+    {
+      "archivo": "IMG_6564.mov",
+      "inicio": 13.3,
+      "dur": 1.5,
+      "zoom": 1.12,
+      "mov": "none",
+      "nota": "macro: extiende con la mano"
+    },
+    {
+      "archivo": "IMG_6563.mov",
+      "inicio": 12.0,
+      "dur": 1.5,
+      "zoom": 1.2,
+      "mov": "none",
+      "nota": "espátula sobre la rodilla"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 2.9,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "aparece el cabezal (botón rojo)"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 5.4,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "el cabezal baja por la pierna, de lado"
+    },
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 1.9,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "el cabezal recorre el muslo"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 13.067,
+      "dur": 1.0,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "disparos sobre la rodilla"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 8.767,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "disparos de lado (resplandor rojo)"
+    },
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 10.167,
+      "dur": 1.0,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "disparos en la pierna"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 14.967,
+      "dur": 1.0,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "cierre: últimos disparos"
+    }
+  ]
+}

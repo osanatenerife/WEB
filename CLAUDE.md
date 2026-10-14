@@ -21,4 +21,6 @@ ni amarillo fuera del formato 2. Medidas, colores, cortes y audio: `tools/reels/
 comprueba que nada de eso ha cambiado.
 
 Los vídeos originales los sube la dueña a los Releases de GitHub del repositorio.
-Montajes dinámicos sin voz: `tools/reels/montaje_dinamico.py` (para su Instagram, `--sin-texto`).
+Montajes dinámicos sin voz: `tools/reels/montaje_dinamico.py`. Los de tratamiento para su
+Instagram (tomas cortas, sin texto ni sonido, ella pone la música) llevan `"modo": "limpio"`
+(plantilla: `tools/reels/montaje-laser-piernas-1.json`; ver «Montaje de tratamiento limpio» en ESTILO.md).

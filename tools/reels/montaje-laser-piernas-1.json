@@ -1,0 +1,113 @@
+{
+  "titulo": "Depilación láser en piernas — montaje dinámico 1 (para su Instagram, limpio)",
+  "salida": "osana-laser-piernas-montaje-1",
+  "modo": "limpio",
+  "zoom_mov": 0.04,
+  "notas": "Cortes cada 1, 1,5 o 2 s (múltiplos de medio segundo): con una canción de ~120 BPM caen en el golpe. Sin textos, sin audio y sin destellos añadidos: el rojo es el del láser. Ninguna toma se repite en el montaje 2.",
+  "tomas": [
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 0.033,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "gancho: disparos del láser"
+    },
+    {
+      "archivo": "IMG_6562.mov",
+      "inicio": 1.3,
+      "dur": 1.5,
+      "zoom": 1.2,
+      "mov": "none",
+      "nota": "llega el gel con la espátula"
+    },
+    {
+      "archivo": "IMG_6564.mov",
+      "inicio": 2.0,
+      "dur": 1.5,
+      "zoom": 1.12,
+      "mov": "none",
+      "nota": "macro: gel brillante sobre la rodilla"
+    },
+    {
+      "archivo": "IMG_6563.mov",
+      "inicio": 9.3,
+      "dur": 2.0,
+      "zoom": 1.2,
+      "mov": "none",
+      "nota": "extiende el gel (mano y espátula)"
+    },
+    {
+      "archivo": "IMG_6564.mov",
+      "inicio": 4.0,
+      "dur": 1.0,
+      "zoom": 1.12,
+      "mov": "none",
+      "nota": "macro: espátula sobre la rodilla"
+    },
+    {
+      "archivo": "IMG_6562.mov",
+      "inicio": 18.3,
+      "dur": 1.5,
+      "zoom": 1.2,
+      "mov": "in",
+      "nota": "rodilla brillante, sale la espátula"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 0.0,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "in",
+      "nota": "el cabezal se apoya en la rodilla"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 10.267,
+      "dur": 1.0,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "disparos de lado"
+    },
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 4.0,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "in",
+      "nota": "cabezal sobre la rodilla, desde arriba"
+    },
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 7.2,
+      "dur": 1.0,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "primer plano de la rodilla con el cabezal"
+    },
+    {
+      "archivo": "IMG_6568.mov",
+      "inicio": 11.467,
+      "dur": 1.5,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "disparos sobre la rodilla"
+    },
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 8.867,
+      "dur": 1.0,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "disparos sobre la rodilla, desde arriba"
+    },
+    {
+      "archivo": "IMG_6569.mov",
+      "inicio": 11.433,
+      "dur": 1.367,
+      "zoom": 1.15,
+      "mov": "none",
+      "nota": "cierre: levanta el cabezal (botón rojo)"
+    }
+  ]
+}
