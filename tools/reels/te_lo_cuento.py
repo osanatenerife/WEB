@@ -240,14 +240,22 @@ def encuadre(p):
     p["_cabeza_px"] = (c["cabeza"] - y0) / ch * H
 
 
-def filtro_plano(p):
-    """Solo encuadre: la luz y el color, tal como se grabaron. Con «fin_imagen», los
-    últimos fotogramas repiten el último bueno (la voz sigue hasta acabar la palabra)."""
+def filtro_plano(p, congelar=True):
+    """Solo encuadre: la luz y el color, tal como se grabaron. Con «inicio_imagen», los
+    primeros fotogramas repiten el primero bueno (la voz ya ha empezado y un parpadeo
+    acaba justo en el corte); con «fin_imagen», los últimos repiten el último bueno (la
+    voz sigue hasta acabar la palabra)."""
     x0, y0, cw, ch = p["_crop"]
     vf = (f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
           f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p")
+    if not congelar:
+        return vf
+    n = round((p["fin"] - p["inicio"]) * FPS)
+    if p.get("inicio_imagen"):
+        quietos = round((p["inicio_imagen"] - p["inicio"]) * FPS)
+        if 0 < quietos < n:
+            vf += f",trim=start_frame={quietos},setpts=PTS-STARTPTS,tpad=start_mode=clone:start={quietos}"
     if p.get("fin_imagen"):
-        n = round((p["fin"] - p["inicio"]) * FPS)
         visibles = round((p["fin_imagen"] - p["inicio"]) * FPS)
         if 0 < visibles < n:
             vf += f",trim=end_frame={visibles},tpad=stop_mode=clone:stop={n - visibles}"
@@ -282,6 +290,17 @@ def pulir_cortes(planos, cfg, g):
             if nuevo != s0:
                 cambios.append(f"inicio {p['inicio']:.2f} → {nuevo / FPS:.2f}")
                 p["inicio"] = nuevo / FPS
+            elif not bien(s0, s0 + 3):
+                # Empieza a hablar justo en el corte y un parpadeo acaba ahí: las primeras
+                # imágenes repiten el primer fotograma bueno (como mucho 5, ≈0,17 s, para que
+                # no se note la boca quieta) en vez de enseñar los ojos a medio abrir.
+                bueno = next((c for c in range(s0 + 1, s0 + 6) if bien(c, c + 3, gs.OJOS_BIEN)),
+                             next((c for c in range(s0 + 1, s0 + 6) if bien(c, c + 3)), None))
+                if bueno is not None:
+                    p["inicio_imagen"] = bueno / FPS
+                    cambios.append(f"inicio {s0 / FPS:.2f}: imagen congelada hasta {bueno / FPS:.2f}")
+                else:
+                    cambios.append(f"inicio {s0 / FPS:.2f}: ojos a medio cerrar sin arreglo automático (revisar)")
         # Final de tramo (acaba la voz): sin comerse la última palabra.
         if siguiente is None or siguiente["tramo"] != p["tramo"]:
             e0 = k(p["fin"])
@@ -313,10 +332,14 @@ def pulir_cortes(planos, cfg, g):
                 p["fin"] = nuevo / FPS
         # Cambio de encuadre dentro del mismo tramo (la voz sigue): a un punto sin parpadeo.
         elif siguiente is not None and abs(siguiente["inicio"] - p["fin"]) < 1e-6:
+            # Hasta 0,4 s a cada lado (al mirar hacia abajo los párpados bajan medio segundo),
+            # sin dejar planos de menos de medio segundo.
             c0 = k(p["fin"])
-            candidatos = sorted(range(c0 - 6, c0 + 7), key=lambda c: abs(c - c0))
-            nuevo = next((c for c in candidatos if bien(c - 3, c + 2)), c0)
-            if nuevo != c0:
+            margen = range(max(c0 - 12, k(p["inicio"]) + 15), min(c0 + 13, k(siguiente["fin"]) - 15))
+            nuevo = next((c for c in sorted(margen, key=lambda c: abs(c - c0)) if bien(c - 3, c + 2)), None)
+            if nuevo is None:
+                cambios.append(f"corte {p['fin']:.2f}: ojos cerrados sin arreglo automático (revisar)")
+            elif nuevo != c0:
                 cambios.append(f"corte {p['fin']:.2f} → {nuevo / FPS:.2f}")
                 p["fin"] = siguiente["inicio"] = nuevo / FPS
     return cambios
@@ -465,7 +488,7 @@ def portada(cfg, p0, ruta, salida):
     with open(ass, "w", encoding="utf-8") as f:
         f.write(cabecera_ass() + "\n".join(textos) + "\n")
     dt.procesar(["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", ruta, "-frames:v", "1",
-                 "-vf", filtro_plano(p0), "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
+                 "-vf", filtro_plano(p0, congelar=False), "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
                 ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                  "-i", "-", png], W, H)
     br.run(["ffmpeg", "-v", "error", "-y", "-i", png,

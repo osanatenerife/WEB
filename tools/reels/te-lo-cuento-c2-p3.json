@@ -1,0 +1,25 @@
+{
+  "titulo": "Te lo cuento · C2 P3 · ¿Cuánto has invertido en máquinas?",
+  "salida": "osana-te-lo-cuento-c2-p3-cuanto-has-invertido-en-maquinas",
+  "archivo": "IMG_6800.mov",
+  "pregunta": "¿cuánto has|invertido en|máquinas?",
+  "intro": 81.2,
+  "fin": 182.15,
+  "portada": 81.6,
+  "frases": [
+    {"inicio": 83.08, "fin": 83.86, "texto": "muchísimo."},
+    {"inicio": 85.6, "fin": 87.2, "texto": "yo creo que…"},
+    {"inicio": 88.2, "fin": 89.28, "texto": "más de 30.000 euros,"},
+    {"inicio": 90.12, "fin": 90.5, "unir": true, "texto": "seguro."},
+    {"inicio": 91.56, "fin": 100.06, "texto": "la primera me costó como unos 15.000, y ya la segunda un poco más, más la de la crio, más la presoterapia y otras aparatologías que tengo."},
+    {"inicio": 100.46, "fin": 101.82, "texto": "hay mucho dinero invertido."},
+    {"inicio": 114.24, "fin": 119.76, "corte_inicio": 114.1, "texto": "yo quiero una máquina europea, que tenga una seguridad, un servicio técnico"},
+    {"inicio": 120.56, "fin": 121.88, "unir": true, "texto": "y buenos resultados, sobre todo."},
+    {"inicio": 138.62, "fin": 140.7, "corte_inicio": 138.6, "texto": "depilar, depilan todas, pero no igual."},
+    {"inicio": 141.22, "fin": 142.56, "texto": "la verdad es que"},
+    {"inicio": 143.08, "fin": 145.78, "corte_fin": 146.05, "texto": "cada euro lo vale y se nota la diferencia."},
+    {"inicio": 172.88, "fin": 174.4, "corte_inicio": 172.76, "texto": "lo que no se puede hacer es"},
+    {"inicio": 175.0, "fin": 176.3, "unir": true, "texto": "invertir al mínimo"},
+    {"inicio": 176.68, "fin": 181.62, "clave": true, "texto": "y querer sacarle el máximo provecho, porque no existe, es incompatible para mí."}
+  ]
+}

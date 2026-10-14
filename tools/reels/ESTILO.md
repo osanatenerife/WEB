@@ -45,7 +45,7 @@ del formato 2 la usa, en mayúsculas espaciadas, en blanco o en el marrón de la
   clave al 122 %, con los ojos en el tercio superior. Fuera las pausas de más de 0,55 s;
   los planos de más de 5,2 s, en dos encuadres sin cortar el audio. Ningún corte con los
   ojos a medio cerrar.
-- 1080×1920, 30 fps, 30–60 s, menos de 30 MB y portada JPG con la pregunta.
+- 1080×1920, 30 fps, 15–60 s, menos de 30 MB y portada JPG con la pregunta.
 - Detalles y motivos: «Formato 1 · Entrevista: serie «Te lo cuento»», más abajo.
 
 ### Formato 2 · Explicación con prueba (medidas)
@@ -174,9 +174,17 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
 (@karbonblackcapilar): su luz tal cual, pocos textos y subtítulos discretos.
 
 - Herramienta: `te_lo_cuento.py` con una tabla por pregunta (`te-lo-cuento-c1-p1.json`…).
-  Una pregunta, un clip de 30–60 s. Si hay varias tomas de la misma respuesta, se
+  Una pregunta, un clip de 15–60 s. Si hay varias tomas de la misma respuesta, se
   elige la más clara y que no repita lo que ya cuenta otra pregunta (ni frases
   repetidas dentro del mismo clip, como «un buen ambiente, un buen ambiente»).
+- Se cuenta su experiencia («yo me retorcía en cabina, me tenía que poner crema
+  anestésica»), sin desacreditar otras máquinas o centros ni decir que es la única
+  («mentira», «el diodo duele», «aparatología china», «faltaba en Canarias», «no la hay»):
+  son reglas de su plan de contenidos y pueden dar problemas si el vídeo se promociona.
+- Los cortes dentro de una frase se hacen en una pausa real: se buscan con la energía
+  de la voz cada 10 ms y se comprueban transcribiendo el trozo. Una palabra suave al
+  principio («que…») puede quedar fuera de la frase que marca la transcripción: se
+  revisa transcribiendo el audio final de cada clip.
   Requisitos: `pip install mediapipe` y, en Linux sin pantalla, `apt-get install libegl1 libgles2`.
   Ojo: mediapipe instala `opencv-contrib-python` 5, que rompe la detección de caras; después:
   `pip uninstall -y opencv-contrib-python && pip install --force-reinstall "opencv-python-headless<5"`.
@@ -206,8 +214,13 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   un silencio ni gestos raros. `gestos.py` mide ojos y boca en cada fotograma
   (MediaPipe) y el montaje mueve cada corte unos fotogramas hasta uno bueno, sin
   comerse la voz; si parpadea justo al acabar la última palabra, se congela el último
-  fotograma bueno (1–3 fotogramas, ya en silencio). Aun así, revisar a ojo el primer y
-  el último fotograma de cada plano.
+  fotograma bueno (1–3 fotogramas, ya en silencio). Si el corte cae al final de un
+  parpadeo y la voz empieza justo ahí, las primeras imágenes (como mucho 5) repiten el
+  primer fotograma con los ojos claramente abiertos (al mirar hacia abajo los párpados
+  bajan y MediaPipe da 0,15–0,2, que ya parece entornado). Los cambios de plano dentro
+  de una frase se buscan hasta 0,4 s a cada lado. Lo que no se puede arreglar sale en el
+  registro como «revisar»: se quita la frase o se elige otra toma. Aun así, revisar a ojo
+  el primer y el último fotograma de cada plano (los labios entreabiertos no los mide).
 - El clip termina justo al acabar de hablar, con los ojos abiertos y antes de que cambie
   la cara; el primer fotograma, con la expresión que lleva la respuesta (p. ej. la
   cara extrañada de «¿qué es lo que nunca…?»), no sonriendo para luego cambiar.

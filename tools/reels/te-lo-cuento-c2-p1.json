@@ -1,0 +1,20 @@
+{
+  "titulo": "Te lo cuento · C2 P1 · ¿Por qué te especializaste en el láser?",
+  "salida": "osana-te-lo-cuento-c2-p1-por-que-te-especializaste-en-el-laser",
+  "archivo": "copy_FD5C448A-576D-45E6-AE19-C1EA5DE34C17.mov",
+  "pregunta": "¿por qué te|especializaste|en el láser?",
+  "intro": 0.0,
+  "fin": 60.15,
+  "portada": 0.5,
+  "frases": [
+    {"inicio": 1.3, "fin": 3.5, "corte_fin": 3.9, "texto": "porque yo lo viví y sé lo que se sufría."},
+    {"inicio": 29.19, "fin": 32.38, "corte_inicio": 29.19, "texto": "yo me retorcía en cabina, me tenía que poner la crema anestésica,"},
+    {"inicio": 32.74, "fin": 34.4, "texto": "los sudores, los chispazos,"},
+    {"inicio": 34.76, "fin": 36.8, "texto": "y luego la poca efectividad, por ejemplo,"},
+    {"inicio": 37.48, "fin": 43.94, "texto": "que tuvo en mí, y son a lo mejor casos más complicados, donde hay casos hormonales, donde la piel es más sensible,"},
+    {"inicio": 44.34, "fin": 45.36, "texto": "y tienes menos"},
+    {"inicio": 46.14, "fin": 52.7, "texto": "poder de jugar con la potencia de la máquina, que hoy en día lo entiendo, antes no lo entendía,"},
+    {"inicio": 53.18, "fin": 57.0, "texto": "pero hay máquinas que se quedan limitadas ante cierto tipo de casos,"},
+    {"inicio": 57.42, "fin": 59.76, "clave": true, "texto": "y con nuestra máquina eso no pasa."}
+  ]
+}

@@ -18,6 +18,7 @@ import numpy as np
 MODELO_URL = ("https://storage.googleapis.com/mediapipe-models/face_landmarker/"
               "face_landmarker/float16/1/face_landmarker.task")
 OJOS_MAL = 0.22      # por encima, los ojos se ven medio cerrados (aunque los esté abriendo)
+OJOS_BIEN = 0.10     # por debajo, claramente abiertos (al mirar abajo, 0,15–0,2 ya parecen entornados)
 BOCA_MAL = 0.15      # por encima, la boca se ve abierta (mal en un silencio)
 ANCHO, ALTO = 540, 960
 

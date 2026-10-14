@@ -1,0 +1,14 @@
+{
+  "titulo": "Te lo cuento · C2 P5 · ¿Has rechazado alguna vez a una clienta?",
+  "salida": "osana-te-lo-cuento-c2-p5-has-rechazado-a-una-clienta",
+  "archivo": "copy_FD5C448A-576D-45E6-AE19-C1EA5DE34C17.mov",
+  "pregunta": "¿has rechazado|alguna vez|a una clienta?",
+  "intro": 411.57,
+  "fin": 426.75,
+  "portada": 426.3,
+  "frases": [
+    {"inicio": 411.8, "fin": 417.9, "texto": "son pocos los casos que he rechazado, pero sí he rechazado a las personas que tienen canas, o personas muy rubias,"},
+    {"inicio": 418.42, "fin": 422.74, "texto": "porque un castaño claro puedo con el láser, pero un rubio es imposible."},
+    {"inicio": 423.16, "fin": 426.4, "clave": true, "texto": "así que ni siquiera les voy a hacer perder el dinero, porque no tiene sentido."}
+  ]
+}

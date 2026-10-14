@@ -1,0 +1,15 @@
+{
+  "titulo": "Te lo cuento · C2 P4 · ¿Por qué no vendes bonos de 15 o 20 sesiones?",
+  "salida": "osana-te-lo-cuento-c2-p4-por-que-no-vendes-bonos-de-20-sesiones",
+  "archivo": "copy_FD5C448A-576D-45E6-AE19-C1EA5DE34C17.mov",
+  "pregunta": "¿por qué no|vendes bonos de|15 o 20 sesiones?",
+  "intro": 361.65,
+  "fin": 375.75,
+  "portada": 362.0,
+  "frases": [
+    {"inicio": 362.56, "fin": 363.78, "texto": "porque no las vas a necesitar."},
+    {"inicio": 364.28, "fin": 368.38, "texto": "vas a pagar justo lo que necesitas y no vas a tener bonos de 15 o 20 sesiones."},
+    {"inicio": 368.98, "fin": 372.42, "texto": "simplemente vas a pagar por zona, según la que te vayas haciendo,"},
+    {"inicio": 372.78, "fin": 375.18, "clave": true, "texto": "y así yo me aseguro que puedes completar el tratamiento."}
+  ]
+}
