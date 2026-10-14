@@ -177,10 +177,12 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   Una pregunta, un clip de 15–60 s. Si hay varias tomas de la misma respuesta, se
   elige la más clara y que no repita lo que ya cuenta otra pregunta (ni frases
   repetidas dentro del mismo clip, como «un buen ambiente, un buen ambiente»).
-- Se cuenta su experiencia («yo me retorcía en cabina, me tenía que poner crema
-  anestésica»), sin desacreditar otras máquinas o centros ni decir que es la única
-  («mentira», «el diodo duele», «aparatología china», «faltaba en Canarias», «no la hay»):
-  son reglas de su plan de contenidos y pueden dar problemas si el vídeo se promociona.
+- **Sus frases polémicas se quedan** si están bien dichas («el diodo duele», «no había una
+  máquina como la nuestra, y es que no la hay», «aparatología china», «todas dicen que son
+  indoloras y no es la realidad»): la dueña quiere algo de controversia («quien se siente
+  atacado es porque sabe que lo está haciendo»). Una frase solo se quita por cara, voz o
+  repetición, no por prudencia. En el texto de los anuncios de pago sí se cuenta como su
+  experiencia («yo me depilaba con diodo y necesitaba crema anestésica»).
 - Los cortes dentro de una frase se hacen en una pausa real: se buscan con la energía
   de la voz cada 10 ms y se comprueban transcribiendo el trozo. Una palabra suave al
   principio («que…») puede quedar fuera de la frase que marca la transcripción: se

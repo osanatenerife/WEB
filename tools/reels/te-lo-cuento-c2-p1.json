@@ -8,7 +8,12 @@
   "portada": 0.5,
   "frases": [
     {"inicio": 1.3, "fin": 3.5, "corte_fin": 3.9, "texto": "porque yo lo viví y sé lo que se sufría."},
-    {"inicio": 29.19, "fin": 32.38, "corte_inicio": 29.19, "texto": "yo me retorcía en cabina, me tenía que poner la crema anestésica,"},
+    {"inicio": 12.28, "fin": 14.84, "corte_inicio": 12.2, "texto": "aunque hemos ampliado diferentes tratamientos en el centro,"},
+    {"inicio": 15.32, "fin": 18.74, "texto": "nos hemos especializado también en la depilación láser SHR,"},
+    {"inicio": 19.16, "fin": 20.88, "texto": "porque faltaba en Canarias."},
+    {"inicio": 21.46, "fin": 23.38, "texto": "no había una máquina como la nuestra,"},
+    {"inicio": 23.74, "fin": 24.78, "texto": "y es que no la hay."},
+    {"inicio": 25.42, "fin": 32.38, "texto": "de verdad que es un láser que no duele. el diodo duele, yo me retorcía en cabina, me tenía que poner la crema anestésica,"},
     {"inicio": 32.74, "fin": 34.4, "texto": "los sudores, los chispazos,"},
     {"inicio": 34.76, "fin": 36.8, "texto": "y luego la poca efectividad, por ejemplo,"},
     {"inicio": 37.48, "fin": 43.94, "texto": "que tuvo en mí, y son a lo mejor casos más complicados, donde hay casos hormonales, donde la piel es más sensible,"},

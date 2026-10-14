@@ -4,22 +4,21 @@
   "archivo": "copy_FD5C448A-576D-45E6-AE19-C1EA5DE34C17.mov",
   "pregunta": "¿por qué|elegiste|tu láser?",
   "intro": 60.9,
-  "fin": 202.85,
+  "fin": 270.1,
   "portada": 61.3,
   "frases": [
     {"inicio": 61.98, "fin": 62.6, "texto": "porque la probé."},
     {"inicio": 63.58, "fin": 67.96, "texto": "la vi en una feria de estética, y la inversión no era poca, era bastante alta,"},
-    {"inicio": 68.8, "fin": 74.08, "corte_fin": 74.4, "texto": "pero la verdad es que me hacía pensar si era realmente lo que decían, que era indoloro y efectivo."},
+    {"inicio": 68.8, "fin": 74.08, "texto": "pero la verdad es que me hacía pensar si era realmente lo que decían, que era indoloro y efectivo."},
+    {"inicio": 74.52, "fin": 79.58, "texto": "porque todas se venden así, todas dicen que son súper indoloras y efectivas, pero es que"},
+    {"inicio": 79.98, "fin": 83.82, "texto": "no es la realidad, porque hoy en día me llegan muchísimos casos con quejas."},
+    {"inicio": 84.22, "fin": 85.06, "texto": "y yo misma,"},
+    {"inicio": 85.6, "fin": 88.12, "corte_fin": 88.3, "texto": "o sea, no vi resultado y me dolía como a nadie."},
     {"inicio": 245.52, "fin": 247.86, "corte_inicio": 245.4, "texto": "y cuando les dije que me probaran el láser,"},
     {"inicio": 249.68, "fin": 252.74, "texto": "me acuerdo, ese día tenía un montón de miedo, yo estaba esperando el dolor."},
     {"inicio": 253.24, "fin": 256.0, "texto": "y casi siempre, a las que han pasado por otro tipo de láser,"},
     {"inicio": 256.36, "fin": 258.82, "texto": "les pasa lo mismo, lo que pasa es que ya la conozco"},
     {"inicio": 259.36, "fin": 260.14, "texto": "y conozco la sensación."},
-    {"inicio": 260.74, "fin": 269.94, "texto": "pero el cambio, lo que sienten es un calor súper ligero, porque el frío del gel y luego el calor del láser, es que no se siente absolutamente nada."},
-    {"inicio": 270.44, "fin": 273.3, "texto": "luego lo rápido, lo seguro con lo que trabajamos, porque"},
-    {"inicio": 273.76, "fin": 278.66, "texto": "ha pasado todas las pruebas y controles, y yo sé que aun así, aumentando la potencia"},
-    {"inicio": 279.04, "fin": 281.58, "texto": "y trabajando en una piel morena, que yo soy morena,"},
-    {"inicio": 281.94, "fin": 283.76, "corte_fin": 284.15, "texto": "es que no pasa absolutamente nada."},
-    {"inicio": 199.14, "fin": 202.54, "corte_inicio": 199.05, "clave": true, "texto": "es como una Dyson de la depilación láser."}
+    {"inicio": 260.74, "fin": 269.94, "texto": "pero el cambio, lo que sienten es un calor súper ligero, porque el frío del gel y luego el calor del láser, es que no se siente absolutamente nada.", "clave": true}
   ]
 }
