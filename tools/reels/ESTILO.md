@@ -86,13 +86,16 @@ cambia la composición:
   las líneas en y 1390, fuera del pie de Instagram), en el marrón de la marca, Raleway
   SemiBold de hasta 104 px; entra y sale como las imágenes. La primera imagen no entra
   antes de que acabe la pregunta. La portada lleva la tarjeta con la pregunta.
-- **Tarjetas** (`tarjetas.py`), mientras no haya foto o vídeo propio del caso: crema
-  (#f8f4ec → #f3ece0) con un halo blanco, un icono de línea de 260 px en el marrón de la
-  marca y el rótulo en Raleway SemiBold de 52 px (espaciado 16 %). Nada de dorado. En
-  cuanto ella manda la foto o el vídeo del caso, se pone en lugar de la tarjeta.
+- **Fotos reales del caso, nunca dibujos**: las tarjetas con iconos no le gustaron
+  («horribles»). Como en sus referencias, el caso se ve de verdad: la piel con granitos,
+  los poros, la calima, la playa, el producto. `"foto"`: llena la mitad de abajo y se
+  acerca despacio (5 % en toda la imagen). Fuentes: sus fotos y vídeos, los de sus
+  clientas con permiso por escrito, o bancos de imágenes libres para uso comercial
+  (Pexels, Unsplash), sin marcas a la vista. Nunca capturas de mensajes inventadas: los
+  mensajes, solo capturas reales suyas con el nombre y la foto tapados. Las tarjetas de
+  `tarjetas.py` quedan solo para el fondo crema de la pregunta.
 - **Planos de recurso** (`"video"`): sus propios vídeos, p. ej. la cabina vacía (IMG_6368,
-  de 0 a 3,9 s: después entra ella), recortados a la forma de la mitad de abajo. Nunca
-  fotos de bancos de imágenes, capturas de mensajes inventadas ni clientas sin permiso.
+  de 0 a 3,9 s: después entra ella), recortados a la forma de la mitad de abajo.
 - Los números se reparten por lo que se tarda en decirlos («70%» = «setenta por ciento»),
   para que la imagen y el subtítulo caigan con la palabra.
 

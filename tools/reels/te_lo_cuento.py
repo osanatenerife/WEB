@@ -54,9 +54,14 @@ barbilla quede por encima de los subtítulos, que van en el centro; la pregunta 
 inicio va centrada en una tarjeta crema abajo (tarjetas/fondo.png), con la misma letra y
 color. Cada imagen de una frase: {"desde": "palabra"} y además
     "tarjeta": "calima"   tarjeta de la marca (tarjetas/calima.png, de tarjetas.py), o
+    "foto": "calima.jpg", "zoom": z, "centro_x", "centro_y", "acercar": 0.05
+                          una foto real del caso (en --fuentes): suya, de sus clientas con
+                          permiso o de un banco de imágenes libre para uso comercial, o
     "video": "IMG_6368.mov", "inicio": s, "fin": s, "zoom": z, "centro_x", "centro_y"
                           un plano de otro vídeo suyo (por ejemplo, la cabina vacía);
                           «fin»: hasta dónde vale el plano (antes de que entre alguien).
+Las tarjetas con iconos no gustaron («horribles»): los casos van con fotos reales, como en
+sus referencias. Las tarjetas quedan solo para el fondo crema de la pregunta.
 """
 import argparse
 import json
@@ -551,22 +556,34 @@ def filtros_imagenes(eventos, fuentes, primera_entrada):
     for k, ev in enumerate(eventos):
         sp, dur = ev["spec"], ev["t1"] - ev["t0"]
         idx = primera_entrada + k
+        # Borde de arriba difuminado, suave al principio y al final (como el de las tarjetas).
+        difuminado = (f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':"
+                      f"a='255*(3*pow(min(1,Y/{FUNDIDO_IMAGEN}),2)-2*pow(min(1,Y/{FUNDIDO_IMAGEN}),3))'")
+        cx, cy = sp.get("centro_x", 0.5), sp.get("centro_y", 0.5)
         if "tarjeta" in sp:
             # Las tarjetas ya traen el difuminado en su canal alfa (tarjetas.py).
             args += ["-loop", "1", "-framerate", str(FPS), "-t", f"{dur + 0.1:.3f}",
                      "-i", os.path.join(TARJETAS, sp["tarjeta"] + ".png")]
             prep = f"[{idx}:v]scale={W}:{H_IMAGEN},format=rgba"
+        elif "foto" in sp:
+            # Una foto real (suya, o de un banco de imágenes libre para uso comercial): llena
+            # la mitad de abajo y se acerca despacio («acercar», un 5 % en toda la imagen).
+            # Se trabaja al triple de tamaño para que el acercamiento no tiemble.
+            z, n = sp.get("zoom", 1.0), round((dur + 0.1) * FPS)
+            args += ["-i", os.path.join(fuentes, sp["foto"])]
+            prep = (f"[{idx}:v]scale={3 * W * z:.0f}:{3 * H_IMAGEN * z:.0f}:force_original_aspect_ratio=increase:"
+                    f"flags=lanczos,crop={3 * W}:{3 * H_IMAGEN}:'(iw-ow)*{cx}':'(ih-oh)*{cy}',"
+                    f"zoompan=z='1+{sp.get('acercar', 0.05)}*on/{n}':x='(iw-iw/zoom)/2':y='(ih-ih/zoom)/2':"
+                    f"d={n}:s={W}x{H_IMAGEN}:fps={FPS},format=rgba,{difuminado}")
         else:
             ruta = os.path.join(fuentes, sp["video"])
             z = sp.get("zoom", 1.6)
             # Recorte con la forma de la mitad de abajo (W×H_IMAGEN) en el vídeo girado.
             cw = f"iw/{z}"
             ch = f"iw/{z}*{H_IMAGEN}/{W}"
-            cx, cy = sp.get("centro_x", 0.5), sp.get("centro_y", 0.5)
             args += ["-ss", f"{sp.get('inicio', 0.0):.3f}", "-t", f"{dur + 0.1:.3f}", "-i", ruta]
             prep = (f"[{idx}:v]crop={cw}:{ch}:'min(max(iw*{cx}-ow/2,0),iw-ow)':'min(max(ih*{cy}-oh/2,0),ih-oh)',"
-                    f"scale={W}:{H_IMAGEN}:flags=lanczos,fps={FPS},format=rgba,"
-                    f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='255*min(1,Y/{FUNDIDO_IMAGEN})'")
+                    f"scale={W}:{H_IMAGEN}:flags=lanczos,fps={FPS},format=rgba,{difuminado}")
         # La que llega hasta el final (la llamada a la acción) no se desvanece: es la última imagen.
         salida = "" if ev.get("hasta_el_final") else f"fade=out:st={max(dur - 0.22, 0):.3f}:d=0.22:alpha=1,"
         filtros.append(f"{prep},fade=in:st=0:d=0.22:alpha=1,{salida}"

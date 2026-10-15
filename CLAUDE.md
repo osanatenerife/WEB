@@ -12,8 +12,9 @@ vídeo nuevo usa uno de estos dos formatos tal cual; solo cambia el contenido:
    de la marca, subtítulos pequeños a la altura del pecho y «osana.es» al final.
    **Con imágenes de apoyo** (el formato de su guía: la imagen de cada caso en la mitad de
    abajo, difuminada por arriba): la misma herramienta con «imagenes» en las frases
-   (plantilla: `tools/reels/piel-despues-del-verano.json`; tarjetas de la marca con
-   `tools/reels/tarjetas.py` mientras ella no mande la foto o el vídeo del caso).
+   (plantilla: `tools/reels/piel-despues-del-verano.json`). Las imágenes, **fotos reales del
+   caso** (suyas, de clientas con permiso o de bancos libres para uso comercial), nunca
+   tarjetas con iconos: no le gustan.
 2. **Explicación con prueba de un tratamiento** (como «¿Duele el láser SHR? Me lo pruebo
    yo»): `tools/reels/build_reel.py` (plantilla: `tools/reels/reel-laser-shr-no-duele.json`).
    Letra Montserrat ExtraBold, recuadro oscuro con «Paso N · *Nombre*» y subtítulos
