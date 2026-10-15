@@ -20,6 +20,10 @@ ni amarillo fuera del formato 2. Medidas, colores, cortes y audio: `tools/reels/
 (sección «Formatos fijos»). Antes de montar, `python3 tools/reels/test_formatos.py`
 comprueba que nada de eso ha cambiado.
 
+**Temas:** solo depilación láser, eliminación de tatuajes y de micro, micropigmentación de
+cejas y piel, más su historia. Nunca pestañas, lifting, laminado, hilo ni corporales (ver
+«Temas» en `tools/reels/ESTILO.md`). Como mucho un reel de láser por semana.
+
 Los vídeos originales los sube la dueña a los Releases de GitHub del repositorio.
 Montajes dinámicos sin voz: `tools/reels/montaje_dinamico.py`. Los de tratamiento para su
 Instagram (tomas cortas, sin texto ni sonido, ella pone la música) llevan `"modo": "limpio"`

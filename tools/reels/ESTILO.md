@@ -5,6 +5,17 @@ acabado profesional. Las herramientas de esta carpeta (`te_lo_cuento.py`,
 `build_reel.py`, `montaje_dinamico.py`) aplican todo esto de forma automática a
 partir de una tabla en JSON.
 
+## Temas: de qué se publica
+
+Solo cuatro temas, para que el algoritmo entienda la cuenta y traiga clientas que
+pagan: **depilación láser**, **eliminación de tatuajes y de micro**,
+**micropigmentación de cejas** y **piel** (faciales de la guía de contenidos), más su
+historia («Te lo cuento»). **Nunca pestañas, lifting, laminado, hilo ni corporales**:
+«el algoritmo se confunde» y «no da dinero» (lo dijo la dueña). Cejas, solo con la
+micro. Como mucho un reel de láser por semana en el perfil; el láser va sobre todo en
+la publicidad (la primera sesión gratis). El calendario y los pies de foto están en su
+documento «OSANA · Plan de contenidos y guiones», pestaña «Programación oct–dic».
+
 ## Formatos fijos (no cambiar sin que lo pida la dueña)
 
 La dueña quiere que sus formatos sean **iguales casi siempre**. Hay dos formatos
