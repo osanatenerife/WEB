@@ -1,0 +1,21 @@
+{
+  "titulo": "Piel · La mascarilla viral para las manchas (con imágenes de apoyo)",
+  "salida": "osana-mascarilla-manchas",
+  "archivo": "IMG_6073.mov",
+  "pregunta": "¿tienes|manchas?",
+  "intro": 71.85,
+  "fin": 163.9,
+  "portada": 72.05,
+  "frases": [
+    {"archivo": "IMG_6071.mov", "inicio": 72.58, "fin": 76.92,
+     "texto": "Esta es la mascarilla viral para las manchas que está revolucionando el mundo de la estética.",
+     "imagenes": [{"desde": "mascarilla", "tarjeta": "mascarilla"}]},
+    {"inicio": 116.28, "fin": 120.76, "corte_fin": 120.93,
+     "texto": "Esta mascarilla es solo de uso profesional y la aplicaremos solo una vez en cabina.",
+     "imagenes": [{"desde": "profesional", "video": "IMG_6368.mov", "inicio": 0.0, "fin": 3.9,
+                   "zoom": 1.15, "centro_y": 0.55}]},
+    {"inicio": 158.5, "fin": 163.08, "clave": true,
+     "texto": "Si quieres saber de qué producto te estoy hablando, comenta MANCHAS y te mando toda la información.",
+     "imagenes": [{"desde": "comenta", "tarjeta": "comenta-manchas"}]}
+  ]
+}

@@ -41,7 +41,22 @@ Tabla (JSON):
                 original) y el texto exacto para los subtítulos. Opcionales:
                 «clave» (frase importante: plano más cerrado), «unir» (no cortar
                 la pausa de antes), «corte_inicio» / «corte_fin» (punto exacto de
-                corte cuando la palabra de al lado no se quiere).
+                corte cuando la palabra de al lado no se quiere), «archivo» (la
+                frase sale de otro vídeo: un guion grabado en varias tomas) e
+                «imagenes» (imágenes de apoyo, ver abajo).
+
+Imágenes de apoyo (el formato de su guía de contenidos; plantilla
+piel-despues-del-verano.json): pantalla partida. Cuando nombra un caso, su imagen entra
+en la mitad de abajo, difuminada por arriba; se queda hasta que la tapa la siguiente
+(si llega pronto) o hasta poco después de acabar la frase, y la de la última frase (la
+llamada a la acción) hasta el final. Con imágenes, la cara sube lo justo para que la
+barbilla quede por encima de los subtítulos, que van en el centro; la pregunta del
+inicio va centrada en una tarjeta crema abajo (tarjetas/fondo.png), con la misma letra y
+color. Cada imagen de una frase: {"desde": "palabra"} y además
+    "tarjeta": "calima"   tarjeta de la marca (tarjetas/calima.png, de tarjetas.py), o
+    "video": "IMG_6368.mov", "inicio": s, "fin": s, "zoom": z, "centro_x", "centro_y"
+                          un plano de otro vídeo suyo (por ejemplo, la cabina vacía);
+                          «fin»: hasta dónde vale el plano (antes de que entre alguien).
 """
 import argparse
 import json
@@ -78,6 +93,21 @@ OSANA_ES = 1.8              # segundos finales con «osana.es» debajo de los su
 # «pregunta»: el primer plano, algo cerrado y desplazado para dejar libre a la
 # izquierda la cortina donde aparece la pregunta.
 ZOOM = {"pregunta": 1.14, "abierto": 1.0, "cerrado": 1.14, "clave": 1.22}
+
+# ---------------------------------------------------------------- imágenes de apoyo
+# Pantalla partida: ella arriba, la imagen en la mitad de abajo y los subtítulos en el
+# centro, entre las dos. La cara sube lo justo para que la barbilla quede encima de los
+# subtítulos; abierto, cerrado y clave guardan entre sí la misma proporción de siempre.
+TARJETAS = os.path.join(br.AQUI, "tarjetas")
+H_IMAGEN = H // 2           # la mitad de abajo
+FUNDIDO_IMAGEN = 260        # px difuminados en el borde de arriba de la imagen
+Y_SUB_IMAGENES = 905        # con imágenes, subtítulos en el centro (debajo de la barbilla)
+BARBILLA_IMAGENES = 880     # px: la barbilla, como mucho aquí (25 px por encima de los subtítulos)
+Y_PREGUNTA_IMAGENES = 1390  # con imágenes, la pregunta va centrada en una tarjeta crema abajo (fuera del pie de Instagram)
+IMAGEN_MIN, IMAGEN_COLA = 1.2, 0.3   # s: lo mínimo que se ve una imagen; lo que sigue tras la frase
+IMAGEN_HUECO = 3.0          # s: si la siguiente imagen llega antes, esta se queda hasta que la tape
+IMAGEN_HUECO_CORTE = 1.0    # …o este, si entre las dos hay un corte (otra toma, otro tema)
+CUBRE = 0.45                # s que la imagen anterior sigue debajo de la nueva (sin ver el hueco)
 
 # ---------------------------------------------------------------- tipografía
 # Colores de la marca (logo y web de Osana): marrón y crema. Nada de dorado.
@@ -143,13 +173,14 @@ def segmentos_y_planos(cfg):
     """Agrupa las frases en tramos de audio continuo (se cortan las pausas largas) y
     los tramos en planos (cambios de encuadre). Devuelve la lista de planos."""
     frases = cfg["frases"]
-    # 1) Tramos de audio continuo.
+    # 1) Tramos de audio continuo (nunca entre dos vídeos distintos).
     tramos = [[frases[0]]]
     for previa, f in zip(frases, frases[1:]):
         hueco = f["inicio"] - previa["fin"]
         corto = min(previa["fin"] - previa["inicio"], f["fin"] - f["inicio"]) < FRASE_MIN
         seguido = (f.get("unir") or hueco <= PAUSA_MAX or (hueco <= PAUSA_CORTA and corto))
-        if seguido and "corte_fin" not in previa and "corte_inicio" not in f:
+        mismo = archivo_de(cfg, f) == archivo_de(cfg, previa) and 0 <= hueco
+        if seguido and mismo and "corte_fin" not in previa and "corte_inicio" not in f:
             tramos[-1].append(f)
         else:
             tramos.append([f])
@@ -174,12 +205,27 @@ def segmentos_y_planos(cfg):
         limites.append(b)
         for x, y in zip(limites, limites[1:]):
             fr = [f for f in tramo if x - 0.05 <= (f["inicio"] + f["fin"]) / 2 <= y + 0.05]
-            planos.append(dict(inicio=x, fin=y, tramo=n, frases=fr,
+            planos.append(dict(inicio=x, fin=y, tramo=n, frases=fr, archivo=archivo_de(cfg, tramo[0]),
                                clave=any(f.get("clave") for f in fr)))
     return planos
 
 
-def partir_largos(planos, ruta):
+def archivo_de(cfg, frase):
+    """Vídeo del que sale la frase (el de la tabla, salvo que la frase diga otro)."""
+    return frase.get("archivo", cfg["archivo"])
+
+
+def vecina(cfg, frase, paso):
+    """La frase de antes (paso -1) o de después (+1) en la tabla, solo si es del mismo
+    vídeo y le sigue en el original; si no, None (no se sabe qué se dijo alrededor)."""
+    frases = cfg["frases"]
+    i = frases.index(frase) + paso
+    if not 0 <= i < len(frases) or archivo_de(cfg, frases[i]) != archivo_de(cfg, frase):
+        return None
+    return frases[i]
+
+
+def partir_largos(planos, fuentes):
     """Planos de más de PLANO_MAX s: se parten (sin cortar el audio) en la pausa entre
     frases más cercana a la mitad o, si es una sola frase, en el instante más
     silencioso cerca de la mitad."""
@@ -198,7 +244,7 @@ def partir_largos(planos, ruta):
             corte = min(candidatos, key=lambda c: abs(c - mitad))
         else:
             a, b = p["inicio"] + dur * 0.38, p["inicio"] + dur * 0.62
-            e = br.energia_voz(ruta, a, b)
+            e = br.energia_voz(os.path.join(fuentes, p["archivo"]), a, b)
             e = np.convolve(e, np.ones(5) / 5, "same")
             corte = a + int(np.argmin(e[3:-3]) + 3) * 0.02
         corte = round(corte * FPS) / FPS
@@ -223,17 +269,26 @@ def tipos_de_plano(planos, pregunta=True):
         previo = p["tipo"]
 
 
-def encuadre(p):
+def encuadre(p, imagenes=False):
     """Recorte del plano: ojos en el tercio superior. El de la pregunta, anclado arriba a
-    la izquierda para dejar la cortina libre junto a la cara."""
+    la izquierda para dejar la cortina libre junto a la cara. Con imágenes de apoyo, la
+    barbilla por encima de los subtítulos del centro (ver BARBILLA_IMAGENES)."""
     c = p["_cara"]
     z = ZOOM[p["tipo"]]
+    # La caja de Haar acaba en la barbilla (la «barbilla» de build_reel deja margen de cuello).
+    menton = c["cy"] + 0.55 * c["alto"]
+    if imagenes:
+        z_min = max(1.0, (1 - BARBILLA_IMAGENES / H) / max(1 - menton, 0.05))
+        z = z_min * ZOOM[p["tipo"]] / ZOOM["abierto"]
     cw = ch = 1 / z
     x0 = min(max(c["cx"] - cw / 2, 0), 1 - cw)
     y0 = c["cy"] - 0.30 * ch
-    if p["tipo"] == "pregunta":
+    if imagenes:
+        y0 = menton - BARBILLA_IMAGENES / H * ch
+    elif p["tipo"] == "pregunta":
         x0 = y0 = 0.0
     y0 = min(max(y0, 0), 1 - ch)
+    p["_menton_px"] = (menton - y0) / ch * H
     p["_crop"] = (x0, y0, cw, ch)
     # Borde izquierdo de la cara con margen para el pelo (la caja de Haar es cuadrada).
     p["_cara_izq_px"] = (c["cx"] - c["alto"] * H / W * 0.55 - x0) / cw * W
@@ -262,17 +317,20 @@ def filtro_plano(p, congelar=True):
     return vf
 
 
-def pulir_cortes(planos, cfg, g):
+def pulir_cortes(planos, cfg, gestos):
     """Que ningún corte caiga en un parpadeo. Cada inicio de tramo se mueve (sin pasar
     del comienzo de la voz) hasta un fotograma con los ojos abiertos; cada final, hasta
     uno bueno sin cortar la última palabra (si no lo hay, se congela el último bueno);
-    y los cambios de encuadre dentro de una frase, a un punto sin parpadeo."""
+    y los cambios de encuadre dentro de una frase, a un punto sin parpadeo.
+    «gestos»: {archivo: Gestos} (un detector por vídeo)."""
     k = lambda t: int(round(t * FPS))  # noqa: E731
+    g = None
 
     def bien(a, b, umbral=gs.OJOS_MAL):
         return all(v[0] <= umbral for v in g.tramo(a / FPS, b / FPS).values())
     cambios = []
     for i, p in enumerate(planos):
+        g = gestos[p["archivo"]]
         previo = planos[i - 1] if i else None
         siguiente = planos[i + 1] if i + 1 < len(planos) else None
         # Inicio de tramo (entra la voz): más tarde, nunca después de empezar a hablar.
@@ -281,10 +339,15 @@ def pulir_cortes(planos, cfg, g):
             voz = k(p["frases"][0]["inicio"]) - (6 if i == 0 else 1)
             fijo = i == 0 or "corte_inicio" in p["frases"][0]
             # Si parpadea justo antes de hablar, se empieza un poco antes, aún en silencio
-            # (hasta 0,4 s y nunca dentro de la frase anterior).
-            n_frase = cfg["frases"].index(p["frases"][0])
-            antes = cfg["frases"][n_frase - 1]["fin"] if n_frase else None
-            minimo = s0 if fijo else max(s0 - 12, k(antes + 0.08) if antes is not None and antes < p["inicio"] else s0 - 12)
+            # (hasta 0,4 s y nunca dentro de la frase anterior). Si la frase anterior de la
+            # tabla es de otro vídeo, no se sabe qué se dijo antes: no se adelanta.
+            previa_f = vecina(cfg, p["frases"][0], -1)
+            antes = previa_f["fin"] if previa_f else None
+            otra = previa_f is None and cfg["frases"].index(p["frases"][0]) > 0
+            if fijo or otra:
+                minimo = s0
+            else:
+                minimo = max(s0 - 12, k(antes + 0.08) if antes is not None and antes < p["inicio"] else s0 - 12)
             candidatos = sorted(range(minimo, max(voz, s0) + 1), key=lambda c: (c < s0, abs(c - s0)))
             nuevo = next((c for c in candidatos if bien(c, c + 3)), s0)
             if nuevo != s0:
@@ -307,10 +370,15 @@ def pulir_cortes(planos, cfg, g):
             fin_voz = p["frases"][-1]["fin"]
             voz = k(fin_voz + 0.06)
             fijo = siguiente is None and "fin" in cfg or "corte_fin" in p["frases"][-1]
-            # Hasta 0,3 s más de pausa, sin llegar a la frase siguiente del original.
-            n_frase = cfg["frases"].index(p["frases"][-1])
-            despues = cfg["frases"][n_frase + 1]["inicio"] if n_frase + 1 < len(cfg["frases"]) else None
-            maximo = e0 if fijo else min(e0 + 9, k(despues - 0.1) if despues and despues > fin_voz else e0 + 9)
+            # Hasta 0,3 s más de pausa, sin llegar a la frase siguiente del original (si la
+            # siguiente de la tabla es de otro vídeo, no se alarga).
+            siguiente_f = vecina(cfg, p["frases"][-1], +1)
+            despues = siguiente_f["inicio"] if siguiente_f else None
+            otra = siguiente_f is None and cfg["frases"].index(p["frases"][-1]) + 1 < len(cfg["frases"])
+            if fijo or otra:
+                maximo = e0
+            else:
+                maximo = min(e0 + 9, k(despues - 0.1) if despues and despues > fin_voz else e0 + 9)
             # La última imagen del clip se queda en la retina: ahí, ojos bien abiertos.
             umbral = 0.15 if siguiente is None else gs.OJOS_MAL
             candidatos = sorted(range(min(voz, e0), max(maximo, min(voz, e0)) + 1), key=lambda c: (c > e0, abs(c - e0)))
@@ -374,18 +442,36 @@ def limpiar(txt):
     return re.sub(r"(?<!\d)[.,]|[.,](?!\d)|[;:…«»\"]", "", txt).upper()
 
 
-def subtitulos(frase, ruta, a_salida):
-    """[(texto, t0, t1)] en tiempo de salida: palabras repartidas por los tramos con voz."""
-    palabras, grupos = grupos_subtitulo(frase["texto"])
+def reparto(frase, ruta):
+    """Palabras de la frase y cuándo empieza cada una (s del original): el texto se
+    reparte por los tramos con voz según lo largas que son las palabras."""
+    palabras = frase["texto"].split()
     e = br.energia_voz(ruta, frase["inicio"], frase["fin"])
     voz = np.where(e > max(e.max() - 28, -42))[0]
-    pesos = np.array([len(p) + 3 for p in palabras], float)
+
+    def largo(p):
+        # Lo que se tarda en decirla: «70%» se dice «setenta por ciento»; «20.000», «veinte mil».
+        if not re.search(r"\d", p):
+            return len(p)
+        letras = len(re.sub(r"[\d.,%]", "", p)) + 10 * p.count("%")
+        for numero in re.findall(r"\d+(?:[.,]\d{3})*", p):
+            grupos = re.split(r"[.,]", numero)
+            letras += 3 * len(grupos[0]) + 4 * (len(grupos) - 1)
+        return letras
+    pesos = np.array([largo(p) + 3 for p in palabras], float)
     acum = np.concatenate([[0], np.cumsum(pesos)]) / pesos.sum()
 
     def instante(f):
         if len(voz) < 5:
             return frase["inicio"] + f * (frase["fin"] - frase["inicio"])
         return frase["inicio"] + voz[min(int(f * len(voz)), len(voz) - 1)] * 0.02
+    return palabras, acum, instante
+
+
+def subtitulos(frase, ruta, a_salida):
+    """[(texto, t0, t1)] en tiempo de salida: palabras repartidas por los tramos con voz."""
+    palabras, grupos = grupos_subtitulo(frase["texto"])
+    _, acum, instante = reparto(frase, ruta)
 
     out = []
     for k, g in enumerate(grupos):
@@ -393,6 +479,104 @@ def subtitulos(frase, ruta, a_salida):
         t1 = instante(acum[grupos[k + 1][0]]) - 0.05 if k + 1 < len(grupos) else frase["fin"] + 0.15
         out.append((limpiar(" ".join(palabras[j] for j in g)), a_salida(t0), a_salida(t1)))
     return out
+
+
+def _normal(palabra):
+    return re.sub(r"[^\wáéíóúüñ]", "", palabra.lower())
+
+
+def hay_imagenes(cfg):
+    return any(f.get("imagenes") for f in cfg["frases"])
+
+
+def tiempo_pregunta(cfg, p0):
+    """Cuándo se ve la pregunta (s del vídeo final): desde el principio, en el silencio
+    antes de responder y un poco más (entre PREGUNTA_MIN y PREGUNTA_MAX)."""
+    dur_intro = p0["_a_salida"](cfg["frases"][0]["inicio"]) - p0["_t0"]
+    return p0["_t0"] + 0.1, min(p0["_t1"], max(PREGUNTA_MIN, min(PREGUNTA_MAX, dur_intro + 1.0)))
+
+
+def imagenes_de_apoyo(cfg, planos, dur_video):
+    """Cuándo entra y sale cada imagen de apoyo (s del vídeo final), en orden. La
+    pregunta va primero, en su tarjeta crema; cada imagen entra con su palabra «desde»
+    (nunca antes de que acabe la pregunta) y se queda hasta que la tapa la siguiente si
+    esta llega pronto (IMAGEN_HUECO) o, si no, hasta poco después de acabar la frase. La
+    de la última frase (la llamada a la acción) se queda hasta el final."""
+    if not hay_imagenes(cfg):
+        return []
+    eventos, fin_pregunta = [], 0.0
+    if cfg.get("pregunta"):
+        t0, fin_pregunta = tiempo_pregunta(cfg, planos[0])
+        eventos.append(dict(spec={"tarjeta": "fondo", "desde": "(pregunta)"}, n=-1, t0=t0,
+                            fin_frase=fin_pregunta - IMAGEN_COLA, tramo=planos[0]["tramo"], pregunta=True))
+    ultima = len(cfg["frases"]) - 1
+    for n, frase in enumerate(cfg["frases"]):
+        if not frase.get("imagenes"):
+            continue
+        p = next(q for q in planos if frase in q["frases"])
+        palabras, acum, instante = reparto(frase, p["_ruta"])
+        for im in frase["imagenes"]:
+            t = frase["inicio"]
+            if im.get("desde"):
+                i = next((j for j, w in enumerate(palabras) if _normal(w).startswith(_normal(im["desde"]))), None)
+                if i is None:
+                    raise ValueError(f"«{im['desde']}» no está en la frase «{frase['texto']}»")
+                t = instante(acum[i]) - 0.08
+            q = next((q for q in planos if frase in q["frases"] and q["inicio"] - 0.05 <= t <= q["fin"] + 0.05), p)
+            eventos.append(dict(spec=im, n=n, t0=max(0.0, q["_a_salida"](t), fin_pregunta - 0.15),
+                                fin_frase=q["_a_salida"](frase["fin"]), tramo=q["tramo"]))
+    eventos.sort(key=lambda e: e["t0"])
+    for a, b in zip(eventos, eventos[1:] + [None]):
+        fin = max(a["fin_frase"] + IMAGEN_COLA, a["t0"] + IMAGEN_MIN)
+        if a["n"] == ultima:
+            fin = dur_video
+        elif b is not None and (b["t0"] < fin or (not a.get("pregunta") and b["t0"] - fin <= (
+                IMAGEN_HUECO if b["tramo"] == a["tramo"] else IMAGEN_HUECO_CORTE))):
+            fin = b["t0"] + CUBRE           # la siguiente entra encima: sin hueco entre las dos
+        sp = a["spec"]
+        if "video" in sp and "fin" in sp:   # el plano de recurso no da para más
+            fin = min(fin, a["t0"] + sp["fin"] - sp.get("inicio", 0.0))
+        a["t1"] = min(fin, dur_video)
+        a["hasta_el_final"] = a["t1"] >= dur_video - 1e-3
+    for a, b in zip(eventos, eventos[1:]):
+        b["tapa"] = a["t1"] > b["t0"]       # entra encima de otra: se funde en el sitio
+    return eventos
+
+
+def filtros_imagenes(eventos, fuentes, primera_entrada):
+    """Entradas de ffmpeg y cadena de filtros que superponen las imágenes de apoyo en la
+    mitad de abajo: difuminadas por arriba, con un fundido corto y un leve deslizamiento
+    al entrar. Devuelve (argumentos, filtros, etiqueta de salida)."""
+    args, filtros, previo = [], [], "0:v"
+    for k, ev in enumerate(eventos):
+        sp, dur = ev["spec"], ev["t1"] - ev["t0"]
+        idx = primera_entrada + k
+        if "tarjeta" in sp:
+            # Las tarjetas ya traen el difuminado en su canal alfa (tarjetas.py).
+            args += ["-loop", "1", "-framerate", str(FPS), "-t", f"{dur + 0.1:.3f}",
+                     "-i", os.path.join(TARJETAS, sp["tarjeta"] + ".png")]
+            prep = f"[{idx}:v]scale={W}:{H_IMAGEN},format=rgba"
+        else:
+            ruta = os.path.join(fuentes, sp["video"])
+            z = sp.get("zoom", 1.6)
+            # Recorte con la forma de la mitad de abajo (W×H_IMAGEN) en el vídeo girado.
+            cw = f"iw/{z}"
+            ch = f"iw/{z}*{H_IMAGEN}/{W}"
+            cx, cy = sp.get("centro_x", 0.5), sp.get("centro_y", 0.5)
+            args += ["-ss", f"{sp.get('inicio', 0.0):.3f}", "-t", f"{dur + 0.1:.3f}", "-i", ruta]
+            prep = (f"[{idx}:v]crop={cw}:{ch}:'min(max(iw*{cx}-ow/2,0),iw-ow)':'min(max(ih*{cy}-oh/2,0),ih-oh)',"
+                    f"scale={W}:{H_IMAGEN}:flags=lanczos,fps={FPS},format=rgba,"
+                    f"geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='255*min(1,Y/{FUNDIDO_IMAGEN})'")
+        # La que llega hasta el final (la llamada a la acción) no se desvanece: es la última imagen.
+        salida = "" if ev.get("hasta_el_final") else f"fade=out:st={max(dur - 0.22, 0):.3f}:d=0.22:alpha=1,"
+        filtros.append(f"{prep},fade=in:st=0:d=0.22:alpha=1,{salida}"
+                       f"setpts=PTS-STARTPTS+{ev['t0']:.3f}/TB[im{k}]")
+        # Sobre el vídeo entra subiendo un poco; sobre otra imagen, en el sitio (si no, se ven
+        # los dos rótulos desplazados un instante).
+        y = f"{H - H_IMAGEN}" if ev.get("tapa") else f"'{H - H_IMAGEN}+36*max(0,1-(t-{ev['t0']:.3f})/0.3)'"
+        filtros.append(f"[{previo}][im{k}]overlay=x=0:y={y}:eval=frame:eof_action=pass:format=auto[ov{k}]")
+        previo = f"ov{k}"
+    return args, filtros, previo
 
 
 def maquetar_pregunta(cfg, p0):
@@ -446,14 +630,33 @@ def eventos_pregunta(cfg, p0, t0, t1, fundido=True):
     return out
 
 
-def escribir_ass(ruta, cfg, planos, dur_video):
+def eventos_pregunta_imagenes(cfg, t0, t1, fundido=True):
+    """Con imágenes de apoyo, la pregunta va centrada en su tarjeta crema de la mitad de
+    abajo, en el marrón de la marca, y entra con ella (fundido y el mismo deslizamiento)."""
+    lineas = [re.sub(r"[*_]", "", l).strip().upper() for l in cfg["pregunta"].split("|")]
+    fs = next((f for f in range(FS_PREGUNTA_MAX, 40, -2)
+               if all(ancho(l, "Raleway SemiBold", f, f * ESP_PREGUNTA) <= W - 2 * X0 for l in lineas)), 40)
+    alto = fs * 1.05
+    y = Y_PREGUNTA_IMAGENES - alto * len(lineas) / 2
+    out = []
+    for l in lineas:
+        pos = (rf"\move({W // 2},{y + 36:.0f},{W // 2},{y:.0f},0,300)\fad(250,300)" if fundido
+               else rf"\pos({W // 2},{y:.0f})")
+        out.append(ev(4, t0, t1, rf"\an8{pos}\fnRaleway SemiBold\fs{fs}\fsp{fs * ESP_PREGUNTA:.1f}"
+                                 rf"\bord0\shad0\1c{MARRON}", l))
+        y += alto
+    return out
+
+
+def escribir_ass(ruta, cfg, planos, dur_video, imagenes=False):
     eventos = []
     p0 = planos[0]
+    y_sub = Y_SUB_IMAGENES if imagenes else Y_SUB
     # 1) La pregunta: solo al inicio, aparece y desaparece rápido.
     if cfg.get("pregunta"):
-        dur_intro = p0["_a_salida"](cfg["frases"][0]["inicio"]) - p0["_t0"]
-        t_fin = min(p0["_t1"], max(PREGUNTA_MIN, min(PREGUNTA_MAX, dur_intro + 1.0)))
-        eventos += eventos_pregunta(cfg, p0, p0["_t0"] + 0.1, t_fin)
+        t0, t_fin = tiempo_pregunta(cfg, p0)
+        eventos += (eventos_pregunta_imagenes(cfg, t0, t_fin) if imagenes
+                    else eventos_pregunta(cfg, p0, t0, t_fin))
 
     # 2) Subtítulos.
     subs = []
@@ -464,35 +667,47 @@ def escribir_ass(ruta, cfg, planos, dur_video):
                 t0, t1 = max(t0, a), min(t1, b)
                 if t1 - t0 >= 0.12:
                     subs.append([txt, t0, t1])
+    subs.sort(key=lambda x: x[1])
+    for actual, siguiente in zip(subs, subs[1:]):
+        actual[2] = min(actual[2], siguiente[1])   # frases seguidas: nunca dos subtítulos a la vez
     if subs:
         subs[-1][2] = dur_video          # las últimas palabras se quedan hasta el final
     tags = rf"\fs{FS_SUB}\fsp{FS_SUB * ESP_SUB:.1f}\fad(60,0)"
     for txt, t0, t1 in subs:
-        eventos += con_sombra(1, t0, t1, W // 2, Y_SUB, tags, txt)
+        eventos += con_sombra(1, t0, t1, W // 2, y_sub, tags, txt)
 
     # 3) Al final, «osana.es» pequeño y centrado debajo de las últimas palabras.
     if subs:
         t0 = max(subs[-1][1], dur_video - OSANA_ES)
-        eventos += con_sombra(1, t0, dur_video, W // 2, Y_SUB + int(FS_SUB * 1.25),
+        eventos += con_sombra(1, t0, dur_video, W // 2, y_sub + int(FS_SUB * 1.25),
                               rf"\fs{FS_WEB}\fsp{FS_WEB * ESP_WEB:.1f}\fad(300,0)", "osana.es")
     with open(ruta, "w", encoding="utf-8") as f:
         f.write(cabecera_ass() + "\n".join(eventos) + "\n")
 
 
-def portada(cfg, p0, ruta, salida):
-    """Portada del Reel: un fotograma del plano de la pregunta, con la pregunta.
-    «portada» en la tabla = segundo del original con buena expresión."""
+def portada(cfg, p0, ruta, salida, imagenes=False):
+    """Portada del Reel: un fotograma del plano de la pregunta, con la pregunta (con
+    imágenes de apoyo, en su tarjeta crema de abajo). «portada» en la tabla = segundo
+    del original con buena expresión."""
     t = cfg.get("portada", p0["inicio"])
     ass, png = salida + ".ass", salida + ".png"
-    textos = eventos_pregunta(cfg, p0, 0, 5, fundido=False) if cfg.get("pregunta") else []
+    textos = []
+    if cfg.get("pregunta"):
+        textos = (eventos_pregunta_imagenes(cfg, 0, 5, fundido=False) if imagenes
+                  else eventos_pregunta(cfg, p0, 0, 5, fundido=False))
     with open(ass, "w", encoding="utf-8") as f:
         f.write(cabecera_ass() + "\n".join(textos) + "\n")
     dt.procesar(["ffmpeg", "-v", "error", "-ss", f"{t:.3f}", "-i", ruta, "-frames:v", "1",
                  "-vf", filtro_plano(p0, congelar=False), "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
                 ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                  "-i", "-", png], W, H)
-    br.run(["ffmpeg", "-v", "error", "-y", "-i", png,
-            "-vf", f"subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}'", "-q:v", "2", salida])
+    textos_vf = f"subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}'"
+    if imagenes and cfg.get("pregunta"):
+        br.run(["ffmpeg", "-v", "error", "-y", "-i", png, "-i", os.path.join(TARJETAS, "fondo.png"),
+                "-filter_complex", f"[1:v]scale={W}:{H_IMAGEN},format=rgba[t];[0:v][t]overlay=0:{H - H_IMAGEN}"
+                                   f":format=rgb,{textos_vf}", "-q:v", "2", salida])   # en RGB: si no, sale grisácea
+    else:
+        br.run(["ffmpeg", "-v", "error", "-y", "-i", png, "-vf", textos_vf, "-q:v", "2", salida])
     os.remove(ass)
     os.remove(png)
 
@@ -511,27 +726,32 @@ def main():
     args = ap.parse_args()
 
     cfg = json.load(open(args.tabla, encoding="utf-8"))
-    ruta = os.path.join(args.fuentes, cfg["archivo"])
     cache = args.cache or os.path.join(args.salida, ".cache-te-lo-cuento")
     os.makedirs(cache, exist_ok=True)
     os.makedirs(args.salida, exist_ok=True)
     tmp = tempfile.mkdtemp(prefix="tlc-")
     reloj = [("inicio", time.time())]
 
-    planos = partir_largos(segmentos_y_planos(cfg), ruta)
-    tipos_de_plano(planos, pregunta=bool(cfg.get("pregunta")))
+    planos = partir_largos(segmentos_y_planos(cfg), args.fuentes)
+    imagenes_si = hay_imagenes(cfg)       # pantalla partida: la pregunta va en su tarjeta
+    tipos_de_plano(planos, pregunta=bool(cfg.get("pregunta")) and not imagenes_si)
     if not args.sin_gestos:
-        g = gs.Gestos(ruta, cache)
-        for c in pulir_cortes(planos, cfg, g):
+        gestos = {a: gs.Gestos(os.path.join(args.fuentes, a), cache) for a in sorted({p["archivo"] for p in planos})}
+        for c in pulir_cortes(planos, cfg, gestos):
             print("Ojos:", c, file=sys.stderr)
-        g.cerrar()
-    tomas = [dict(archivo=cfg["archivo"], inicio=p["inicio"], fin=p["fin"]) for p in planos]
+        for g in gestos.values():
+            g.cerrar()
+    tomas = [dict(archivo=p["archivo"], inicio=p["inicio"], fin=p["fin"]) for p in planos]
     br.en_paralelo(lambda tm: br.analizar_con_cache(tm, args.fuentes, cache), tomas, hilos=4)
     br.completar_caras(tomas)
     for p, tm in zip(planos, tomas):
-        p["_cara"], p["_ruta"] = tm["_cara"], ruta
-        encuadre(p)
-    if cfg.get("pregunta"):
+        p["_cara"], p["_ruta"] = tm["_cara"], os.path.join(args.fuentes, p["archivo"])
+        encuadre(p, imagenes_si)
+        if imagenes_si and p["_menton_px"] > BARBILLA_IMAGENES + 5:
+            print(f"Encuadre {p['inicio']:.2f}: la barbilla queda en {p['_menton_px']:.0f} px, encima de los "
+                  "subtítulos (revisar)", file=sys.stderr)
+    ruta = planos[0]["_ruta"]          # el vídeo del primer plano (portada)
+    if cfg.get("pregunta") and not imagenes_si:
         color, luz = color_pregunta(cfg, planos[0], tomas[0]["_imgs"])
         planos[0]["_color_pregunta"] = color
         print(f"Pregunta en {'marrón' if color == MARRON else 'blanco'}"
@@ -539,7 +759,7 @@ def main():
     reloj.append(("análisis", time.time()))
     portada_jpg = os.path.join(args.salida, cfg["salida"] + "-portada.jpg")
     if args.solo_portada:
-        portada(cfg, planos[0], ruta, portada_jpg)
+        portada(cfg, planos[0], ruta, portada_jpg, imagenes_si)
         shutil.rmtree(tmp)
         return
 
@@ -552,12 +772,12 @@ def main():
         t += n / FPS
         tramos.setdefault(p["tramo"], []).append(p)
         vf = filtro_plano(p)
-        out = os.path.join(cache, f"toma_{br.huella('tlc', VERSION_TOMA, dt.VERSION, cfg['archivo'], round(p['inicio'], 3), n, vf)}.mp4")
+        out = os.path.join(cache, f"toma_{br.huella('tlc', VERSION_TOMA, dt.VERSION, p['archivo'], round(p['inicio'], 3), n, vf)}.mp4")
         piezas.append(out)
         if not os.path.exists(out):
             # Encuadre con ffmpeg → dientes en Python → codificación con ffmpeg.
             trabajos.append(("dientes",
-                             ["ffmpeg", "-v", "error", "-ss", f"{p['inicio']:.3f}", "-i", ruta,
+                             ["ffmpeg", "-v", "error", "-ss", f"{p['inicio']:.3f}", "-i", p["_ruta"],
                               "-frames:v", str(n), "-an", "-vf", vf, "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
                              ["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24",
                               "-s", f"{W}x{H}", "-r", str(FPS), "-i", "-",
@@ -571,11 +791,11 @@ def main():
         dur = ps[-1]["_t1"] - ps[0]["_t0"]
         for p in ps:
             p["_a_salida"] = (lambda a0, s0: (lambda ts_: s0 + ts_ - a0))(a, ps[0]["_t0"])
-        wv = os.path.join(cache, f"voz_{br.huella('voz', cfg['archivo'], round(a, 3), round(dur, 4))}.wav")
+        wv = os.path.join(cache, f"voz_{br.huella('voz', ps[0]['archivo'], round(a, 3), round(dur, 4))}.wav")
         voces.append(wv)
         if not os.path.exists(wv):
             trabajos.append(("ffmpeg",
-                             ["ffmpeg", "-v", "error", "-y", "-ss", f"{a:.3f}", "-i", ruta,
+                             ["ffmpeg", "-v", "error", "-y", "-ss", f"{a:.3f}", "-i", ps[0]["_ruta"],
                               "-t", f"{dur:.4f}", "-vn", "-ac", "1", "-ar", "48000",
                               "-af", f"afade=t=in:d=0.012,afade=t=out:st={dur - 0.015:.4f}:d=0.015",
                               "-c:a", "pcm_s16le", wv + ".tmp.wav"], wv))
@@ -609,25 +829,35 @@ def main():
                    "loudnorm=I=-14:TP=-1.5:LRA=9,aresample=48000",
             "-ac", "1", "-ar", "48000", "-c:a", "pcm_s16le", voz])
 
+    # Imágenes de apoyo (si las hay): debajo de los textos, que siempre quedan encima.
+    imagenes = imagenes_de_apoyo(cfg, planos, dur_video)
+    for ev in imagenes:
+        sp = ev["spec"]
+        print(f"Imagen {ev['t0']:6.2f}-{ev['t1']:6.2f}s  {sp.get('tarjeta') or sp.get('video')}"
+              f"  (desde «{sp.get('desde', '')}»)", file=sys.stderr)
+        if ev["t1"] - ev["t0"] < 1.0:
+            print(f"  ojo: se ve solo {ev['t1'] - ev['t0']:.1f} s (palabras demasiado juntas)", file=sys.stderr)
+    args_im, filtros_im, salida_im = filtros_imagenes(imagenes, args.fuentes, 2)
     ass = os.path.join(tmp, "textos.ass")
-    escribir_ass(ass, cfg, planos, dur_video)
+    escribir_ass(ass, cfg, planos, dur_video, imagenes=imagenes_si)
     tasa = int(min(6000, 27e6 * 8 / dur_video / 1000 - 200))
     final = os.path.join(args.salida, cfg["salida"] + ".mp4")
-    br.run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", voz,
-            "-filter_complex", f"[0:v]subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}',format=yuv420p[v]",
+    br.run(["ffmpeg", "-v", "error", "-y", "-i", base, "-i", voz, *args_im,
+            "-filter_complex", ";".join(filtros_im + [
+                f"[{salida_im}]subtitles='{ass}':fontsdir='{br.FUENTES_TIPO}',format=yuv420p[v]"]),
             "-map", "[v]", "-map", "1:a",
             "-c:v", "libx264", "-preset", "medium", "-crf", "19",
             "-maxrate", f"{tasa}k", "-bufsize", f"{2 * tasa}k", "-profile:v", "high",
             "-pix_fmt", "yuv420p", "-r", str(FPS),
             "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
             "-movflags", "+faststart", "-t", f"{dur_video:.3f}", final])
-    portada(cfg, planos[0], ruta, portada_jpg)
+    portada(cfg, planos[0], ruta, portada_jpg, imagenes_si)
     reloj.append(("final", time.time()))
     print("Tiempos: " + ", ".join(f"{n} {t1 - t0:.0f} s" for (_, t0), (n, t1) in zip(reloj, reloj[1:])),
           file=sys.stderr)
     for p in planos:
-        print(f"{p['_t0']:6.2f}-{p['_t1']:6.2f}s  {p['inicio']:7.2f}-{p['fin']:7.2f}  {p['tipo']:8s} "
-              f"zoom={1 / p['_crop'][2]:.2f}", file=sys.stderr)
+        print(f"{p['_t0']:6.2f}-{p['_t1']:6.2f}s  {p['archivo']} {p['inicio']:7.2f}-{p['fin']:7.2f}  {p['tipo']:8s} "
+              f"zoom={1 / p['_crop'][2]:.2f} barbilla={p['_menton_px']:.0f}px", file=sys.stderr)
     print(f"Duración: {dur_video:.1f} s", file=sys.stderr)
     shutil.rmtree(tmp)
     print(final)

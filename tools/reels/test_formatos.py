@@ -20,6 +20,7 @@ import tempfile
 AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, AQUI)
 import build_reel as br  # noqa: E402
+import tarjetas as tj  # noqa: E402
 import te_lo_cuento as tlc  # noqa: E402
 
 # Formato 1 · Entrevista: «Te lo cuento», capítulo 1 (aprobado en octubre de 2026).
@@ -33,6 +34,15 @@ ENTREVISTA = {
     "PAUSA_MAX": 0.55, "PLANO_MAX": 5.2,
     "ZOOM": {"pregunta": 1.14, "abierto": 1.0, "cerrado": 1.14, "clave": 1.22},
 }
+
+# Formato 1 con imágenes de apoyo (pantalla partida, la de su guía): «¿Tu piel después del
+# verano?» (octubre de 2026).
+IMAGENES = {
+    "H_IMAGEN": 960, "FUNDIDO_IMAGEN": 260, "Y_SUB_IMAGENES": 905, "BARBILLA_IMAGENES": 880,
+    "Y_PREGUNTA_IMAGENES": 1390, "IMAGEN_MIN": 1.2, "IMAGEN_COLA": 0.3, "IMAGEN_HUECO": 3.0,
+    "IMAGEN_HUECO_CORTE": 1.0, "CUBRE": 0.45,
+}
+TARJETAS = {"W": 1080, "H": 960, "FUNDIDO": 260, "MARRON": "#6E5A3C"}
 
 # Formato 2 · Explicación con prueba: «¿Duele el láser SHR? Me lo pruebo yo» (octubre de 2026).
 EXPLICACION = {
@@ -68,6 +78,33 @@ def test_subtitulos_entrevista():
     for g in grupos:
         assert len(g) <= tlc.SUB_MAX_PALABRAS
         assert len(" ".join(palabras[j] for j in g)) <= tlc.SUB_MAX_LETRAS + 4
+
+
+def test_imagenes_de_apoyo():
+    _comparar(tlc, IMAGENES)
+    _comparar(tj, TARJETAS)
+    # Las tarjetas: la mitad de abajo, transparentes arriba y opacas desde el difuminado,
+    # sin franjas blancas (la ventana de Chromium deja la página más corta que su alto).
+    from PIL import Image
+    for nombre in tj.TARJETAS:
+        ruta = os.path.join(tj.SALIDA, nombre + ".png")
+        assert os.path.exists(ruta), f"falta {ruta}: python3 tools/reels/tarjetas.py {nombre}"
+        im = Image.open(ruta)
+        assert im.size == (tj.W, tj.H) and im.mode == "RGBA", f"{nombre}: {im.size} {im.mode}"
+        assert im.getpixel((tj.W // 2, 0))[3] == 0 and im.getpixel((tj.W // 2, tj.FUNDIDO))[3] == 255, nombre
+        assert im.getpixel((tj.W // 2, tj.H - 1))[:3] != (255, 255, 255), f"{nombre}: franja blanca abajo"
+
+
+def test_plantilla_imagenes():
+    """La plantilla con imágenes: todas sus tarjetas existen y cada palabra está en su frase."""
+    cfg = json.load(open(os.path.join(AQUI, "piel-despues-del-verano.json"), encoding="utf-8"))
+    assert tlc.hay_imagenes(cfg)
+    for frase in cfg["frases"]:
+        for im in frase.get("imagenes", []):
+            if "tarjeta" in im:
+                assert im["tarjeta"] in tj.TARJETAS, im["tarjeta"]
+            palabras = [tlc._normal(w) for w in frase["texto"].split()]
+            assert any(w.startswith(tlc._normal(im["desde"])) for w in palabras), im["desde"]
 
 
 def test_explicacion():

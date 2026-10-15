@@ -38,6 +38,10 @@ montar). Si ella pide un cambio, se cambian a la vez el código, esta guía y el
 del formato 2 la usa, en mayúsculas espaciadas, en blanco o en el marrón de la marca
 (nunca dorado ni amarillo, que no son colores de Osana).
 
+El formato 1 tiene una variante **con imágenes de apoyo** (pantalla partida, la de su
+guía de contenidos): mismas letras y ritmo, con la imagen de cada caso en la mitad de
+abajo. Medidas en «Formato 1 con imágenes de apoyo».
+
 ### Formato 1 · Entrevista (medidas)
 
 - **Pregunta o título** (opcional), solo al inicio: desde 0,1 s hasta 2–2,8 s, con
@@ -58,6 +62,39 @@ del formato 2 la usa, en mayúsculas espaciadas, en blanco o en el marrón de la
   ojos a medio cerrar.
 - 1080×1920, 30 fps, 15–60 s, menos de 30 MB y portada JPG con la pregunta.
 - Detalles y motivos: «Formato 1 · Entrevista: serie «Te lo cuento»», más abajo.
+
+### Formato 1 con imágenes de apoyo (pantalla partida)
+
+El de su guía de contenidos («Tu formato propio»: «cuando nombras un caso, aparece su
+imagen en la mitad inferior, difuminada por arriba»), pedido por la dueña en octubre de
+2026. Es el formato 1 con `imagenes` en las frases de la tabla (plantilla:
+`piel-despues-del-verano.json`): misma letra, colores, subtítulos, cortes y audio. Solo
+cambia la composición:
+
+- **Imagen**: 1080×960 en la mitad de abajo (desde y 960), con los 260 px de arriba
+  difuminados. Entra con su palabra (`"desde"`) con un fundido de 0,22 s, subiendo 36 px;
+  si entra encima de otra imagen, se funde en el sitio. Se queda hasta que la tapa la
+  siguiente, si esta llega en menos de 3 s (1 s si entre las dos hay un corte de toma), o
+  hasta 0,3 s después de acabar la frase; como mínimo 1,2 s. La de la última frase (la
+  llamada a la acción, p. ej. «comenta MANCHAS») se queda hasta el final, sin fundido.
+- **Cara**: sube lo justo para que la barbilla quede como mucho en y 880 (el zoom mínimo
+  que lo permite: ~1,2 con su cámara de siempre, ~1,3 si se sienta más baja); cerrado y
+  clave, ×1,14 y ×1,22 sobre ese, como en el formato 1.
+- **Subtítulos**: los del formato 1 (56 px, 2 o 3 palabras), centrados en y 905, entre la
+  cara y la imagen; nunca dos a la vez. «osana.es» debajo, como siempre.
+- **Pregunta**: centrada en una tarjeta crema lisa abajo (`tarjetas/fondo.png`; centro de
+  las líneas en y 1390, fuera del pie de Instagram), en el marrón de la marca, Raleway
+  SemiBold de hasta 104 px; entra y sale como las imágenes. La primera imagen no entra
+  antes de que acabe la pregunta. La portada lleva la tarjeta con la pregunta.
+- **Tarjetas** (`tarjetas.py`), mientras no haya foto o vídeo propio del caso: crema
+  (#f8f4ec → #f3ece0) con un halo blanco, un icono de línea de 260 px en el marrón de la
+  marca y el rótulo en Raleway SemiBold de 52 px (espaciado 16 %). Nada de dorado. En
+  cuanto ella manda la foto o el vídeo del caso, se pone en lugar de la tarjeta.
+- **Planos de recurso** (`"video"`): sus propios vídeos, p. ej. la cabina vacía (IMG_6368,
+  de 0 a 3,9 s: después entra ella), recortados a la forma de la mitad de abajo. Nunca
+  fotos de bancos de imágenes, capturas de mensajes inventadas ni clientas sin permiso.
+- Los números se reparten por lo que se tarda en decirlos («70%» = «setenta por ciento»),
+  para que la imagen y el subtítulo caigan con la palabra.
 
 ### Formato 2 · Explicación con prueba (medidas)
 
