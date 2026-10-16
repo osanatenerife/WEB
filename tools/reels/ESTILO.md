@@ -38,9 +38,8 @@ montar). Si ella pide un cambio, se cambian a la vez el código, esta guía y el
 del formato 2 la usa, en mayúsculas espaciadas, en blanco o en el marrón de la marca
 (nunca dorado ni amarillo, que no son colores de Osana).
 
-El formato 1 tiene una variante **con imágenes de apoyo** (pantalla partida, la de su
-guía de contenidos): mismas letras y ritmo, con la imagen de cada caso en la mitad de
-abajo. Medidas en «Formato 1 con imágenes de apoyo».
+El formato 1 tuvo una prueba **con imágenes de apoyo** (pantalla partida) que la dueña
+descartó en octubre de 2026: ver «Formato 1 con imágenes de apoyo».
 
 ### Formato 1 · Entrevista (medidas)
 
@@ -64,6 +63,12 @@ abajo. Medidas en «Formato 1 con imágenes de apoyo».
 - Detalles y motivos: «Formato 1 · Entrevista: serie «Te lo cuento»», más abajo.
 
 ### Formato 1 con imágenes de apoyo (pantalla partida)
+
+**Descartado (16 de octubre de 2026):** los dos reels hechos así con IMG_6069–6073 («¿Tu
+piel después del verano?» y la mascarilla para manchas) no le gustaron: primero por las
+tarjetas con iconos («horribles») y después los vídeos en sí. No se publican y esta
+variante no se usa salvo que ella la pida. Se deja aquí lo aprendido por si algún día la
+pide, con fotos reales.
 
 El de su guía de contenidos («Tu formato propio»: «cuando nombras un caso, aparece su
 imagen en la mitad inferior, difuminada por arriba»), pedido por la dueña en octubre de

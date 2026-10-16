@@ -10,11 +10,9 @@ vídeo nuevo usa uno de estos dos formatos tal cual; solo cambia el contenido:
    con una tabla por clip (plantilla: `tools/reels/te-lo-cuento-c1-p1.json`). Letra
    **Raleway SemiBold** en mayúsculas espaciadas, pregunta breve al inicio en el marrón
    de la marca, subtítulos pequeños a la altura del pecho y «osana.es» al final.
-   **Con imágenes de apoyo** (el formato de su guía: la imagen de cada caso en la mitad de
-   abajo, difuminada por arriba): la misma herramienta con «imagenes» en las frases
-   (plantilla: `tools/reels/piel-despues-del-verano.json`). Las imágenes, **fotos reales del
-   caso** (suyas, de clientas con permiso o de bancos libres para uso comercial), nunca
-   tarjetas con iconos: no le gustan.
+   **Descartado:** los reels con imágenes de apoyo hechos con IMG_6069–6073 (piel tras el
+   verano y la mascarilla para manchas) no le gustaron y no se publican; la variante con
+   imágenes no se usa salvo que ella la pida, y nunca con tarjetas de iconos.
 2. **Explicación con prueba de un tratamiento** (como «¿Duele el láser SHR? Me lo pruebo
    yo»): `tools/reels/build_reel.py` (plantilla: `tools/reels/reel-laser-shr-no-duele.json`).
    Letra Montserrat ExtraBold, recuadro oscuro con «Paso N · *Nombre*» y subtítulos
