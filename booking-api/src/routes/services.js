@@ -4,6 +4,8 @@ const employees = require('../config/employees');
 const extras = require('../config/extras');
 const hours = require('../config/hours');
 const { parseExtraIds: parseIds } = require('../lib/pricing');
+const { normalizePhone } = require('../lib/clientId');
+const { getAllBookings } = require('../lib/sheets');
 
 const router = express.Router();
 
@@ -38,6 +40,23 @@ router.get('/employees', (req, res) => {
   // "closures" son los cierres puntuales del centro (vacaciones, reformas...), iguales
   // para todas las empleadas, para que el calendario también los tache visualmente.
   res.json({ employees: list.map(({ id, name, weekly }) => ({ id, name, weekly, closures: hours.closures || [] })) });
+});
+
+// Comprueba si un teléfono ya tiene alguna reserva en el sistema — solo
+// devuelve un booleano, nunca datos de la clienta, se usa en el paso de
+// elegir profesional para derivar a las clientas nuevas (sin ninguna
+// reserva previa) hacia una profesional concreta en Depilación Láser SHR.
+router.get('/client-status', async (req, res) => {
+  const target = normalizePhone(req.query.phone);
+  if (!target) return res.json({ isNew: true });
+  try {
+    const all = await getAllBookings();
+    const isNew = !all.some((b) => normalizePhone(b.phone) === target);
+    res.json({ isNew });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'No se pudo comprobar el teléfono.' });
+  }
 });
 
 // Lista de extras que se pueden añadir a los servicios dados (unión, sin duplicados)

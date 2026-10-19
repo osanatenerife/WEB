@@ -15,6 +15,11 @@
     loading: { es: 'Cargando…', en: 'Loading…', it: 'Caricamento…' },
     loadEmployeesError: { es: 'No se pudieron cargar las profesionales.', en: 'Could not load the professionals.', it: 'Non è stato possibile caricare le professioniste.' },
     noEmployees: { es: 'No hay profesionales disponibles para este tratamiento. Escríbenos por WhatsApp.', en: 'No professionals available for this treatment. Message us on WhatsApp.', it: 'Nessuna professionista disponibile per questo trattamento. Scrivici su WhatsApp.' },
+    laserPhonePrompt: { es: 'Antes de elegir hora, dinos tu teléfono — así sabemos si ya eres clienta.', en: 'Before picking a time, tell us your phone number — this way we know if you\'re already a client.', it: 'Prima di scegliere l\'orario, dicci il tuo numero di telefono — così sappiamo se sei già nostra cliente.' },
+    laserPhonePlaceholder: { es: 'Tu teléfono', en: 'Your phone number', it: 'Il tuo telefono' },
+    laserPhoneContinue: { es: 'Continuar', en: 'Continue', it: 'Continua' },
+    laserPhoneRequired: { es: 'Escribe tu teléfono para continuar.', en: 'Enter your phone number to continue.', it: 'Inserisci il tuo numero di telefono per continuare.' },
+    laserPhoneError: { es: 'No se pudo comprobar el teléfono — elige profesional como siempre.', en: 'Could not check the phone number — choose a professional as usual.', it: 'Non è stato possibile verificare il numero — scegli una professionista come al solito.' },
     searchingSlots: { es: 'Buscando huecos libres…', en: 'Looking for available times…', it: 'Ricerca degli orari disponibili…' },
     noSlots: { es: 'No quedan huecos libres ese día. Prueba con otra fecha.', en: 'No available times left that day. Try another date.', it: 'Non ci sono più orari disponibili quel giorno. Prova un\'altra data.' },
     availabilityError: { es: 'No se pudo consultar la disponibilidad.', en: 'Could not check availability.', it: 'Non è stato possibile verificare la disponibilità.' },
@@ -83,6 +88,7 @@
     discountMode: 'loose', // 'loose' | 'bono' — con qué modo se validó, para saber cómo comprobar que sigue aplicando
     discountValidatedIds: [], // ids de tratamientos con los que se validó (modo suelto) — si la selección cambia, el descuento deja de aplicar
     discountValidatedBonoSig: '', // firma de los bonos con los que se validó (modo bono) — mismo criterio que discountValidatedIds
+    phone: '', // se rellena antes de tiempo solo si hace falta comprobar si es clienta nueva (ver hasLaserSelected)
   };
 
   // "extras" son modificadores de zona/tiempo del tratamiento principal
@@ -636,39 +642,124 @@
     }
   }
 
+  // Clientas nuevas (sin ninguna reserva previa) que reservan láser SHR se
+  // derivan directamente a una profesional concreta, sin pasar por la
+  // elección manual — ver showLaserPhoneGate(). El id de servicio es el
+  // mismo en los 3 idiomas, así que comprobarlo así no depende del idioma.
+  const LASER_AUTO_ASSIGN_EMPLOYEE_ID = 'vanessa';
+  function hasLaserSelected() {
+    return selectedServiceIds().some((id) => id.startsWith('laser-'));
+  }
+
   els.continueStep1.addEventListener('click', () => {
-    loadEmployees();
     goToStep(2);
+    if (hasLaserSelected()) {
+      showLaserPhoneGate();
+    } else {
+      loadEmployees();
+    }
   });
 
   // ── PASO 2: empleadas ──
+  function renderEmployeeGrid(list) {
+    els.employees.innerHTML = '';
+    list.forEach((emp) => {
+      const card = document.createElement('div');
+      card.className = 'booking-employee-card';
+      card.textContent = emp.name;
+      card.addEventListener('click', () => {
+        state.employee = emp;
+        document.querySelectorAll('#booking-employees .booking-employee-card').forEach((c) => c.classList.remove('selected'));
+        card.classList.add('selected');
+        renderSummary();
+        setupCalendar();
+        goToStep(3);
+      });
+      els.employees.appendChild(card);
+    });
+    if (!list.length) {
+      els.employees.innerHTML = `<p>${t('noEmployees')}</p>`;
+    }
+  }
+
   async function loadEmployees() {
     els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
     try {
       const ids = selectedServiceIds().join(',');
       const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids)}`);
       const data = await res.json();
-      els.employees.innerHTML = '';
-      data.employees.forEach((emp) => {
-        const card = document.createElement('div');
-        card.className = 'booking-employee-card';
-        card.textContent = emp.name;
-        card.addEventListener('click', () => {
-          state.employee = emp;
-          document.querySelectorAll('#booking-employees .booking-employee-card').forEach((c) => c.classList.remove('selected'));
-          card.classList.add('selected');
-          renderSummary();
-          setupCalendar();
-          goToStep(3);
-        });
-        els.employees.appendChild(card);
-      });
-      if (!data.employees.length) {
-        els.employees.innerHTML = `<p>${t('noEmployees')}</p>`;
+      renderEmployeeGrid(data.employees);
+    } catch (e) {
+      showError(t('loadEmployeesError'));
+    }
+  }
+
+  // Igual que loadEmployees, pero si la profesional objetivo puede con
+  // todos los tratamientos elegidos, se selecciona sola (sin mostrar la
+  // rejilla) — si no puede (p.ej. combinada con algo que no hace), se cae
+  // de vuelta a la elección manual de siempre, con la lista ya cargada.
+  async function loadEmployeesAutoAssign(employeeId) {
+    els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
+    try {
+      const ids = selectedServiceIds().join(',');
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids)}`);
+      const data = await res.json();
+      const target = data.employees.find((e) => e.id === employeeId);
+      if (target) {
+        state.employee = target;
+        renderSummary();
+        setupCalendar();
+        goToStep(3);
+      } else {
+        renderEmployeeGrid(data.employees);
       }
     } catch (e) {
       showError(t('loadEmployeesError'));
     }
+  }
+
+  // Paso previo solo para láser SHR: pide el teléfono antes de mostrar a
+  // quién elegir, para saber si es clienta nueva (sin ninguna reserva
+  // previa) — si lo es, se deriva directamente a LASER_AUTO_ASSIGN_EMPLOYEE_ID;
+  // si ya es clienta, sigue pudiendo elegir como siempre.
+  function showLaserPhoneGate() {
+    els.employees.innerHTML = `
+      <div class="booking-laser-phone-gate">
+        <p>${t('laserPhonePrompt')}</p>
+        <input type="tel" class="booking-laser-phone-input" placeholder="${t('laserPhonePlaceholder')}">
+        <button type="button" class="btn-primary booking-laser-phone-continue">${t('laserPhoneContinue')}</button>
+        <p class="booking-error booking-laser-phone-error" style="display:none;"></p>
+      </div>
+    `;
+    const input = els.employees.querySelector('.booking-laser-phone-input');
+    const btn = els.employees.querySelector('.booking-laser-phone-continue');
+    const errorEl = els.employees.querySelector('.booking-laser-phone-error');
+    const submit = async () => {
+      const phone = input.value.trim();
+      errorEl.style.display = 'none';
+      if (!phone) {
+        errorEl.textContent = t('laserPhoneRequired');
+        errorEl.style.display = 'block';
+        return;
+      }
+      state.phone = phone;
+      btn.disabled = true;
+      try {
+        const res = await fetch(`${BOOKING_API_BASE}/client-status?phone=${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        if (data.isNew) {
+          await loadEmployeesAutoAssign(LASER_AUTO_ASSIGN_EMPLOYEE_ID);
+        } else {
+          await loadEmployees();
+        }
+      } catch (e) {
+        // Fallo al comprobar — no bloquea la reserva, deja elegir como siempre.
+        await loadEmployees();
+      }
+      btn.disabled = false;
+    };
+    btn.addEventListener('click', submit);
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') submit(); });
   }
 
   // ── PASO 3: calendario y hora ──
@@ -789,6 +880,12 @@
           renderSummary();
           renderPayOptions();
           goToStep(4);
+          // Si ya se pidió el teléfono antes (ver showLaserPhoneGate), se
+          // rellena solo para no hacérselo escribir dos veces.
+          if (state.phone) {
+            const phoneInput = document.getElementById('booking-phone');
+            if (phoneInput && !phoneInput.value) phoneInput.value = state.phone;
+          }
         });
         els.slots.appendChild(slot);
       });
