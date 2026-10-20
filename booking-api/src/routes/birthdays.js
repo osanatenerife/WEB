@@ -1,5 +1,5 @@
 const express = require('express');
-const { getAllBookings, getAllBirthdayRecords, upsertBirthdayRecord } = require('../lib/sheets');
+const { getAllBookings, getAllBirthdayRecords, upsertBirthdayRecord, getAllUnsubscribedEmails } = require('../lib/sheets');
 const { sendEmail } = require('../lib/email');
 const hours = require('../config/hours');
 
@@ -17,38 +17,49 @@ function normalizeEmail(raw) {
   return String(raw || '').trim().toLowerCase();
 }
 
+// Enlace de baja de emails comerciales, obligatorio por ley (LSSI-CE) —
+// los emails transaccionales de sus propias citas no lo necesitan, pero
+// este sí es publicidad (un código de descuento).
+function unsubscribeFooter(email, lang) {
+  const label = lang === 'en' ? 'Unsubscribe from these emails' : lang === 'it' ? 'Disiscriviti da queste email' : 'Darse de baja de estos emails';
+  return `<p style="margin-top:20px;"><a href="https://osana-9pub.onrender.com/api/unsubscribe?email=${encodeURIComponent(email)}&lang=${lang}" style="color:#999;font-size:11px;">${label}</a></p>`;
+}
+
 const EMAIL_STRINGS = {
   es: {
     subject: '¡Feliz cumpleaños! 🎂 Un regalo de Osana para ti',
-    body: (name, year) => `
+    body: (name, year, email) => `
       <p>Hola ${name || ''},</p>
       <p>¡Desde Osana te deseamos un muy feliz cumpleaños! 🎉</p>
       <p>Como regalo, tienes un <strong>15% de descuento</strong> en tu próxima reserva durante todo este mes. Solo tienes que introducir este código al pagar:</p>
       <p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:16px 0;">${BIRTHDAY_PROMO_CODE}</p>
       <p><a href="https://osana.es/reserva.html">Reserva tu cita aquí</a>.</p>
       <p>¡Te esperamos para celebrarlo contigo!<br>Osana</p>
+      ${unsubscribeFooter(email, 'es')}
     `,
   },
   en: {
     subject: 'Happy birthday! 🎂 A gift from Osana',
-    body: (name, year) => `
+    body: (name, year, email) => `
       <p>Hi ${name || ''},</p>
       <p>The whole Osana team wishes you a very happy birthday! 🎉</p>
       <p>As a gift, enjoy a <strong>15% discount</strong> on your next booking this month. Just enter this code at checkout:</p>
       <p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:16px 0;">${BIRTHDAY_PROMO_CODE}</p>
       <p><a href="https://osana.es/en/reserva.html">Book your appointment here</a>.</p>
       <p>We'd love to celebrate with you!<br>Osana</p>
+      ${unsubscribeFooter(email, 'en')}
     `,
   },
   it: {
     subject: 'Buon compleanno! 🎂 Un regalo da Osana',
-    body: (name, year) => `
+    body: (name, year, email) => `
       <p>Ciao ${name || ''},</p>
       <p>Tutto il team di Osana ti augura un bellissimo compleanno! 🎉</p>
       <p>Come regalo, hai uno <strong>sconto del 15%</strong> sulla tua prossima prenotazione durante tutto questo mese. Ti basta inserire questo codice al pagamento:</p>
       <p style="font-size:20px;font-weight:700;letter-spacing:2px;margin:16px 0;">${BIRTHDAY_PROMO_CODE}</p>
       <p><a href="https://osana.es/it/reserva.html">Prenota qui il tuo appuntamento</a>.</p>
       <p>Non vediamo l'ora di festeggiare con te!<br>Osana</p>
+      ${unsubscribeFooter(email, 'it')}
     `,
   },
 };
@@ -80,10 +91,12 @@ router.get('/send-birthday-emails', async (req, res) => {
     });
 
     const birthdayRecords = await getAllBirthdayRecords();
+    const unsubscribed = await getAllUnsubscribedEmails();
 
     let sent = 0;
     const errors = [];
     for (const [key, b] of uniqueClients) {
+      if (unsubscribed.has(normalizeEmail(b.email))) continue; // dada de baja de publicidad
       const existing = birthdayRecords.find((r) => `${r.emailNormalized}|${r.phoneNormalized}` === key);
       if (existing && existing.lastSentYear === todayYear) continue; // ya felicitado este año
 
@@ -93,7 +106,7 @@ router.get('/send-birthday-emails', async (req, res) => {
         await sendEmail({
           to: b.email,
           subject: strings.subject,
-          html: strings.body(b.name, todayYear),
+          html: strings.body(b.name, todayYear, b.email),
         });
         await upsertBirthdayRecord({
           emailNormalized: normalizeEmail(b.email),

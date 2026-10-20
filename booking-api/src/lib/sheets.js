@@ -399,6 +399,65 @@ async function upsertBirthdayRecord(record, existingRow) {
 }
 
 // ============================================================
+// Bajas de email comercial (newsletter/campañas), en una pestaña aparte
+// ("Bajas") — un email por fila. Obligatorio por ley (LSSI-CE) ofrecer
+// una forma fácil de darse de baja en comunicaciones comerciales; los
+// emails transaccionales (confirmación de cita, recordatorios, pagos)
+// no se filtran por esta lista, solo los de campaña/cumpleaños.
+// ============================================================
+
+const UNSUBSCRIBE_TAB_TITLE = 'Bajas';
+const UNSUBSCRIBE_COLUMNS = ['emailNormalized', 'unsubscribedAt'];
+const UNSUBSCRIBE_LAST_COL = colLetter(UNSUBSCRIBE_COLUMNS.length);
+
+let unsubscribeTabReady = false;
+async function ensureUnsubscribeTab() {
+  if (unsubscribeTabReady) return;
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.get({ spreadsheetId: sheetId(), fields: 'sheets.properties' });
+  const exists = (res.data.sheets || []).some((s) => s.properties.title === UNSUBSCRIBE_TAB_TITLE);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: sheetId(),
+      requestBody: { requests: [{ addSheet: { properties: { title: UNSUBSCRIBE_TAB_TITLE } } }] },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId(),
+      range: `'${UNSUBSCRIBE_TAB_TITLE}'!A1`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [UNSUBSCRIBE_COLUMNS] },
+    });
+  }
+  unsubscribeTabReady = true;
+}
+
+async function getAllUnsubscribedEmails() {
+  await ensureUnsubscribeTab();
+  const sheets = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `'${UNSUBSCRIBE_TAB_TITLE}'!A:${UNSUBSCRIBE_LAST_COL}`,
+  });
+  const rows = res.data.values || [];
+  if (rows.length < 2) return new Set();
+  return new Set(rows.slice(1).map((row) => row[0]).filter(Boolean));
+}
+
+// No comprueba si ya estaba — darse de baja dos veces solo añade una fila
+// de más, inofensivo, y así no hace falta leer toda la pestaña antes.
+async function appendUnsubscribe(emailNormalized) {
+  await ensureUnsubscribeTab();
+  const sheets = getSheetsClient();
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: sheetId(),
+    range: `'${UNSUBSCRIBE_TAB_TITLE}'!A:${UNSUBSCRIBE_LAST_COL}`,
+    valueInputOption: 'RAW',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [[emailNormalized, new Date().toISOString()]] },
+  });
+}
+
+// ============================================================
 // Bonos de sesiones (paquetes de 3 sesiones), en una pestaña aparte
 // ("BonosSesiones"). La 1ª sesión se agenda al comprar el bono; el
 // resto se agendan desde el panel interno, que descuenta de
@@ -1048,4 +1107,5 @@ module.exports = {
   appendFollowup, getAllFollowups, updateFollowupRow,
   appendCustomQuote, getAllCustomQuotes, updateQuoteRow,
   appendDiscount, getAllDiscounts, updateDiscountRow,
+  getAllUnsubscribedEmails, appendUnsubscribe,
 };

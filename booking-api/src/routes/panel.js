@@ -9,6 +9,7 @@ const {
   appendFollowup, getAllFollowups, updateFollowupRow,
   getAllGifts, updateGiftRow,
   appendDiscount, getAllDiscounts, updateDiscountRow,
+  getAllUnsubscribedEmails,
 } = require('../lib/sheets');
 const { isDiscountLive } = require('../lib/discounts');
 const { createBookingEvent, updateEvent, getEvent, listEvents, deleteEvent, isEventUsable, getBusyIntervals } = require('../lib/googleCalendar');
@@ -2665,6 +2666,11 @@ router.post('/panel/campaign-email', async (req, res) => {
   }
   try {
     const uniqueClients = await getUniqueClientEmails();
+    // Nunca se manda publicidad a quien ya se dio de baja (obligatorio por
+    // ley, LSSI-CE) — los emails transaccionales de sus propias citas no
+    // pasan por aquí, así que seguirán llegándole igual.
+    const unsubscribed = await getAllUnsubscribedEmails();
+    for (const email of unsubscribed) uniqueClients.delete(email);
 
     res.json({ ok: true, recipients: uniqueClients.size });
 
@@ -2679,13 +2685,19 @@ router.post('/panel/campaign-email', async (req, res) => {
       const ctaHtml = showCta
         ? `<div style="text-align:center;margin:26px 0 4px;"><a href="${escapeHtml(ctaUrl.trim())}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${escapeHtml(ctaText.trim())}</a></div>`
         : '';
-      const footerHtml = `
+      // El enlace de baja lleva el email de cada destinataria, para poder
+      // darla de baja con un solo clic sin pedirle que inicie sesión ni
+      // nada — es justo lo que se espera de un enlace así (LSSI-CE).
+      const footerHtmlFor = (email) => `
         <div style="background:#1a1612;padding:22px 24px;text-align:center;">
           <p style="margin:0 0 6px;color:#ac977e;font-size:12px;letter-spacing:1px;text-transform:uppercase;">Osana Tenerife</p>
-          <p style="margin:0;color:#cbbfae;font-size:11.5px;">
+          <p style="margin:0 0 10px;color:#cbbfae;font-size:11.5px;">
             <a href="https://osana.es" style="color:#cbbfae;text-decoration:underline;">osana.es</a>
             · <a href="https://instagram.com/osana_tenerife" style="color:#cbbfae;text-decoration:underline;">Instagram</a>
             · <a href="https://wa.me/34623725551" style="color:#cbbfae;text-decoration:underline;">WhatsApp</a>
+          </p>
+          <p style="margin:0;color:#7a7066;font-size:10.5px;">
+            <a href="https://osana-9pub.onrender.com/api/unsubscribe?email=${encodeURIComponent(email)}" style="color:#7a7066;text-decoration:underline;">Darse de baja de estos emails</a>
           </p>
         </div>`;
       for (const { email, name } of uniqueClients.values()) {
@@ -2700,7 +2712,7 @@ router.post('/panel/campaign-email', async (req, res) => {
             ${headerHtml}
             <div style="padding:28px 24px 8px;">${bodyHtml}${ctaHtml}</div>
             <div style="height:22px;"></div>
-            ${footerHtml}
+            ${footerHtmlFor(email)}
           </div>`;
           await sendEmail({ to: email, subject: subjectPersonal, html });
         } catch (err) {
