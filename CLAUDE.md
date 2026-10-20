@@ -10,6 +10,8 @@ vídeo nuevo usa uno de estos dos formatos tal cual; solo cambia el contenido:
    con una tabla por clip (plantilla: `tools/reels/te-lo-cuento-c1-p1.json`). Letra
    **Raleway SemiBold** en mayúsculas espaciadas, pregunta breve al inicio en el marrón
    de la marca, subtítulos pequeños a la altura del pecho y «osana.es» al final.
+   Sin filtro; si la imagen sale plana (pared clara), `"color": "suave"`: el ajuste de color que
+   ella aprobó (más contraste y color, sin naranja ni bordes oscuros; ver ESTILO.md).
    **Descartado:** los reels con imágenes de apoyo hechos con IMG_6069–6073 (piel tras el
    verano y la mascarilla para manchas) no le gustaron y no se publican; la variante con
    imágenes no se usa salvo que ella la pida, y nunca con tarjetas de iconos.

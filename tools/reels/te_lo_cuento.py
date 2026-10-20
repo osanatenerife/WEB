@@ -10,6 +10,7 @@ Uso:
 Estilo natural (lo que pidió la dueña tras ver la primera versión y sus referencias):
   - La luz tal cual se grabó: sin filtro de color, sin contraste ni nitidez añadidos
     (el filtro le blanqueaba la piel y oscurecía los ojos).
+    Con «"color": "suave"» en la tabla, el ajuste suave que ella aprobó (COLOR_SUAVE).
   - Sin etiqueta de serie ni capítulo (eso va, si acaso, en el pie de foto).
   - La pregunta aparece y desaparece rápido, solo al inicio, en el silencio antes de
     responder: mayúsculas espaciadas en Raleway SemiBold (la letra de la web) y en el
@@ -84,6 +85,10 @@ import gestos as gs  # noqa: E402  (ojos y boca en cada fotograma)
 
 W, H, FPS = br.W, br.H, br.FPS
 VERSION_TOMA = 3
+# «"color": "suave"» en la tabla: el ajuste que aprobó la dueña (octubre de 2026) para
+# grabaciones con la pared clara: algo más de contraste y color, bordes apenas oscurecidos
+# y sin tono cálido añadido (con más saturación o un viraje cálido la piel sale naranja).
+COLOR_SUAVE = "eq=contrast=1.08:saturation=1.18:gamma=0.98,vignette=PI/8"
 
 # ---------------------------------------------------------------- tiempos
 PRE, POST = 0.12, 0.28      # aire antes de hablar / después de la última sílaba
@@ -308,6 +313,8 @@ def filtro_plano(p, congelar=True):
     x0, y0, cw, ch = p["_crop"]
     vf = (f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
           f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p")
+    if p.get("_color") == "suave":
+        vf += "," + COLOR_SUAVE
     if not congelar:
         return vf
     n = round((p["fin"] - p["inicio"]) * FPS)
@@ -750,6 +757,8 @@ def main():
     reloj = [("inicio", time.time())]
 
     planos = partir_largos(segmentos_y_planos(cfg), args.fuentes)
+    for p in planos:
+        p["_color"] = cfg.get("color")
     imagenes_si = hay_imagenes(cfg)       # pantalla partida: la pregunta va en su tarjeta
     tipos_de_plano(planos, pregunta=bool(cfg.get("pregunta")) and not imagenes_si)
     if not args.sin_gestos:

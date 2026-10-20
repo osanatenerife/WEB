@@ -1,0 +1,38 @@
+{
+ "titulo": "Prueba de luz · cejas",
+ "salida": "osana-prueba-luz-cejas-color",
+ "archivo": "IMG_7031.mov",
+ "pregunta": "¿qué miro|antes de unas|cejas?",
+ "intro": 6.15,
+ "fin": 15.5,
+ "portada": 12.0,
+ "frases": [
+  {
+   "inicio": 6.4,
+   "fin": 8.0,
+   "texto": "antes de hacerte unas cejas"
+  },
+  {
+   "inicio": 8.0,
+   "fin": 10.0,
+   "texto": "miro tu cara y tu piel"
+  },
+  {
+   "inicio": 10.0,
+   "fin": 12.2,
+   "texto": "y lo que ya llevas puesto."
+  },
+  {
+   "inicio": 12.2,
+   "fin": 13.9,
+   "texto": "y si no es para ti,"
+  },
+  {
+   "inicio": 13.9,
+   "fin": 15.4,
+   "texto": "te lo digo.",
+   "clave": true
+  }
+ ],
+ "color": "suave"
+}

@@ -281,6 +281,10 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   `pip uninstall -y opencv-contrib-python && pip install --force-reinstall "opencv-python-headless<5"`.
 - Sirve también para cualquier vídeo de ella hablando a cámara: sin `pregunta` no sale
   ningún texto al inicio y, sin `intro`, el vídeo empieza con la voz.
+- **Ajuste suave aprobado** (octubre de 2026, prueba de luz IMG_7031 con la pared blanca): si
+  ella lo pide o la imagen sale plana y lavada, `"color": "suave"` en la tabla añade
+  `eq=contrast=1.08:saturation=1.18:gamma=0.98,vignette=PI/8`. Más fuerte no: con saturación
+  1,35, viraje cálido y viñeta PI/4,5 dijo «demasiado oscuro, gris el borde y yo muy naranja».
 - **Sin filtro**: la luz y el color como se grabaron. El filtro anterior le dejaba la
   piel blanca y poco cálida y le oscurecía los ojos («un manchón negro»).
 - **Sin «Capítulo 1, 2…»** ni etiqueta de serie en el vídeo (si acaso, en el pie de foto).
