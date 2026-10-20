@@ -1194,8 +1194,15 @@
             categories: selectedCategories.length ? selectedCategories : undefined,
           }),
         });
-        statusEl.textContent = `Enviando a ${data.recipients} clientas…`;
+        // El envío de verdad sigue en el servidor, uno a uno, después de
+        // que esta petición ya haya respondido — con muchas clientas puede
+        // tardar varios minutos, y aquí no hay forma de saber cuándo
+        // termina de verdad. Se avisa claro para que no parezca que se ha
+        // quedado colgado, y se deja el botón desactivado para no mandar
+        // esta misma campaña dos veces sin querer.
+        statusEl.textContent = `Enviando a ${data.recipients} clientas en segundo plano — puede tardar varios minutos. Ya puedes cerrar esta pantalla, no hace falta esperar aquí.`;
         statusEl.style.display = 'block';
+        ev.target.textContent = 'Enviado ✓';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
