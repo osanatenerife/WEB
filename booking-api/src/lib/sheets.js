@@ -25,7 +25,7 @@ function colLetter(n) {
 // cuanto se escribe esa pestaña, para que un cambio recién hecho se vea
 // al momento sin esperar a que caduque solo.
 // ============================================================
-const READ_CACHE_TTL_MS = 8000;
+const READ_CACHE_TTL_MS = 25000;
 const readCache = new Map(); // key -> { data, expiresAt }
 
 async function cachedRead(key, fetchFn) {
@@ -293,18 +293,21 @@ async function appendGift(gift) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [giftObjectToRow(gift)] },
   });
+  invalidateCache('gifts');
 }
 
 async function getAllGifts() {
-  await ensureGiftTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${GIFT_TAB_TITLE}'!A:${GIFT_LAST_COL}`,
+  return cachedRead('gifts', async () => {
+    await ensureGiftTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${GIFT_TAB_TITLE}'!A:${GIFT_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map(giftRowToObject);
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map(giftRowToObject);
 }
 
 async function updateGiftRow(sheetRow, updates) {
@@ -319,6 +322,7 @@ async function updateGiftRow(sheetRow, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [giftObjectToRow(merged)] },
   });
+  invalidateCache('gifts');
 }
 
 // ============================================================
@@ -362,15 +366,17 @@ function birthdayObjectToRow(obj) {
 }
 
 async function getAllBirthdayRecords() {
-  await ensureBirthdayTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${BIRTHDAY_TAB_TITLE}'!A:${BIRTHDAY_LAST_COL}`,
+  return cachedRead('birthdayRecords', async () => {
+    await ensureBirthdayTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${BIRTHDAY_TAB_TITLE}'!A:${BIRTHDAY_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map((row, i) => ({ ...birthdayRowToObject(row), _sheetRow: i + 2 }));
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map((row, i) => ({ ...birthdayRowToObject(row), _sheetRow: i + 2 }));
 }
 
 /**
@@ -396,6 +402,7 @@ async function upsertBirthdayRecord(record, existingRow) {
       requestBody: { values: [birthdayObjectToRow(record)] },
     });
   }
+  invalidateCache('birthdayRecords');
 }
 
 // ============================================================
@@ -432,15 +439,17 @@ async function ensureUnsubscribeTab() {
 }
 
 async function getAllUnsubscribedEmails() {
-  await ensureUnsubscribeTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${UNSUBSCRIBE_TAB_TITLE}'!A:${UNSUBSCRIBE_LAST_COL}`,
+  return cachedRead('unsubscribedEmails', async () => {
+    await ensureUnsubscribeTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${UNSUBSCRIBE_TAB_TITLE}'!A:${UNSUBSCRIBE_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return new Set();
+    return new Set(rows.slice(1).map((row) => row[0]).filter(Boolean));
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return new Set();
-  return new Set(rows.slice(1).map((row) => row[0]).filter(Boolean));
 }
 
 // No comprueba si ya estaba — darse de baja dos veces solo añade una fila
@@ -455,6 +464,7 @@ async function appendUnsubscribe(emailNormalized) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [[emailNormalized, new Date().toISOString()]] },
   });
+  invalidateCache('unsubscribedEmails');
 }
 
 // ============================================================
@@ -981,18 +991,21 @@ async function appendDiscount(discount) {
     insertDataOption: 'INSERT_ROWS',
     requestBody: { values: [discountObjectToRow(discount)] },
   });
+  invalidateCache('discounts');
 }
 
 async function getAllDiscounts() {
-  await ensureDiscountTab();
-  const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range: `'${DISCOUNT_TAB_TITLE}'!A:${DISCOUNT_LAST_COL}`,
+  return cachedRead('discounts', async () => {
+    await ensureDiscountTab();
+    const sheets = getSheetsClient();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId(),
+      range: `'${DISCOUNT_TAB_TITLE}'!A:${DISCOUNT_LAST_COL}`,
+    });
+    const rows = res.data.values || [];
+    if (rows.length < 2) return [];
+    return rows.slice(1).map(discountRowToObject);
   });
-  const rows = res.data.values || [];
-  if (rows.length < 2) return [];
-  return rows.slice(1).map(discountRowToObject);
 }
 
 async function updateDiscountRow(sheetRow, updates) {
@@ -1007,6 +1020,7 @@ async function updateDiscountRow(sheetRow, updates) {
     valueInputOption: 'RAW',
     requestBody: { values: [discountObjectToRow(merged)] },
   });
+  invalidateCache('discounts');
 }
 
 // ============================================================
