@@ -89,6 +89,11 @@ VERSION_TOMA = 3
 # grabaciones con la pared clara: algo más de contraste y color, bordes apenas oscurecidos
 # y sin tono cálido añadido (con más saturación o un viraje cálido la piel sale naranja).
 COLOR_SUAVE = "eq=contrast=1.08:saturation=1.18:gamma=0.98,vignette=PI/8"
+# «"color": "golden"»: menos amarillo y algo más oscuro y contrastado, como las cuentas
+# de referencia (@goldenbrows_). En prueba con IMG_7041 (octubre de 2026).
+COLOR_GOLDEN = ("colorbalance=rs=-0.02:bs=0.05:gm=-0.04:bm=0.06:bh=0.03,"
+                "eq=contrast=1.15:brightness=-0.05:saturation=1.08:gamma=0.9,vignette=PI/6")
+COLORES = {"suave": COLOR_SUAVE, "golden": COLOR_GOLDEN}
 
 # ---------------------------------------------------------------- tiempos
 PRE, POST = 0.12, 0.28      # aire antes de hablar / después de la última sílaba
@@ -313,8 +318,8 @@ def filtro_plano(p, congelar=True):
     x0, y0, cw, ch = p["_crop"]
     vf = (f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
           f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p")
-    if p.get("_color") == "suave":
-        vf += "," + COLOR_SUAVE
+    if p.get("_color"):
+        vf += "," + COLORES[p["_color"]]
     if not congelar:
         return vf
     n = round((p["fin"] - p["inicio"]) * FPS)
