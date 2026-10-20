@@ -92,7 +92,7 @@ COLOR_SUAVE = "eq=contrast=1.08:saturation=1.18:gamma=0.98,vignette=PI/8"
 # «"color": "golden"»: menos amarillo y algo más oscuro y contrastado, como las cuentas
 # de referencia (@goldenbrows_). En prueba con IMG_7041 (octubre de 2026).
 COLOR_GOLDEN = ("colorbalance=rs=-0.02:bs=0.05:gm=-0.04:bm=0.06:bh=0.03,"
-                "eq=contrast=1.15:brightness=-0.05:saturation=1.08:gamma=0.9,vignette=PI/6")
+                "eq=contrast=1.15:brightness=0.0:saturation=1.08:gamma=0.97,vignette=PI/6")
 COLORES = {"suave": COLOR_SUAVE, "golden": COLOR_GOLDEN}
 
 # ---------------------------------------------------------------- tiempos

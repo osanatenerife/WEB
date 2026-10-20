@@ -13,7 +13,7 @@ import numpy as np
 
 import build_reel as br
 
-VERSION = 2
+VERSION = 3
 
 
 def caja_cara(img):
@@ -61,8 +61,9 @@ def blanquear(img, caja):
     l_med, b_med = np.median(L[dientes]), np.median(B[dientes])
     nuevo = lab.copy()
     nuevo[..., 2] = np.where(B > b_med, b_med + (B - b_med) * 0.3, B)
-    nuevo[..., 2] = 128 + (nuevo[..., 2] - 128) * 0.85     # un poco menos amarillo
+    nuevo[..., 2] = 128 + (nuevo[..., 2] - 128) * 0.75     # menos amarillo
     nuevo[..., 0] = np.where(L < l_med, l_med - (l_med - L) * 0.6, L)
+    nuevo[..., 0] = np.minimum(nuevo[..., 0] * 1.05, 250)    # un punto más claros (lo pidió ella)
     mezcla = lab * (1 - m) + nuevo * m
     out = img.copy()
     out[y0:y1, x0:x1] = cv2.cvtColor(np.clip(mezcla, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)

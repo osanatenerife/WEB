@@ -1,0 +1,23 @@
+{
+ "titulo": "Prueba de luz 3 · micro antigua",
+ "salida": "osana-prueba-luz-7041-golden",
+ "archivo": "IMG_7041.mov",
+ "pregunta": "¿tu micro ya|no te gusta?",
+ "color": "golden",
+ "intro": 8.9,
+ "fin": 32.3,
+ "portada": 14.0,
+ "frases": [
+  {
+   "inicio": 9.35,
+   "fin": 21.5,
+   "texto": "me suelen venir muchas cejas como esta, pero la verdad es que yo no trabajo de esta forma. si quieres hacerte la micropigmentación, tienes que eliminarla primero con láser"
+  },
+  {
+   "inicio": 21.7,
+   "fin": 32.26,
+   "texto": "y luego podemos trabajar para tener un resultado muy natural y limpio. así que si quieres venirte a una cita con osana, agenda tu sesión.",
+   "clave": true
+  }
+ ]
+}
