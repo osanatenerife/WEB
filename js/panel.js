@@ -1104,12 +1104,25 @@
     loadDiscountList();
   });
 
-  els.campaignToggle.addEventListener('click', () => {
+  els.campaignToggle.addEventListener('click', async () => {
     if (els.campaignSlot.innerHTML) { els.campaignSlot.innerHTML = ''; return; }
+    els.campaignSlot.innerHTML = '<div class="panel-new-appt"><p class="panel-status">Cargando…</p></div>';
+    const allServices = await loadImportServicesOnce();
+    const categoriesList = [...new Set(allServices.map((s) => s.category))];
+    const categoriesHtml = categoriesList.map((cat) => `
+      <label class="panel-checkbox-row" style="display:flex;align-items:center;gap:8px;margin:2px 0;font-size:12.5px;">
+        <input type="checkbox" class="cp-category" value="${escapeHtml(cat)}"> ${escapeHtml(cat)}
+      </label>
+    `).join('');
     els.campaignSlot.innerHTML = `
       <div class="panel-new-appt">
-        <div class="panel-label">Enviar campaña de email a todas las clientas</div>
-        <p style="font-size:12px;color:var(--ink-soft);margin:-4px 0 12px;">Para fechas especiales, artículos, avisos de formaciones... Se envía a todas las clientas con email registrado. Escribe <code>{nombre}</code> donde quieras que aparezca el nombre de cada clienta. Si quieres incluir un código de descuento, créalo antes en "🏷️ Descuentos" y menciónalo en el texto.</p>
+        <div class="panel-label">Enviar campaña de email</div>
+        <p style="font-size:12px;color:var(--ink-soft);margin:-4px 0 12px;">Para fechas especiales, artículos, avisos de formaciones... Escribe <code>{nombre}</code> donde quieras que aparezca el nombre de cada clienta. Si quieres incluir un código de descuento, créalo antes en "🏷️ Descuentos" y menciónalo en el texto.</p>
+        <div class="panel-label" style="margin-top:4px;">¿A quién se lo mandamos?</div>
+        <p style="font-size:11.5px;color:var(--ink-faint);margin:0 0 8px;">Deja todo sin marcar para mandarlo a todas las clientas. Marca una o varias categorías para mandarlo solo a quien ya haya pedido alguna vez un tratamiento de esas.</p>
+        <div class="panel-discount-services" style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:4px;padding:10px 14px;margin-bottom:14px;">
+          ${categoriesHtml}
+        </div>
         <div class="panel-field"><label>Imagen de cabecera (opcional)</label><input type="file" accept="image/*" class="cp-image"></div>
         <img class="cp-image-preview" style="display:none;width:100%;max-width:420px;margin-top:8px;border-radius:4px;">
         <div class="panel-field" style="margin-top:10px;"><label>Asunto</label><input type="text" class="cp-subject" placeholder="Ej. Feliz Navidad, {nombre}"></div>
@@ -1118,7 +1131,7 @@
           <div class="panel-field"><label>Texto del botón (opcional)</label><input type="text" class="cp-cta-text" placeholder="Ej. Reserva tu sesión"></div>
           <div class="panel-field"><label>Enlace del botón</label><input type="text" class="cp-cta-url" placeholder="https://osana.es/reserva.html"></div>
         </div>
-        <button type="button" class="panel-btn panel-btn-primary panel-confirm-campaign" style="margin-top:12px;">Enviar a todas las clientas</button>
+        <button type="button" class="panel-btn panel-btn-primary panel-confirm-campaign" style="margin-top:12px;">Enviar</button>
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status" style="display:none;"></p>
       </div>
@@ -1166,7 +1179,9 @@
         errorEl.style.display = 'block';
         return;
       }
-      if (!confirm('¿Enviar este email a todas las clientas registradas? No se puede deshacer.')) return;
+      const selectedCategories = Array.from(slot.querySelectorAll('.cp-category:checked')).map((c) => c.value);
+      const audienceLabel = selectedCategories.length ? `clientas de: ${selectedCategories.join(', ')}` : 'TODAS las clientas registradas';
+      if (!confirm(`¿Enviar este email a ${audienceLabel}? No se puede deshacer.`)) return;
       ev.target.disabled = true;
       try {
         const data = await panelFetch('/panel/campaign-email', {
@@ -1176,6 +1191,7 @@
             headerImageDataUrl: headerImageDataUrl || undefined,
             ctaText: ctaTextInput.value.trim() || undefined,
             ctaUrl: ctaUrlInput.value.trim() || undefined,
+            categories: selectedCategories.length ? selectedCategories : undefined,
           }),
         });
         statusEl.textContent = `Enviando a ${data.recipients} clientas…`;

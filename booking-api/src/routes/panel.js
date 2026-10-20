@@ -54,12 +54,20 @@ function escapeHtml(str) {
 // — la lista base para cualquier envío masivo (descuentos, campañas...).
 // Se queda con el nombre de la reserva más reciente de cada email (las
 // filas están en orden cronológico), para poder personalizar los envíos.
+// También guarda qué categorías de tratamiento ha pedido alguna vez, para
+// poder dirigir una campaña solo a quien le interesa de verdad (p.ej. una
+// oferta de masajes, solo a quien ya ha probado algún masaje o corporal).
 async function getUniqueClientEmails() {
   const bookings = await getAllBookings();
   const uniqueEmails = new Map();
   bookings.forEach((b) => {
     const email = normalizeEmail(b.email);
-    if (email) uniqueEmails.set(email, { email: b.email, name: b.name || '' });
+    if (!email) return;
+    const service = services.find((s) => s.id === b.serviceId);
+    const existing = uniqueEmails.get(email);
+    const categories = existing ? existing.categories : new Set();
+    if (service) categories.add(service.category);
+    uniqueEmails.set(email, { email: b.email, name: b.name || (existing && existing.name) || '', categories });
   });
   return uniqueEmails;
 }
@@ -2654,10 +2662,14 @@ router.post('/panel/discount-email-blast', async (req, res) => {
 const HEADER_IMAGE_RE = /^data:image\/(png|jpe?g|gif|webp);base64,/;
 
 router.post('/panel/campaign-email', async (req, res) => {
-  const { subject, body, headerImageDataUrl, ctaText, ctaUrl } = req.body || {};
+  const { subject, body, headerImageDataUrl, ctaText, ctaUrl, categories } = req.body || {};
   if (!subject || !subject.trim() || !body || !body.trim()) {
     return res.status(400).json({ error: 'Indica el asunto y el mensaje.' });
   }
+  // categories vacío/ausente = todas las clientas (comportamiento de
+  // siempre); si se indica, solo a quien haya pedido alguna vez un
+  // tratamiento de esas categorías.
+  const categoryFilter = Array.isArray(categories) ? categories.filter(Boolean) : [];
   if (headerImageDataUrl && (!HEADER_IMAGE_RE.test(headerImageDataUrl) || headerImageDataUrl.length > 6_000_000)) {
     return res.status(400).json({ error: 'La imagen no es válida o pesa demasiado (máx. ~4 MB).' });
   }
@@ -2671,6 +2683,11 @@ router.post('/panel/campaign-email', async (req, res) => {
     // pasan por aquí, así que seguirán llegándole igual.
     const unsubscribed = await getAllUnsubscribedEmails();
     for (const email of unsubscribed) uniqueClients.delete(email);
+    if (categoryFilter.length) {
+      for (const [email, client] of uniqueClients) {
+        if (!categoryFilter.some((c) => client.categories.has(c))) uniqueClients.delete(email);
+      }
+    }
 
     res.json({ ok: true, recipients: uniqueClients.size });
 
