@@ -1,0 +1,38 @@
+{
+ "titulo": "por-donde-empiezo-piel",
+ "salida": "osana-por-donde-empiezo-piel",
+ "archivo": "IMG_7059.mov",
+ "pregunta": "¿por dónde|empiezo con|mi piel?",
+ "color": "golden",
+ "intro": 15.6,
+ "fin": 293.0,
+ "portada": 18.939999999999998,
+ "frases": [
+  {
+   "inicio": 15.94,
+   "fin": 22.2,
+   "texto": "¿por dónde comienzo? esta es una duda que les surge a muchas cuando quieren comenzar a tratar su piel."
+  },
+  {
+   "inicio": 116.04,
+   "fin": 129.18,
+   "texto": "nosotras aconsejamos siempre comenzar con una limpieza facial profunda, ya que cada 21 o 28 días la piel se va renovando y todas esas células muertas se van acumulando en la capa más superficial de la piel."
+  },
+  {
+   "inicio": 134.47,
+   "fin": 149.72,
+   "texto": "luego podemos comenzar con un tratamiento específico para tu piel, según tu objetivo, después de un diagnóstico facial con inteligencia artificial, que nos deja ver cada capa de tu piel y las necesidades que presenta."
+  },
+  {
+   "inicio": 230.8,
+   "fin": 246.24,
+   "texto": "a partir de ahí podemos trabajar la hidratación, la luminosidad, el melasma, una piel con tendencia acneica o una piel con rosácea o reactiva. estos casos son más complejos y requieren un programa más personalizado."
+  },
+  {
+   "inicio": 284.29,
+   "fin": 293.0,
+   "texto": "así que si quieres comenzar a tratar tu piel de una forma más profunda, agenda tu diagnóstico facial con inteligencia artificial.",
+   "clave": true
+  }
+ ]
+}

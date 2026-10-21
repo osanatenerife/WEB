@@ -1,0 +1,33 @@
+{
+ "titulo": "micro-antigua",
+ "salida": "osana-micro-antigua",
+ "archivo": "IMG_7049.mov",
+ "pregunta": "¿tu micro|ya no te gusta?",
+ "color": "golden",
+ "intro": 17.3,
+ "fin": 50.3,
+ "portada": 20.72,
+ "frases": [
+  {
+   "inicio": 17.72,
+   "fin": 24.6,
+   "texto": "últimamente me han llegado muchas cejas de otros centros, bien sea porque la forma ya no las representa o porque les ha cambiado de color."
+  },
+  {
+   "inicio": 24.98,
+   "fin": 33.78,
+   "texto": "y lo fácil sería hacerte un repaso sobre esta ceja, pero si está muy oscura seguramente te mande a hacer eliminación láser antes de trabajar,"
+  },
+  {
+   "inicio": 34.08,
+   "fin": 48.12,
+   "texto": "para así poder aclarar totalmente el pigmento o lo máximo posible, y poder trabajar y tener un resultado muy natural y elegante, así como es mi técnica."
+  },
+  {
+   "inicio": 48.5,
+   "fin": 50.0,
+   "texto": "así que si estás pensando en hacerte una micropigmentación pronto, pide cita de valoración.",
+   "clave": true
+  }
+ ]
+}

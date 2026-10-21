@@ -1,0 +1,38 @@
+{
+ "titulo": "que-no-quede-oscura",
+ "salida": "osana-que-no-quede-oscura",
+ "archivo": "IMG_7054.mov",
+ "pregunta": "¿y si se me|queda oscura?",
+ "color": "golden",
+ "intro": 11.9,
+ "fin": 229.6,
+ "portada": 15.26,
+ "frases": [
+  {
+   "inicio": 12.26,
+   "fin": 29.53,
+   "texto": "por favor, por favor, que no me quede muy oscura. esta es la frase que más me repiten cada vez que hablamos de micropigmentación, y créeme que esto no va a pasar. esa ceja que le viste a tu tía, tu prima, tu abuela, que ha virado a azul o gris, esa ceja yo no la hago."
+  },
+  {
+   "inicio": 118.54,
+   "fin": 133.78,
+   "texto": "normalmente con la micropigmentación vamos a trabajar en la capa de la epidermis, es decir, la capa más superficial de la piel. y si nos pasamos de profundidad, llegaremos a la dermis, y es ahí cuando se convierte en un tatuaje y cuando cambia de color a gris o azul."
+  },
+  {
+   "inicio": 134.2,
+   "fin": 143.86,
+   "texto": "y eso es lo que no queremos. por eso me he dedicado a realizar tantas formaciones y prácticas, para asegurarme en qué capa de la piel estoy trabajando."
+  },
+  {
+   "inicio": 149.3,
+   "fin": 156.0,
+   "texto": "de esta forma puedo asegurar que mi técnica sea muy natural, elegante y que no me cambie de color con el tiempo."
+  },
+  {
+   "inicio": 217.18,
+   "fin": 229.36,
+   "texto": "así que si quieres conseguir una ceja muy natural y sutil, pide una cita conmigo. y si te gusta un estilo más marcado y una ceja bastante definida, no soy yo tu micropigmentadora.",
+   "clave": true
+  }
+ ]
+}
