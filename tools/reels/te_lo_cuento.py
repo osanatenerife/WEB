@@ -94,14 +94,20 @@ COLOR_SUAVE = "eq=contrast=1.08:saturation=1.18:gamma=0.98,vignette=PI/8"
 # de referencia (@goldenbrows_). En prueba con IMG_7041 (octubre de 2026).
 COLOR_GOLDEN = ("colorbalance=rs=-0.02:bs=0.05:gm=-0.04:bm=0.06:bh=0.03,"
                 "eq=contrast=1.15:brightness=0.0:saturation=1.08:gamma=0.97,vignette=PI/6")
-COLORES = {"suave": COLOR_SUAVE, "golden": COLOR_GOLDEN}
+# «"color": "natural"» (el que eligió el 22 de octubre de 2026): su piel tal cual, solo un poco
+# más de color y contraste; nada de amarillo, viraje ni bordes oscuros (el «golden» con la piel
+# igualada la dejaba «demasiado amarilla, como filtro»).
+COLOR_NATURAL = "eq=saturation=1.12:contrast=1.05"
+COLORES = {"suave": COLOR_SUAVE, "golden": COLOR_GOLDEN, "natural": COLOR_NATURAL}
 # Para que todos los vídeos tengan el mismo tono, antes del ajuste de color se iguala la piel
 # de cada grabación a la de la prueba aprobada (IMG_7041), un 5 % más clara (la pidió
 # «un poquito menos oscura»). Mediana RGB de mejillas y frente.
 PIEL_OBJETIVO = (231.0, 157.0, 117.0)
+# Con «natural», la piel de referencia es la de IMG_7049 sin tocar (la que eligió).
+PIELES = {"golden": PIEL_OBJETIVO, "natural": (200.0, 139.0, 111.0)}
 
 
-def ganancias_piel(ruta, tiempos):
+def ganancias_piel(ruta, tiempos, objetivo=PIEL_OBJETIVO):
     """Ganancias R, G, B que llevan la piel de esta grabación a PIEL_OBJETIVO."""
     vals = []
     for t in tiempos:
@@ -120,7 +126,7 @@ def ganancias_piel(ruta, tiempos):
     if not vals:
         return (1.0, 1.0, 1.0)
     med = np.median(vals, 0)
-    return tuple(float(np.clip(o / m, 0.85, 1.25)) for o, m in zip(PIEL_OBJETIVO, med))
+    return tuple(float(np.clip(o / m, 0.85, 1.25)) for o, m in zip(objetivo, med))
 
 # ---------------------------------------------------------------- tiempos
 PRE, POST = 0.12, 0.28      # aire antes de hablar / después de la última sílaba
@@ -793,10 +799,10 @@ def main():
 
     planos = partir_largos(segmentos_y_planos(cfg), args.fuentes)
     ganancias = {}
-    if cfg.get("color") == "golden":
+    if cfg.get("color") in PIELES:
         for arch in sorted({p["archivo"] for p in planos}):
             ts = [(p["inicio"] + p["fin"]) / 2 for p in planos if p["archivo"] == arch]
-            ganancias[arch] = ganancias_piel(os.path.join(args.fuentes, arch), ts[:10])
+            ganancias[arch] = ganancias_piel(os.path.join(args.fuentes, arch), ts[:10], PIELES[cfg["color"]])
             print(f"Piel de {arch}: ganancias {tuple(round(g, 3) for g in ganancias[arch])}", file=sys.stderr)
     for p in planos:
         p["_color"] = cfg.get("color")

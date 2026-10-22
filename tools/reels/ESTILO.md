@@ -281,6 +281,11 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   `pip uninstall -y opencv-contrib-python && pip install --force-reinstall "opencv-python-headless<5"`.
 - Sirve también para cualquier vídeo de ella hablando a cámara: sin `pregunta` no sale
   ningún texto al inicio y, sin `intro`, el vídeo empieza con la voz.
+- **Color «natural» (el que usa desde el 22 de octubre de 2026)**: `"color": "natural"` =
+  `eq=saturation=1.12:contrast=1.05`, sin viraje ni viñeta. Eligió esta opción entre: tal cual,
+  esta, y dos con el fondo oscurecido estilo Golden Brows. La piel de cada grabación se iguala a
+  la de IMG_7049 sin tocar (`PIELES["natural"]`). El «golden» con la piel igualada la dejaba
+  «muy amarilla, demasiado filtro»: no volver a calentar la piel.
 - **Mismo tono en todos los vídeos** (lo pidió en octubre de 2026): con `"color": "golden"`, antes
   del ajuste se iguala la piel de cada grabación a `PIEL_OBJETIVO` (la de IMG_7041, un 5 % más
   clara: «un poquito menos oscura»). Sin esto, una grabación salía grisácea y otra oscura.
