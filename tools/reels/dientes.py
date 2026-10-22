@@ -13,7 +13,7 @@ import numpy as np
 
 import build_reel as br
 
-VERSION = 3
+VERSION = 4
 
 
 def caja_cara(img):
@@ -49,7 +49,17 @@ def blanquear(img, caja):
     cv2.drawContours(boca, [cv2.convexHull(c)], -1, 255, -1)
     # Un poco hacia dentro, para no tocar la piel que rodea los labios.
     boca = cv2.erode(boca, np.ones((7, 7), np.uint8))
-    dientes = (boca > 0) & (labios == 0) & (vv > 100) & (ss < 150) & ((hh <= 35) | (hh >= 160))
+    # Dientes: dentro de la boca, mucho más claros y menos saturados que la piel de
+    # alrededor. Con umbrales flojos (v > 100, s < 150) entraba la piel de la barbilla y,
+    # como la boca se detecta en unos fotogramas sí y en otros no, la piel «temblaba».
+    piel = (labios == 0) & (boca == 0)
+    v_piel = np.median(vv[piel]) if piel.any() else 150
+    s_piel = np.median(ss[piel]) if piel.any() else 110
+    dientes = ((boca > 0) & (labios == 0) & (vv > max(120, v_piel + 18)) & (ss < min(100, s_piel - 15))
+               & ((hh <= 35) | (hh >= 160)))
+    alto_boca = np.ptp(np.nonzero(boca)[0]) if boca.any() else 0
+    if alto_boca > 0.22 * h:           # la «boca» detectada es demasiado grande: no es la boca
+        return img
     if dientes.sum() < 30:
         return img
     m = cv2.GaussianBlur(dientes.astype(np.float32), (0, 0), 1.6)[..., None]

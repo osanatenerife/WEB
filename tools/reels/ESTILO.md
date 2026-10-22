@@ -281,6 +281,15 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   `pip uninstall -y opencv-contrib-python && pip install --force-reinstall "opencv-python-headless<5"`.
 - Sirve también para cualquier vídeo de ella hablando a cámara: sin `pregunta` no sale
   ningún texto al inicio y, sin `intro`, el vídeo empieza con la voz.
+- **Mismo tono en todos los vídeos** (lo pidió en octubre de 2026): con `"color": "golden"`, antes
+  del ajuste se iguala la piel de cada grabación a `PIEL_OBJETIVO` (la de IMG_7041, un 5 % más
+  clara: «un poquito menos oscura»). Sin esto, una grabación salía grisácea y otra oscura.
+- **Dientes sin tocar la piel**: el blanqueado solo actúa en píxeles mucho más claros y menos
+  saturados que la piel de alrededor (`dientes.py` v4). Con umbrales flojos entraba la piel de
+  la barbilla y, al detectarse la boca en unos fotogramas sí y en otros no, «temblaba la piel».
+- **El cierre tiene que sonar a cierre**: la última frase, dicha con tono final y tranquilo,
+  con la cara bien (nada de pausas incómodas, gesto de duda ni una repetición más). Si la toma
+  buena del cierre está en otro intento, se usa esa. Revisar a ojo el último segundo.
 - **Ajuste «golden» (el que usa ahora, octubre de 2026, prueba IMG_7041)**: `"color": "golden"`
   quita el amarillo de la piel, sube el contraste y oscurece un poco los bordes, como las cuentas
   de referencia (@goldenbrows_); con el brillo normal (más oscuro le pareció «muy oscura»).

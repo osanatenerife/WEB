@@ -69,6 +69,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -94,6 +95,32 @@ COLOR_SUAVE = "eq=contrast=1.08:saturation=1.18:gamma=0.98,vignette=PI/8"
 COLOR_GOLDEN = ("colorbalance=rs=-0.02:bs=0.05:gm=-0.04:bm=0.06:bh=0.03,"
                 "eq=contrast=1.15:brightness=0.0:saturation=1.08:gamma=0.97,vignette=PI/6")
 COLORES = {"suave": COLOR_SUAVE, "golden": COLOR_GOLDEN}
+# Para que todos los vídeos tengan el mismo tono, antes del ajuste de color se iguala la piel
+# de cada grabación a la de la prueba aprobada (IMG_7041), un 5 % más clara (la pidió
+# «un poquito menos oscura»). Mediana RGB de mejillas y frente.
+PIEL_OBJETIVO = (231.0, 157.0, 117.0)
+
+
+def ganancias_piel(ruta, tiempos):
+    """Ganancias R, G, B que llevan la piel de esta grabación a PIEL_OBJETIVO."""
+    vals = []
+    for t in tiempos:
+        raw = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{t:.2f}", "-i", ruta, "-frames:v", "1",
+                              "-vf", "scale=1080:1920", "-f", "rawvideo", "-pix_fmt", "bgr24", "-"],
+                             capture_output=True).stdout
+        if len(raw) < 1080 * 1920 * 3:
+            continue
+        img = np.frombuffer(raw, np.uint8).reshape(1920, 1080, 3)
+        c = dt.caja_cara(img)
+        if c is None:
+            continue
+        x, y, w, h = c.astype(int)
+        zona = img[y + int(.30 * h):y + int(.62 * h), x + int(.22 * w):x + int(.78 * w)]
+        vals.append(np.median(zona.reshape(-1, 3).astype(float), 0)[::-1])
+    if not vals:
+        return (1.0, 1.0, 1.0)
+    med = np.median(vals, 0)
+    return tuple(float(np.clip(o / m, 0.85, 1.25)) for o, m in zip(PIEL_OBJETIVO, med))
 
 # ---------------------------------------------------------------- tiempos
 PRE, POST = 0.12, 0.28      # aire antes de hablar / después de la última sílaba
@@ -319,6 +346,9 @@ def filtro_plano(p, congelar=True):
     vf = (f"crop=iw*{cw:.5f}:ih*{ch:.5f}:iw*{x0:.5f}:ih*{y0:.5f},"
           f"scale={W}:{H}:flags=lanczos,fps={FPS},setsar=1,format=yuv420p")
     if p.get("_color"):
+        if p.get("_ganancias"):
+            gr, gg, gb = p["_ganancias"]
+            vf += f",colorchannelmixer=rr={gr:.3f}:gg={gg:.3f}:bb={gb:.3f}"
         vf += "," + COLORES[p["_color"]]
     if not congelar:
         return vf
@@ -762,8 +792,15 @@ def main():
     reloj = [("inicio", time.time())]
 
     planos = partir_largos(segmentos_y_planos(cfg), args.fuentes)
+    ganancias = {}
+    if cfg.get("color") == "golden":
+        for arch in sorted({p["archivo"] for p in planos}):
+            ts = [(p["inicio"] + p["fin"]) / 2 for p in planos if p["archivo"] == arch]
+            ganancias[arch] = ganancias_piel(os.path.join(args.fuentes, arch), ts[:10])
+            print(f"Piel de {arch}: ganancias {tuple(round(g, 3) for g in ganancias[arch])}", file=sys.stderr)
     for p in planos:
         p["_color"] = cfg.get("color")
+        p["_ganancias"] = ganancias.get(p["archivo"])
     imagenes_si = hay_imagenes(cfg)       # pantalla partida: la pregunta va en su tarjeta
     tipos_de_plano(planos, pregunta=bool(cfg.get("pregunta")) and not imagenes_si)
     if not args.sin_gestos:
