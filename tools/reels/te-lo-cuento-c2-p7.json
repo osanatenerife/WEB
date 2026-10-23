@@ -4,7 +4,7 @@
   "archivo": "IMG_6801.mov",
   "pregunta": "¿qué es lo|primero que|haces en un|facial?",
   "intro": 45.4,
-  "fin": 76.2,
+  "fin": 68.83,
   "portada": 45.8,
   "frases": [
     {
@@ -36,21 +36,8 @@
     {
       "inicio": 64.32,
       "fin": 68.54,
-      "texto": "y ver realmente qué es lo que te está pidiendo la piel, según el grado de urgencia."
-    },
-    {
-      "inicio": 69.54,
-      "fin": 70.52,
-      "corte_inicio": 69.4,
-      "texto": "porque a veces vienen,"
-    },
-    {
-      "inicio": 70.94,
-      "fin": 75.96,
-      "corte_fin": 76.2,
-      "texto": "quieren un tratamiento de manchas, pero es que tienen la piel extremadamente seca.",
+      "texto": "y ver realmente qué es lo que te está pidiendo la piel, según el grado de urgencia.",
       "clave": true
     }
-  ],
-  "color": "natural"
+  ]
 }

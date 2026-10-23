@@ -281,6 +281,11 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   `pip uninstall -y opencv-contrib-python && pip install --force-reinstall "opencv-python-headless<5"`.
 - Sirve también para cualquier vídeo de ella hablando a cámara: sin `pregunta` no sale
   ningún texto al inicio y, sin `intro`, el vídeo empieza con la voz.
+- **La serie «Te lo cuento» ya grabada se queda sin ajuste de color**, como se entregó: lo pidió
+  para que todos esos clips se vean iguales. El color «natural» es solo para vídeos nuevos.
+- **Coherencia**: nunca reordenar frases para buscar un cierre (en C2 P7 el ejemplo de las
+  manchas quedó en medio y se perdía la historia). El cierre es una frase que concluye; si la
+  última idea es un ejemplo que se queda abierto, se termina en la frase anterior.
 - **Color «natural» (el que usa desde el 22 de octubre de 2026)**: `"color": "natural"` =
   `eq=saturation=1.12:contrast=1.05`, sin viraje ni viñeta. Eligió esta opción entre: tal cual,
   esta, y dos con el fondo oscurecido estilo Golden Brows. La piel de cada grabación se iguala a

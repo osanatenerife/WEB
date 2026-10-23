@@ -10,7 +10,9 @@ vídeo nuevo usa uno de estos dos formatos tal cual; solo cambia el contenido:
    con una tabla por clip (plantilla: `tools/reels/te-lo-cuento-c1-p1.json`). Letra
    **Raleway SemiBold** en mayúsculas espaciadas, pregunta breve al inicio en el marrón
    de la marca, subtítulos pequeños a la altura del pecho y «osana.es» al final.
-   Color: `"color": "natural"`, el que ella eligió: su piel tal cual con un poco más de color y
+   **La serie «Te lo cuento» ya grabada (tablas `te-lo-cuento-c*-p*.json`) va sin `"color"`**,
+   como se entregó: todos esos clips tienen que verse iguales. En vídeos nuevos,
+   color: `"color": "natural"`, el que ella eligió: su piel tal cual con un poco más de color y
    contraste, sin amarillo, viraje ni bordes oscuros (el «golden» la dejaba amarilla, «como
    filtro»; ver ESTILO.md). La piel se iguala entre grabaciones para que **todos los vídeos
    tengan el mismo tono**, y los dientes sutilmente más claros (sin tocar la piel). Cada vídeo debe tener
