@@ -126,7 +126,12 @@ def ganancias_piel(ruta, tiempos, objetivo=PIEL_OBJETIVO):
     if not vals:
         return (1.0, 1.0, 1.0)
     med = np.median(vals, 0)
-    return tuple(float(np.clip(o / m, 0.85, 1.25)) for o, m in zip(objetivo, med))
+    # El brillo se iguala del todo (0,9-1,12); el color, solo un poco (±4 %): en otra sala o con
+    # otra luz la piel «objetivo» no vale y forzarla la dejaba roja o amarilla.
+    luma = lambda c: 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+    brillo = float(np.clip(luma(objetivo) / luma(med), 0.9, 1.12))
+    color = [float(np.clip((o / luma(objetivo)) / (m / luma(med)), 0.96, 1.04)) for o, m in zip(objetivo, med)]
+    return tuple(brillo * c for c in color)
 
 # ---------------------------------------------------------------- tiempos
 PRE, POST = 0.12, 0.28      # aire antes de hablar / después de la última sílaba
