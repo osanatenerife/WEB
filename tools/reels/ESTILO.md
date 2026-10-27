@@ -291,6 +291,10 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   Ojo: la transcripción de frases largas «limpia» las repeticiones (en el reel de piel, «nosotras
   aconsejamos… nosotras aconsejamos» salía como una sola vez). Las repeticiones y titubeos se
   buscan transcribiendo trozos cortos seguidos (≈1,4 s) del principio de cada toma.
+- **Respirar entre ideas**: si un cambio de toma queda «demasiado rápido, sin pausa» (reel de luz
+  pulsada, segundo 12), se añaden ~0,45 s de silencio con la última imagen quieta al final de la
+  frase anterior (`tpad=stop_mode=clone` + `apad`), mejor que empezar antes la toma siguiente si en
+  ese silencio hay un parpadeo o la boca abierta.
 - **Ritmo**: si habla lento (lo dijo del reel «que no me quede oscura»), el vídeo final se acelera
   un 10 % sin cambiar la voz: `setpts=PTS/1.1` y `atempo=1.1`. Nada de frases repetidas al
   empezar (el primer «por favor» de la toma doble se quita) ni de tomas con gestos raros en el
