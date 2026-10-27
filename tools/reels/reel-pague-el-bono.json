@@ -42,17 +42,19 @@
    "corte_fin": 87.6
   },
   {
-   "inicio": 118.08,
-   "fin": 122.22,
-   "texto": "por eso en osana tenemos sesiones sueltas o bonos de tres sesiones.",
-   "corte_inicio": 118.05
+   "inicio": 205.06,
+   "fin": 207.82,
+   "texto": "por eso nuestros precios están totalmente publicados,",
+   "corte_inicio": 204.96,
+   "corte_fin": 208.01
   },
   {
    "entera": true,
-   "inicio": 122.22,
-   "fin": 127.52,
-   "texto": "así puedes ir pagando según lo que necesites, y no vas a necesitar ni 15 ni 20 sesiones.",
-   "corte_fin": 127.72
+   "inicio": 229.04,
+   "fin": 233.12,
+   "texto": "porque la verdad es que con nuestro láser no te vas a llevar ni 15 ni 20 sesiones.",
+   "corte_inicio": 228.94,
+   "corte_fin": 233.32
   },
   {
    "entera": true,

@@ -25,10 +25,10 @@
   },
   {
    "inicio": 20.96,
-   "fin": 25.6,
+   "fin": 25.95,
    "texto": "pueden ser causas hormonales, como haber tomado o dejado la pastilla anticonceptiva,",
    "corte_inicio": 20.86,
-   "corte_fin": 25.62
+   "corte_fin": 26.0
   },
   {
    "entera": true,
@@ -42,7 +42,7 @@
    "inicio": 43.94,
    "fin": 47.11,
    "texto": "este melasma seguramente viene desde hace muchos años,",
-   "corte_inicio": 43.84
+   "corte_inicio": 43.62
   },
   {
    "inicio": 47.11,
@@ -51,14 +51,9 @@
   },
   {
    "inicio": 52.18,
-   "fin": 57.1,
-   "texto": "ese melanocito, digamos, que ha estado produciendo melanina,"
-  },
-  {
-   "entera": true,
-   "inicio": 57.44,
    "fin": 63.64,
-   "texto": "esa melanina va subiendo en cada regeneración celular y se acumula en la capa más superficial de la piel."
+   "entera": true,
+   "texto": "ese melanocito, digamos, que ha estado produciendo melanina, esa melanina va subiendo en cada regeneración celular y se acumula en la capa más superficial de la piel."
   },
   {
    "entera": true,
@@ -92,7 +87,7 @@
    "inicio": 107.76,
    "fin": 110.74,
    "texto": "entonces, ¿qué hacemos y cómo lo tratamos?",
-   "corte_inicio": 107.66,
+   "corte_inicio": 107.8,
    "corte_fin": 110.94
   },
   {
