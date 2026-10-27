@@ -287,7 +287,9 @@ def partir_largos(planos, fuentes):
     while pendientes:
         p = pendientes.pop(0)
         dur = p["fin"] - p["inicio"]
-        if dur <= PLANO_MAX or p["clave"]:
+        # «"entera": true» en una frase: no se parte (el corte caería en mitad de la frase y
+        # el cambio de encuadre suena a corte raro).
+        if dur <= PLANO_MAX or p["clave"] or all(f.get("entera") for f in p["frases"]):
             out.append(p)
             continue
         mitad = (p["inicio"] + p["fin"]) / 2

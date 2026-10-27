@@ -291,6 +291,10 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   Ojo: la transcripción de frases largas «limpia» las repeticiones (en el reel de piel, «nosotras
   aconsejamos… nosotras aconsejamos» salía como una sola vez). Las repeticiones y titubeos se
   buscan transcribiendo trozos cortos seguidos (≈1,4 s) del principio de cada toma.
+- **Cambios de plano entre frases, no en mitad**: una frase larga de la tabla se parte sola cada
+  ~5 s en el punto más silencioso, que puede caer en mitad de una idea («manchitas | se te van»):
+  a ella le suena a «corte raro». Las tomas largas se escriben en la tabla partidas por sus
+  frases reales, y la frase que dura más de 5,2 s lleva `"entera": true` para no partirla.
 - **Respirar entre ideas**: si un cambio de toma queda «demasiado rápido, sin pausa» (reel de luz
   pulsada, segundo 12), se añaden ~0,45 s de silencio con la última imagen quieta al final de la
   frase anterior (`tpad=stop_mode=clone` + `apad`), mejor que empezar antes la toma siguiente si en

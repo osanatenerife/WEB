@@ -10,21 +10,48 @@
  "frases": [
   {
    "inicio": 99.22,
+   "fin": 102.32,
+   "texto": "¿qué es el fotorrejuvenecimiento y cuándo lo puedo hacer?"
+  },
+  {
+   "inicio": 102.64,
+   "fin": 105.6,
+   "texto": "pues básicamente es el IPL o luz pulsada,"
+  },
+  {
+   "inicio": 105.7,
    "fin": 111.32,
-   "texto": "¿qué es el fotorrejuvenecimiento y cuándo lo puedo hacer? pues básicamente es el IPL o luz pulsada, un láser médico estético que va a actuar directamente sobre las arañas vasculares y sobre el melasma.",
-   "corte_fin": 111.42
+   "corte_fin": 111.42,
+   "entera": true,
+   "texto": "y es un láser médico estético que va a actuar directamente sobre las arañas vasculares y sobre el melasma."
   },
   {
    "inicio": 151.02,
+   "fin": 156.3,
+   "entera": true,
+   "texto": "tras la sesión vas a notar que esas manchitas se te van a ir oscureciendo, ya que las hemos quemado,"
+  },
+  {
+   "inicio": 156.36,
+   "fin": 160.08,
+   "texto": "y luego se te van a ir aclarando, y así vas a conseguir un tono más unificado,"
+  },
+  {
+   "inicio": 160.12,
    "fin": 164.03,
-   "texto": "tras la sesión vas a notar que esas manchitas se van oscureciendo, y luego se te van a ir aclarando. así vas a conseguir un tono más unificado, mucha luminosidad y aumentar la producción de colágeno.",
-   "corte_fin": 164.2
+   "corte_fin": 164.2,
+   "texto": "mucha luminosidad y aumentar la producción de colágeno."
   },
   {
    "inicio": 175.68,
+   "fin": 178.2,
+   "texto": "además también tratamos casos de acné,"
+  },
+  {
+   "inicio": 178.24,
    "fin": 182.92,
-   "texto": "además también tratamos casos de acné, ya que este láser va a ayudar a reducir esas bacterias.",
-   "corte_fin": 183.0
+   "corte_fin": 183.0,
+   "texto": "ya que con este láser se va a ayudar a reducir y matar esas bacterias."
   },
   {
    "inicio": 198.58,
