@@ -29,7 +29,8 @@
    "inicio": 151.02,
    "fin": 156.3,
    "entera": true,
-   "texto": "tras la sesión vas a notar que esas manchitas se te van a ir oscureciendo, ya que las hemos quemado,"
+   "texto": "tras la sesión vas a notar que esas manchitas se te van a ir oscureciendo, ya que las hemos quemado,",
+   "corte_inicio": 150.5
   },
   {
    "inicio": 156.36,
