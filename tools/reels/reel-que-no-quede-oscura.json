@@ -4,7 +4,7 @@
  "archivo": "IMG_7054.mov",
  "pregunta": "¿y si se me|queda oscura?",
  "color": "natural",
- "intro": 13.0,
+ "intro": 13.2,
  "fin": 238.9,
  "portada": 15.26,
  "frases": [
@@ -32,7 +32,8 @@
   {
    "inicio": 217.18,
    "fin": 222.46,
-   "texto": "así que si quieres conseguir una ceja muy natural y sutil, te doy una cita conmigo."
+   "texto": "así que si quieres conseguir una ceja muy natural y sutil, te doy una cita conmigo.",
+   "corte_fin": 222.52
   },
   {
    "inicio": 232.84,

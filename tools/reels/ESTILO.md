@@ -283,6 +283,11 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   ningún texto al inicio y, sin `intro`, el vídeo empieza con la voz.
 - **La serie «Te lo cuento» ya grabada se queda sin ajuste de color**, como se entregó: lo pidió
   para que todos esos clips se vean iguales. El color «natural» es solo para vídeos nuevos.
+- **Cortes limpios, siempre**: antes de entregar, `python3 tools/reels/revisar_cortes.py tabla.json
+  --fuentes CARPETA` y que diga «Cortes limpios.». El aire que se deja tras la última sílaba
+  (POST, 0,28 s) a veces arrastra el arranque de la palabra siguiente («No…», «Lue…») o un ruido:
+  se corta antes con `corte_fin` (o `corte_inicio`). Ella lo nota al momento («suena raro»).
+  Además, escuchar la transcripción del vídeo final y revisar a ojo la cara en cada corte.
 - **Ritmo**: si habla lento (lo dijo del reel «que no me quede oscura»), el vídeo final se acelera
   un 10 % sin cambiar la voz: `setpts=PTS/1.1` y `atempo=1.1`. Nada de frases repetidas al
   empezar (el primer «por favor» de la toma doble se quita) ni de tomas con gestos raros en el

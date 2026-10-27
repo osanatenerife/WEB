@@ -3,7 +3,7 @@
  "salida": "osana-fotorrejuvenecimiento",
  "archivo": "IMG_7062.mov",
  "pregunta": "¿qué es la|luz pulsada?",
- "color": "golden",
+ "color": "natural",
  "intro": 98.9,
  "fin": 205.7,
  "portada": 102.22,
@@ -11,23 +11,27 @@
   {
    "inicio": 99.22,
    "fin": 111.32,
-   "texto": "¿qué es el fotorrejuvenecimiento y cuándo lo puedo hacer? pues básicamente es el IPL o luz pulsada, un láser médico estético que va a actuar directamente sobre las arañas vasculares y sobre el melasma."
+   "texto": "¿qué es el fotorrejuvenecimiento y cuándo lo puedo hacer? pues básicamente es el IPL o luz pulsada, un láser médico estético que va a actuar directamente sobre las arañas vasculares y sobre el melasma.",
+   "corte_fin": 111.42
   },
   {
    "inicio": 151.02,
    "fin": 164.03,
-   "texto": "tras la sesión vas a notar que esas manchitas se van oscureciendo, y luego se te van a ir aclarando. así vas a conseguir un tono más unificado, mucha luminosidad y aumentar la producción de colágeno."
+   "texto": "tras la sesión vas a notar que esas manchitas se van oscureciendo, y luego se te van a ir aclarando. así vas a conseguir un tono más unificado, mucha luminosidad y aumentar la producción de colágeno.",
+   "corte_fin": 164.2
   },
   {
    "inicio": 175.68,
    "fin": 182.92,
-   "texto": "además también tratamos casos de acné, ya que este láser va a ayudar a reducir esas bacterias."
+   "texto": "además también tratamos casos de acné, ya que este láser va a ayudar a reducir esas bacterias.",
+   "corte_fin": 183.0
   },
   {
    "inicio": 198.58,
    "fin": 205.56,
    "texto": "así que te aconsejamos seguir un protocolo de tres sesiones y prepararte para una piel súper luminosa y glow para estas navidades.",
-   "clave": true
+   "clave": true,
+   "corte_inicio": 198.55
   }
  ]
 }

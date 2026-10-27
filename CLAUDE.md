@@ -17,6 +17,9 @@ vídeo nuevo usa uno de estos dos formatos tal cual; solo cambia el contenido:
    filtro»; ver ESTILO.md). La piel se iguala entre grabaciones para que **todos los vídeos
    tengan el mismo tono**, y los dientes sutilmente más claros (sin tocar la piel). Cada vídeo debe tener
    coherencia y un **cierre con tono de cierre**, con la cara bien: revisar el final a ojo.
+   **Antes de entregar, siempre:** `tools/reels/revisar_cortes.py` (ningún corte con media
+   palabra ni arranque de la siguiente), transcribir el vídeo final para comprobar que suena
+   fluido, sin frases repetidas ni a medias, y mirar la cara en cada corte.
    **Descartado:** los reels con imágenes de apoyo hechos con IMG_6069–6073 (piel tras el
    verano y la mascarilla para manchas) no le gustaron y no se publican; la variante con
    imágenes no se usa salvo que ella la pida, y nunca con tarjetas de iconos.
