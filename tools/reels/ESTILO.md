@@ -288,6 +288,9 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   (POST, 0,28 s) a veces arrastra el arranque de la palabra siguiente («No…», «Lue…») o un ruido:
   se corta antes con `corte_fin` (o `corte_inicio`). Ella lo nota al momento («suena raro»).
   Además, escuchar la transcripción del vídeo final y revisar a ojo la cara en cada corte.
+  Ojo: la transcripción de frases largas «limpia» las repeticiones (en el reel de piel, «nosotras
+  aconsejamos… nosotras aconsejamos» salía como una sola vez). Las repeticiones y titubeos se
+  buscan transcribiendo trozos cortos seguidos (≈1,4 s) del principio de cada toma.
 - **Ritmo**: si habla lento (lo dijo del reel «que no me quede oscura»), el vídeo final se acelera
   un 10 % sin cambiar la voz: `setpts=PTS/1.1` y `atempo=1.1`. Nada de frases repetidas al
   empezar (el primer «por favor» de la toma doble se quita) ni de tomas con gestos raros en el

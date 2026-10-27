@@ -15,10 +15,11 @@
    "corte_fin": 22.34
   },
   {
-   "inicio": 98.05,
+   "inicio": 99.62,
    "fin": 111.45,
    "texto": "nosotras aconsejamos siempre comenzar con una limpieza facial profunda, ya que cada 21 o 28 días la piel se va renovando y todas esas células muertas se van acumulando en la capa más superficial de la piel.",
-   "corte_fin": 111.5
+   "corte_fin": 111.5,
+   "corte_inicio": 99.5
   },
   {
    "inicio": 134.47,
