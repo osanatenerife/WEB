@@ -297,7 +297,10 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   frases reales, y la frase que dura más de 5,2 s lleva `"entera": true` para no partirla.
 - **Respirar entre ideas**: si un cambio de toma queda «demasiado rápido, sin pausa» (reel de luz
   pulsada, segundo 12), la pausa se hace con imagen real: la toma siguiente empieza antes, en su
-  silencio (`corte_inicio`), aunque haya un parpadeo natural. **Nunca imagen congelada**: probado
+  silencio (`corte_inicio`), aunque haya un parpadeo natural.
+  **Pero corta**: entre una frase y la siguiente, como mucho ~0,4-0,5 s de silencio en total
+  (fin de la voz → corte → voz de la toma siguiente). Con un segundo de espera dijo que «es
+  incómodo». Medir los silencios del vídeo final (umbral -28 dB, tramos de más de 0,3 s). **Nunca imagen congelada**: probado
   con ~0,45 s de último fotograma quieto y dijo «se queda como pegado y no es fluido».
 - **Ritmo**: si habla lento (lo dijo del reel «que no me quede oscura»), el vídeo final se acelera
   un 10 % sin cambiar la voz: `setpts=PTS/1.1` y `atempo=1.1`. Nada de frases repetidas al

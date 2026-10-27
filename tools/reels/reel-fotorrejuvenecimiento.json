@@ -11,17 +11,19 @@
   {
    "inicio": 99.22,
    "fin": 102.32,
-   "texto": "¿qué es el fotorrejuvenecimiento y cuándo lo puedo hacer?"
+   "texto": "¿qué es el fotorrejuvenecimiento y cuándo lo puedo hacer?",
+   "corte_fin": 102.17
   },
   {
    "inicio": 102.64,
    "fin": 105.6,
-   "texto": "pues básicamente es el IPL o luz pulsada,"
+   "texto": "pues básicamente es el IPL o luz pulsada,",
+   "corte_inicio": 102.62
   },
   {
    "inicio": 105.7,
    "fin": 111.32,
-   "corte_fin": 111.42,
+   "corte_fin": 111.25,
    "entera": true,
    "texto": "y es un láser médico estético que va a actuar directamente sobre las arañas vasculares y sobre el melasma."
   },
@@ -30,7 +32,7 @@
    "fin": 156.3,
    "entera": true,
    "texto": "tras la sesión vas a notar que esas manchitas se te van a ir oscureciendo, ya que las hemos quemado,",
-   "corte_inicio": 150.5
+   "corte_inicio": 150.72
   },
   {
    "inicio": 156.36,
@@ -40,18 +42,19 @@
   {
    "inicio": 160.12,
    "fin": 164.03,
-   "corte_fin": 164.2,
+   "corte_fin": 164.15,
    "texto": "mucha luminosidad y aumentar la producción de colágeno."
   },
   {
    "inicio": 175.68,
    "fin": 178.2,
-   "texto": "además también tratamos casos de acné,"
+   "texto": "además también tratamos casos de acné,",
+   "corte_inicio": 175.7
   },
   {
    "inicio": 178.24,
    "fin": 182.92,
-   "corte_fin": 183.0,
+   "corte_fin": 182.25,
    "texto": "ya que con este láser se va a ayudar a reducir y matar esas bacterias."
   },
   {
@@ -59,7 +62,7 @@
    "fin": 205.56,
    "texto": "así que te aconsejamos seguir un protocolo de tres sesiones y prepararte para una piel súper luminosa y glow para estas navidades.",
    "clave": true,
-   "corte_inicio": 198.55
+   "corte_inicio": 198.5
   }
  ]
 }
