@@ -3,15 +3,16 @@
  "salida": "osana-que-no-quede-oscura",
  "archivo": "IMG_7054.mov",
  "pregunta": "¿y si se me|queda oscura?",
- "color": "golden",
- "intro": 11.9,
- "fin": 229.6,
+ "color": "natural",
+ "intro": 13.0,
+ "fin": 238.9,
  "portada": 15.26,
  "frases": [
   {
-   "inicio": 12.26,
+   "inicio": 13.38,
    "fin": 29.53,
-   "texto": "por favor, por favor, que no me quede muy oscura. esta es la frase que más me repiten cada vez que hablamos de micropigmentación, y créeme que esto no va a pasar. esa ceja que le viste a tu tía, tu prima, tu abuela, que ha virado a azul o gris, esa ceja yo no la hago."
+   "texto": "por favor, que no me quede muy oscura. esta es la frase que más me repiten cada vez que hablamos de micropigmentación, y créeme que esto no va a pasar. esa ceja que le viste a tu tía, tu prima, tu abuela, que ha virado a azul o gris, esa ceja yo no la hago.",
+   "corte_inicio": 13.3
   },
   {
    "inicio": 118.54,
@@ -30,8 +31,13 @@
   },
   {
    "inicio": 217.18,
-   "fin": 229.36,
-   "texto": "así que si quieres conseguir una ceja muy natural y sutil, pide una cita conmigo. y si te gusta un estilo más marcado y una ceja bastante definida, no soy yo tu micropigmentadora.",
+   "fin": 222.46,
+   "texto": "así que si quieres conseguir una ceja muy natural y sutil, te doy una cita conmigo."
+  },
+  {
+   "inicio": 232.84,
+   "fin": 238.34,
+   "texto": "y si te gusta una ceja muy marcada y muy definida, yo no soy tu micropigmentadora.",
    "clave": true
   }
  ]
