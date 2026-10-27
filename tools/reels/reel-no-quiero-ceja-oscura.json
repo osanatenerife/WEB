@@ -1,0 +1,84 @@
+{
+ "titulo": "no-quiero-ceja-oscura",
+ "salida": "osana-no-quiero-ceja-oscura",
+ "archivo": "IMG_7053.mov",
+ "pregunta": "no quiero una|ceja oscura",
+ "color": "natural",
+ "intro": 47.61,
+ "fin": 193.32,
+ "portada": 49.85,
+ "frases": [
+  {
+   "inicio": 47.86,
+   "fin": 49.82,
+   "texto": "no quiero una ceja muy oscura.",
+   "corte_inicio": 47.76,
+   "corte_fin": 50.02
+  },
+  {
+   "inicio": 50.42,
+   "fin": 53.32,
+   "texto": "esta es una frase que me repiten muchísimo,",
+   "corte_inicio": 50.32
+  },
+  {
+   "entera": true,
+   "inicio": 53.42,
+   "fin": 56.68,
+   "texto": "y es que la escucho cada vez que hablamos de"
+  },
+  {
+   "entera": true,
+   "inicio": 57.2,
+   "fin": 59.08,
+   "texto": "micropigmentación, pero déjame explicarte una cosa.",
+   "corte_fin": 59.28
+  },
+  {
+   "inicio": 74.3,
+   "fin": 78.89,
+   "texto": "esa ceja que hemos visto de tu tía, de tu abuela, de tu madre o de tu mejor amiga,",
+   "corte_inicio": 74.2
+  },
+  {
+   "inicio": 78.89,
+   "fin": 82.96,
+   "texto": "que se ha virado a gris o azul, no es la ceja que yo hago.",
+   "corte_fin": 83.16
+  },
+  {
+   "entera": true,
+   "inicio": 114.1,
+   "fin": 120.64,
+   "texto": "y esto tiene una explicación. normalmente con la micropigmentación trabajamos en la capa epidérmica.",
+   "corte_inicio": 114.0
+  },
+  {
+   "entera": true,
+   "inicio": 120.64,
+   "fin": 127.27,
+   "texto": "si vamos un poco más profundo, nos pasamos de profundidad y llegamos a la capa de la dermis de la piel,"
+  },
+  {
+   "entera": true,
+   "inicio": 127.27,
+   "fin": 134.28,
+   "texto": "ahí es cuando tu tono va a cambiar de color, y ahí es cuando se convierte en una ceja muy grisácea o azulada.",
+   "corte_fin": 134.39
+  },
+  {
+   "entera": true,
+   "inicio": 180.08,
+   "fin": 188.86,
+   "texto": "es por ello que he realizado tantas formaciones y muchas prácticas, para controlar muy bien este pulso y saber en qué capa estoy trabajando,",
+   "corte_inicio": 179.98
+  },
+  {
+   "inicio": 188.86,
+   "fin": 193.12,
+   "texto": "y así mis resultados duran con el tiempo sin ningún viraje.",
+   "clave": true,
+   "corte_fin": 193.32
+  }
+ ]
+}

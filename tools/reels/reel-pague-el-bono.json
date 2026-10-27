@@ -1,0 +1,67 @@
+{
+ "titulo": "pague-el-bono",
+ "salida": "osana-pague-el-bono",
+ "archivo": "IMG_7052.mov",
+ "pregunta": "pagué el bono|y el centro|cerró",
+ "color": "natural",
+ "intro": 32.59,
+ "fin": 288.68,
+ "portada": 34.84,
+ "frases": [
+  {
+   "entera": true,
+   "inicio": 32.84,
+   "fin": 38.2,
+   "texto": "«pagué el bono entero y el centro cerró. era una franquicia y me quedé sin depilación y sin dinero.»",
+   "corte_inicio": 32.74,
+   "corte_fin": 38.4
+  },
+  {
+   "inicio": 50.1,
+   "fin": 53.18,
+   "texto": "y sí, esta es una frase que me ha llegado muchísimo,",
+   "corte_inicio": 50.0
+  },
+  {
+   "entera": true,
+   "inicio": 53.34,
+   "fin": 58.38,
+   "texto": "sobre todo también el hecho de que no han visto los resultados esperados después de muchas sesiones.",
+   "corte_fin": 58.58
+  },
+  {
+   "inicio": 81.0,
+   "fin": 83.95,
+   "texto": "y lo entiendo, después de esto da mucho miedo",
+   "corte_inicio": 80.9
+  },
+  {
+   "inicio": 83.95,
+   "fin": 87.58,
+   "texto": "volver a confiar en otro centro y pagar por adelantado.",
+   "corte_fin": 87.6
+  },
+  {
+   "inicio": 118.08,
+   "fin": 122.22,
+   "texto": "por eso en osana tenemos sesiones sueltas o bonos de tres sesiones.",
+   "corte_inicio": 118.05
+  },
+  {
+   "entera": true,
+   "inicio": 122.22,
+   "fin": 127.52,
+   "texto": "así puedes ir pagando según lo que necesites, y no vas a necesitar ni 15 ni 20 sesiones.",
+   "corte_fin": 127.72
+  },
+  {
+   "entera": true,
+   "inicio": 281.64,
+   "fin": 288.48,
+   "texto": "y si todavía no te fías de si es totalmente efectivo o no, pide una sesión de prueba totalmente gratuita, sin compromiso.",
+   "clave": true,
+   "corte_inicio": 281.54,
+   "corte_fin": 288.68
+  }
+ ]
+}

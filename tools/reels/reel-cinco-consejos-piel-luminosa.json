@@ -1,0 +1,94 @@
+{
+ "titulo": "cinco-consejos-piel-luminosa",
+ "salida": "osana-cinco-consejos-piel-luminosa",
+ "archivo": "IMG_7065.mov",
+ "pregunta": "5 consejos|para una piel|luminosa",
+ "color": "natural",
+ "intro": 66.31,
+ "fin": 312.0,
+ "portada": 68.57,
+ "frases": [
+  {
+   "inicio": 66.56,
+   "fin": 70.84,
+   "texto": "te voy a dar cinco consejos para que consigas una piel luminosa en poco tiempo.",
+   "corte_inicio": 66.46,
+   "corte_fin": 71.04
+  },
+  {
+   "inicio": 110.3,
+   "fin": 112.46,
+   "texto": "uno, agenda una limpieza facial.",
+   "corte_inicio": 110.2
+  },
+  {
+   "entera": true,
+   "inicio": 112.82,
+   "fin": 120.6,
+   "texto": "esto te va a ayudar a remover todas las células muertas, y si le añades el dermaplaning o el hollywood peel, te va a dar un toque extra de renovación.",
+   "corte_fin": 120.8
+  },
+  {
+   "entera": true,
+   "inicio": 122.58,
+   "fin": 129.81,
+   "texto": "dos, utiliza ácidos. si puedes, utiliza ácido glicólico dos o tres veces por semana o algún retinol,",
+   "corte_inicio": 122.48
+  },
+  {
+   "entera": true,
+   "inicio": 129.81,
+   "fin": 135.24,
+   "texto": "seguramente vas a estar renovando cada noche tu piel y aportándole mayor luminosidad.",
+   "corte_fin": 135.44
+  },
+  {
+   "inicio": 156.18,
+   "fin": 158.34,
+   "texto": "tres, realízate un peeling químico.",
+   "corte_inicio": 156.08
+  },
+  {
+   "entera": true,
+   "inicio": 158.46,
+   "fin": 164.52,
+   "texto": "aunque tengas piel sensible lo puedes hacer, y esto va a ayudar a renovar la piel de una forma un poco más profunda.",
+   "corte_fin": 164.72
+  },
+  {
+   "inicio": 175.64,
+   "fin": 178.78,
+   "texto": "cuatro, incluye productos con vitamina c.",
+   "corte_inicio": 175.54
+  },
+  {
+   "entera": true,
+   "inicio": 178.78,
+   "fin": 183.82,
+   "texto": "esto te va a aportar muchísima luminosidad y te va a ayudar a protegerte de las manchas.",
+   "corte_fin": 184.02
+  },
+  {
+   "inicio": 236.78,
+   "fin": 240.72,
+   "texto": "y cinco, realízate algún masaje o la radiofrecuencia facial.",
+   "corte_inicio": 236.77,
+   "corte_fin": 240.73
+  },
+  {
+   "inicio": 286.92,
+   "fin": 291.62,
+   "texto": "esto va a ayudar a mejorar la circulación y a que la piel se vea más jugosa de forma inmediata.",
+   "corte_inicio": 286.82,
+   "corte_fin": 291.82
+  },
+  {
+   "inicio": 309.22,
+   "fin": 311.8,
+   "texto": "escríbeme en los comentarios qué paso te falta.",
+   "clave": true,
+   "corte_inicio": 309.12,
+   "corte_fin": 312.0
+  }
+ ]
+}

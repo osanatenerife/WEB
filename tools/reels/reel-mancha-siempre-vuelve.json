@@ -1,0 +1,143 @@
+{
+ "titulo": "mancha-siempre-vuelve",
+ "salida": "osana-mancha-siempre-vuelve",
+ "archivo": "IMG_7064.mov",
+ "pregunta": "¿por qué mi|mancha siempre|vuelve?",
+ "color": "natural",
+ "intro": 10.37,
+ "fin": 356.48,
+ "portada": 12.63,
+ "frases": [
+  {
+   "inicio": 10.62,
+   "fin": 12.72,
+   "texto": "¿por qué mi mancha siempre vuelve?",
+   "corte_inicio": 10.52,
+   "corte_fin": 12.92
+  },
+  {
+   "entera": true,
+   "inicio": 13.62,
+   "fin": 18.78,
+   "texto": "cuando hablamos de melasma, tenemos que tener en cuenta que hay varios factores desencadenantes de este problema.",
+   "corte_inicio": 13.52,
+   "corte_fin": 18.98
+  },
+  {
+   "inicio": 20.96,
+   "fin": 25.6,
+   "texto": "pueden ser causas hormonales, como haber tomado o dejado la pastilla anticonceptiva,",
+   "corte_inicio": 20.86,
+   "corte_fin": 25.62
+  },
+  {
+   "entera": true,
+   "inicio": 26.38,
+   "fin": 33.06,
+   "texto": "puede ser a causa de un embarazo, también por exceso de radiación solar y otros muchos factores.",
+   "corte_inicio": 26.28,
+   "corte_fin": 33.07
+  },
+  {
+   "inicio": 43.94,
+   "fin": 47.11,
+   "texto": "este melasma seguramente viene desde hace muchos años,",
+   "corte_inicio": 43.84
+  },
+  {
+   "inicio": 47.11,
+   "fin": 52.18,
+   "texto": "pero en cada renovación celular, que se realiza cada 21 o 28 días,"
+  },
+  {
+   "inicio": 52.18,
+   "fin": 57.1,
+   "texto": "ese melanocito, digamos, que ha estado produciendo melanina,"
+  },
+  {
+   "entera": true,
+   "inicio": 57.44,
+   "fin": 63.64,
+   "texto": "esa melanina va subiendo en cada regeneración celular y se acumula en la capa más superficial de la piel."
+  },
+  {
+   "entera": true,
+   "inicio": 64.14,
+   "fin": 69.64,
+   "texto": "ahí es cuando comenzamos a ver la mancha, y con el tiempo cada vez ha aumentado de tamaño.",
+   "corte_fin": 69.65
+  },
+  {
+   "entera": true,
+   "inicio": 85.82,
+   "fin": 91.15,
+   "texto": "esta mancha también se ve mucho más intensa en verano, porque el calor activa el melasma.",
+   "corte_inicio": 85.72,
+   "corte_fin": 91.17
+  },
+  {
+   "inicio": 94.38,
+   "fin": 99.22,
+   "texto": "por eso, aunque vengan y me digan «es que yo no cojo sol en la cara y me pongo mucho protector solar»,",
+   "corte_inicio": 94.28
+  },
+  {
+   "entera": true,
+   "inicio": 99.22,
+   "fin": 105.02,
+   "texto": "con el simple hecho de coger sol en la punta de los pies ya estás activando tu melasma.",
+   "corte_fin": 105.21
+  },
+  {
+   "inicio": 107.76,
+   "fin": 110.74,
+   "texto": "entonces, ¿qué hacemos y cómo lo tratamos?",
+   "corte_inicio": 107.66,
+   "corte_fin": 110.94
+  },
+  {
+   "entera": true,
+   "inicio": 138.76,
+   "fin": 146.02,
+   "texto": "en casos más complejos, nuestra primera opción no suele ser un láser, y tampoco te va a servir esa crema despigmentante que te compraste.",
+   "corte_inicio": 138.66,
+   "corte_fin": 146.03
+  },
+  {
+   "entera": true,
+   "inicio": 158.82,
+   "fin": 164.19,
+   "texto": "necesitas algo más fuerte, necesitas algo real que actúe directamente sobre el melanocito,",
+   "corte_inicio": 158.72
+  },
+  {
+   "entera": true,
+   "inicio": 164.19,
+   "fin": 169.88,
+   "texto": "que es el que está sobreproduciendo melanina, y eso es lo que te está generando la mancha.",
+   "corte_fin": 170.08
+  },
+  {
+   "inicio": 188.56,
+   "fin": 191.81,
+   "texto": "para ello contamos con un tratamiento de cosmelan,",
+   "corte_inicio": 188.46
+  },
+  {
+   "entera": true,
+   "inicio": 191.81,
+   "fin": 197.62,
+   "texto": "que es el que va a actuar directamente sobre este melanocito, impidiendo esta sobreproducción.",
+   "corte_fin": 197.63
+  },
+  {
+   "entera": true,
+   "inicio": 347.36,
+   "fin": 356.28,
+   "texto": "así que si quieres comenzar ya a disminuir estas manchas y a ganar otra vez esa seguridad que has perdido, contáctanos para crear un protocolo personalizado para ti.",
+   "clave": true,
+   "corte_inicio": 347.26,
+   "corte_fin": 356.48
+  }
+ ]
+}

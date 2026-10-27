@@ -1,0 +1,86 @@
+{
+ "titulo": "tres-factores-micro",
+ "salida": "osana-tres-factores-micro",
+ "archivo": "IMG_7050.mov",
+ "pregunta": "¿qué miro|antes de tu|micro?",
+ "color": "natural",
+ "intro": 32.23,
+ "fin": 293.66,
+ "portada": 34.35,
+ "frases": [
+  {
+   "inicio": 32.48,
+   "fin": 36.44,
+   "texto": "tres factores que voy a tener en cuenta a la hora de hacerte una micropigmentación.",
+   "corte_inicio": 32.38,
+   "corte_fin": 36.64
+  },
+  {
+   "inicio": 60.02,
+   "fin": 64.66,
+   "texto": "uno, la forma de tu cara. porque no vamos a copiar las cejas de nadie,",
+   "corte_inicio": 59.92
+  },
+  {
+   "inicio": 64.66,
+   "fin": 68.62,
+   "texto": "simplemente vamos a diseñar y potenciar las cejas ideales para ti.",
+   "corte_fin": 68.82
+  },
+  {
+   "entera": true,
+   "inicio": 149.72,
+   "fin": 155.09,
+   "texto": "aquí es donde vamos a corregir alguna simetría, donde podemos levantar un poco la mirada",
+   "corte_inicio": 149.62
+  },
+  {
+   "inicio": 155.09,
+   "fin": 159.38,
+   "texto": "y donde podemos modificar un poco la ceja sin cambiarte las facciones.",
+   "corte_fin": 159.58
+  },
+  {
+   "entera": true,
+   "inicio": 173.14,
+   "fin": 179.12,
+   "texto": "dos, tu tipo de piel. porque dependiendo de tu tipo de piel te conviene una técnica u otra.",
+   "corte_inicio": 173.04
+  },
+  {
+   "entera": true,
+   "inicio": 179.54,
+   "fin": 189.32,
+   "texto": "es decir, en una piel muy grasa, por ejemplo, yo no recomiendo un pelo a pelo, porque al final con el tiempo esta tinta se va a expandir y va a parecer simplemente una mancha.",
+   "corte_fin": 189.52
+  },
+  {
+   "entera": true,
+   "inicio": 209.08,
+   "fin": 214.8,
+   "texto": "tres, tu estilo y tu personalidad. por eso es muy importante que tu micropigmentadora te conozca,",
+   "corte_inicio": 208.98
+  },
+  {
+   "entera": true,
+   "inicio": 214.8,
+   "fin": 223.46,
+   "texto": "porque así podemos adaptar si te gusta un look más natural o un look más maquillado, y así adaptar la técnica que vamos a utilizar contigo.",
+   "corte_fin": 223.66
+  },
+  {
+   "entera": true,
+   "inicio": 283.82,
+   "fin": 288.78,
+   "texto": "y si después de la valoración creo que algo no te va a venir bien, también te lo voy a decir.",
+   "corte_inicio": 283.72
+  },
+  {
+   "inicio": 289.16,
+   "fin": 293.46,
+   "texto": "así que pide una cita de valoración para darte un asesoramiento personalizado.",
+   "clave": true,
+   "corte_fin": 293.66
+  }
+ ]
+}
