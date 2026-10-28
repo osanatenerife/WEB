@@ -1,0 +1,65 @@
+{
+ "titulo": "preguntas-30-segundos",
+ "salida": "osana-preguntas-30-segundos",
+ "archivo": "IMG_7150.mov",
+ "pregunta": "preguntas y|respuestas en|30 segundos",
+ "color": "natural",
+ "intro": 102.2,
+ "fin": 141.75,
+ "portada": 104.5,
+ "frases": [
+  {
+   "inicio": 102.5,
+   "fin": 104.95,
+   "texto": "preguntas y respuestas en 30 segundos.",
+   "corte_inicio": 102.42
+  },
+  {
+   "inicio": 104.95,
+   "fin": 107.75,
+   "texto": "¿limpieza o peeling? limpieza primero."
+  },
+  {
+   "inicio": 107.75,
+   "fin": 111.11,
+   "texto": "¿manchas de sol, luz pulsada o despigmentante? luz pulsada."
+  },
+  {
+   "inicio": 111.11,
+   "fin": 114.94,
+   "texto": "¿melasma, luz pulsada o cosmelan? cosmelan."
+  },
+  {
+   "inicio": 114.94,
+   "fin": 118.96,
+   "texto": "¿flacidez, radiofrecuencia o exosomas? radiofrecuencia."
+  },
+  {
+   "inicio": 118.96,
+   "fin": 122.44,
+   "texto": "¿textura, dermapen o hollywood peel? dermapen."
+  },
+  {
+   "inicio": 122.44,
+   "fin": 127.06,
+   "texto": "¿piel seca, hollywood peel o mesoterapia virtual? mesoterapia virtual."
+  },
+  {
+   "inicio": 127.06,
+   "fin": 132.54,
+   "texto": "¿marcas de acné, peeling o dermapen? las dos cosas, pero a mí me gusta más el dermapen."
+  },
+  {
+   "inicio": 132.54,
+   "fin": 137.32,
+   "texto": "¿arañas vasculares y rosácea, luz pulsada o peeling? luz pulsada."
+  },
+  {
+   "inicio": 137.32,
+   "fin": 141.62,
+   "texto": "¿el resultado del hollywood peel, al momento o en semanas? en semanas.",
+   "clave": true,
+   "corte_fin": 141.75
+  }
+ ]
+}

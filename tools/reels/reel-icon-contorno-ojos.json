@@ -1,0 +1,78 @@
+{
+ "titulo": "icon-contorno-ojos",
+ "salida": "osana-icon-contorno-ojos",
+ "archivo": "IMG_7155.mov",
+ "pregunta": "¿patas de|gallo?",
+ "color": "natural",
+ "intro": 3.25,
+ "fin": 279.06,
+ "portada": 5.46,
+ "frases": [
+  {
+   "inicio": 3.5,
+   "fin": 8.34,
+   "texto": "la zona del contorno de los ojos es donde primero se nos empiezan a notar los signos de envejecimiento,",
+   "corte_inicio": 3.4
+  },
+  {
+   "inicio": 8.68,
+   "fin": 12.86,
+   "texto": "y esto se debe a que nuestra piel ahí es mucho más fina que en cualquier otra parte del cuerpo.",
+   "corte_fin": 13.06
+  },
+  {
+   "inicio": 56.52,
+   "fin": 58.64,
+   "texto": "pero por suerte aquí tenemos la solución.",
+   "corte_inicio": 56.42
+  },
+  {
+   "inicio": 58.94,
+   "fin": 63.38,
+   "texto": "este es el icon, el tratamiento especializado en tratar la zona del contorno de los ojos."
+  },
+  {
+   "inicio": 63.84,
+   "fin": 65.74,
+   "texto": "este tratamiento consta de dos fases."
+  },
+  {
+   "inicio": 66.18,
+   "fin": 70.26,
+   "texto": "en primer lugar tenemos el peeling, que va a ayudar a la despigmentación de la zona,"
+  },
+  {
+   "entera": true,
+   "inicio": 70.46,
+   "fin": 77.46,
+   "texto": "y en segundo lugar tenemos el vial de exosomas, que contienen algunos componentes como puede ser el ácido tranexámico,"
+  },
+  {
+   "inicio": 77.78,
+   "fin": 81.18,
+   "texto": "el pdrn y la vitamina k1,"
+  },
+  {
+   "inicio": 81.52,
+   "fin": 86.58,
+   "texto": "que nos van a ayudar a la hidratación, despigmentación y la mejora de la circulación en esa zona.",
+   "corte_fin": 86.78
+  },
+  {
+   "entera": true,
+   "inicio": 187.74,
+   "fin": 193.68,
+   "texto": "para que este protocolo sea efectivo, debemos realizar de 4 a 5 sesiones en un intervalo de 15 días.",
+   "corte_inicio": 187.64,
+   "corte_fin": 193.88
+  },
+  {
+   "inicio": 274.62,
+   "fin": 279.1,
+   "texto": "si empiezas a tener patas de gallo o líneas de expresión en esta zona, agenda tu cita.",
+   "clave": true,
+   "corte_inicio": 274.52,
+   "corte_fin": 279.3
+  }
+ ]
+}

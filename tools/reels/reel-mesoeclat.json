@@ -1,0 +1,80 @@
+{
+ "titulo": "mesoeclat",
+ "salida": "osana-mesoeclat",
+ "archivo": "IMG_7152.mov",
+ "pregunta": "¿qué es el|mesoéclat?",
+ "color": "natural",
+ "intro": 79.77,
+ "fin": 485.82,
+ "portada": 81.97,
+ "frases": [
+  {
+   "entera": true,
+   "inicio": 80.02,
+   "fin": 85.86,
+   "texto": "este es el mesoéclat, y es el peeling con los mejores resultados para combatir los efectos del envejecimiento.",
+   "corte_inicio": 79.92
+  },
+  {
+   "entera": true,
+   "inicio": 86.4,
+   "fin": 91.48,
+   "texto": "va enfocado sobre todo en pieles maduras que tienen muchas líneas de expresión y que están un poco apagadas.",
+   "corte_fin": 91.68
+  },
+  {
+   "inicio": 118.96,
+   "fin": 122.46,
+   "texto": "está indicado para cualquier tipo de piel y fototipo.",
+   "corte_inicio": 118.86,
+   "corte_fin": 122.66
+  },
+  {
+   "inicio": 374.22,
+   "fin": 376.5,
+   "texto": "este peeling tiene una acción antiedad,",
+   "corte_inicio": 374.12
+  },
+  {
+   "inicio": 377.04,
+   "fin": 380.32,
+   "texto": "y eso se debe a que con él podemos conseguir resultados como"
+  },
+  {
+   "inicio": 380.74,
+   "fin": 385.66,
+   "texto": "la hidratación en profundidad. nos ayuda a renovar toda la capa superficial de la piel,"
+  },
+  {
+   "entera": true,
+   "inicio": 386.14,
+   "fin": 391.92,
+   "texto": "consiguiendo disminuir bastante lo que son las líneas de expresión y las arrugas en profundidad.",
+   "corte_fin": 392.12
+  },
+  {
+   "entera": true,
+   "inicio": 392.86,
+   "fin": 401.5,
+   "texto": "también nos aporta un glow increíble, y yo siempre lo recomiendo cuando tenemos eventos, previo, para darle un glow espectacular a la piel.",
+   "corte_inicio": 392.76,
+   "corte_fin": 401.7
+  },
+  {
+   "entera": true,
+   "inicio": 475.05,
+   "fin": 481.7,
+   "texto": "si tú sientes que tu piel se siente apagada, deshidratada o que ya se te empiezan a notar mucho los signos de la edad,",
+   "corte_inicio": 474.95,
+   "corte_fin": 481.9
+  },
+  {
+   "inicio": 482.56,
+   "fin": 485.62,
+   "texto": "este sería el peeling que yo te recomendaría sin duda alguna.",
+   "clave": true,
+   "corte_inicio": 482.46,
+   "corte_fin": 485.82
+  }
+ ]
+}
