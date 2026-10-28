@@ -314,6 +314,10 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   esta, y dos con el fondo oscurecido estilo Golden Brows. La piel de cada grabación se iguala a
   la de IMG_7049 sin tocar (`PIELES["natural"]`). El «golden» con la piel igualada la dejaba
   «muy amarilla, demasiado filtro»: no volver a calentar la piel.
+- **Grabaciones con luz amarilla** (la tanda de IMG_7146–7155, cortina y luz cálida): subir la
+  saturación sola deja la imagen amarilla («estilo Golden Brows», no le gusta). Primero se quita
+  el amarillo hasta que el fondo claro quede gris neutro y después se añade un poco de color:
+  `colorchannelmixer=rr=0.95:gg=0.99:bb=1.12,eq=saturation=1.1:contrast=1.06` (lo eligió ella).
 - **Mismo tono en todos los vídeos** (lo pidió en octubre de 2026): con `"color": "golden"`, antes
   del ajuste se iguala la piel de cada grabación a `PIEL_OBJETIVO` (la de IMG_7041, un 5 % más
   clara: «un poquito menos oscura»). Sin esto, una grabación salía grisácea y otra oscura.
