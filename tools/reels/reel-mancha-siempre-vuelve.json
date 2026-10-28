@@ -86,12 +86,18 @@
    "corte_fin": 110.94
   },
   {
-   "entera": true,
    "inicio": 138.76,
-   "fin": 146.02,
-   "texto": "en casos más complejos, nuestra primera opción no suele ser un láser, y tampoco te va a servir esa crema despigmentante que te compraste.",
+   "fin": 142.15,
    "corte_inicio": 138.66,
-   "corte_fin": 146.03
+   "corte_fin": 142.3,
+   "texto": "en casos más complejos, nuestra primera opción no suele ser un láser,"
+  },
+  {
+   "inicio": 153.05,
+   "fin": 156.95,
+   "corte_inicio": 152.95,
+   "corte_fin": 157.15,
+   "texto": "y tampoco te va a servir esa crema despigmentante que te compraste en farmacia."
   },
   {
    "entera": true,
