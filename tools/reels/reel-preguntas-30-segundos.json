@@ -16,50 +16,95 @@
   },
   {
    "inicio": 104.95,
+   "fin": 106.55,
+   "texto": "¿limpieza o peeling?"
+  },
+  {
+   "inicio": 106.55,
    "fin": 107.75,
-   "texto": "¿limpieza o peeling? limpieza primero."
+   "texto": "limpieza primero."
   },
   {
    "inicio": 107.75,
-   "fin": 111.11,
-   "texto": "¿manchas de sol, luz pulsada o despigmentante? luz pulsada."
+   "fin": 110.85,
+   "texto": "¿manchas de sol, luz pulsada o despigmentante?"
   },
   {
-   "inicio": 111.11,
+   "inicio": 110.85,
+   "fin": 111.9,
+   "texto": "luz pulsada."
+  },
+  {
+   "inicio": 111.9,
+   "fin": 114.11,
+   "texto": "¿melasma, luz pulsada o cosmelan?"
+  },
+  {
+   "inicio": 114.11,
    "fin": 114.94,
-   "texto": "¿melasma, luz pulsada o cosmelan? cosmelan."
+   "texto": "cosmelan."
   },
   {
    "inicio": 114.94,
+   "fin": 117.66,
+   "texto": "¿flacidez, radiofrecuencia o exosomas?"
+  },
+  {
+   "inicio": 117.66,
    "fin": 118.96,
-   "texto": "¿flacidez, radiofrecuencia o exosomas? radiofrecuencia."
+   "texto": "radiofrecuencia."
   },
   {
    "inicio": 118.96,
+   "fin": 121.36,
+   "texto": "¿textura, dermapen o hollywood peel?"
+  },
+  {
+   "inicio": 121.36,
    "fin": 122.44,
-   "texto": "¿textura, dermapen o hollywood peel? dermapen."
+   "texto": "dermapen."
   },
   {
    "inicio": 122.44,
+   "fin": 125.5,
+   "texto": "¿piel seca, hollywood peel o mesoterapia virtual?"
+  },
+  {
+   "inicio": 125.5,
    "fin": 127.06,
-   "texto": "¿piel seca, hollywood peel o mesoterapia virtual? mesoterapia virtual."
+   "texto": "mesoterapia virtual."
   },
   {
    "inicio": 127.06,
+   "fin": 129.64,
+   "texto": "¿marcas de acné, peeling o dermapen?"
+  },
+  {
+   "inicio": 129.64,
    "fin": 132.54,
-   "texto": "¿marcas de acné, peeling o dermapen? las dos cosas, pero a mí me gusta más el dermapen."
+   "texto": "las dos cosas, pero a mí me gusta más el dermapen."
   },
   {
    "inicio": 132.54,
+   "fin": 135.96,
+   "texto": "¿arañas vasculares y rosácea, luz pulsada o peeling?"
+  },
+  {
+   "inicio": 135.96,
    "fin": 137.32,
-   "texto": "¿arañas vasculares y rosácea, luz pulsada o peeling? luz pulsada."
+   "texto": "luz pulsada."
   },
   {
    "inicio": 137.32,
+   "fin": 140.72,
+   "texto": "¿el resultado del hollywood peel, al momento o en semanas?"
+  },
+  {
+   "inicio": 140.72,
    "fin": 141.62,
-   "texto": "¿el resultado del hollywood peel, al momento o en semanas? en semanas.",
    "clave": true,
-   "corte_fin": 141.75
+   "corte_fin": 141.75,
+   "texto": "en semanas."
   }
  ]
 }

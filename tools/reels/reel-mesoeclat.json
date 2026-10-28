@@ -4,30 +4,25 @@
  "archivo": "IMG_7152.mov",
  "pregunta": "¿qué es el|mesoéclat?",
  "color": "natural",
- "intro": 79.77,
+ "intro": 29.95,
  "fin": 485.82,
- "portada": 81.97,
+ "portada": 32.0,
  "frases": [
   {
+   "inicio": 30.12,
+   "fin": 35.76,
+   "corte_inicio": 30.0,
    "entera": true,
-   "inicio": 80.02,
-   "fin": 85.86,
-   "texto": "este es el mesoéclat, y es el peeling con los mejores resultados para combatir los efectos del envejecimiento.",
-   "corte_inicio": 79.92
+   "texto": "el mesoéclat. este es el peeling con mejores resultados para combatir los efectos del envejecimiento.",
+   "corte_fin": 35.95
   },
   {
    "entera": true,
    "inicio": 86.4,
    "fin": 91.48,
    "texto": "va enfocado sobre todo en pieles maduras que tienen muchas líneas de expresión y que están un poco apagadas.",
-   "corte_fin": 91.68
-  },
-  {
-   "inicio": 118.96,
-   "fin": 122.46,
-   "texto": "está indicado para cualquier tipo de piel y fototipo.",
-   "corte_inicio": 118.86,
-   "corte_fin": 122.66
+   "corte_fin": 91.68,
+   "corte_inicio": 86.30000000000001
   },
   {
    "inicio": 374.22,
