@@ -56,12 +56,18 @@
    "corte_fin": 401.7
   },
   {
-   "entera": true,
-   "inicio": 475.05,
+   "inicio": 455.78,
+   "fin": 457.27,
+   "corte_inicio": 455.62,
+   "corte_fin": 457.29,
+   "texto": "si tú notas que tu piel se siente"
+  },
+  {
+   "inicio": 476.5,
    "fin": 481.7,
-   "texto": "si tú sientes que tu piel se siente apagada, deshidratada o que ya se te empiezan a notar mucho los signos de la edad,",
-   "corte_inicio": 474.95,
-   "corte_fin": 481.9
+   "corte_inicio": 476.48,
+   "corte_fin": 481.9,
+   "texto": "apagada, deshidratada o que ya se te empiezan a notar mucho los signos de la edad,"
   },
   {
    "inicio": 482.56,
