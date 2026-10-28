@@ -72,16 +72,11 @@
   },
   {
    "inicio": 94.38,
-   "fin": 99.22,
-   "texto": "por eso, aunque vengan y me digan «es que yo no cojo sol en la cara y me pongo mucho protector solar»,",
-   "corte_inicio": 94.28
-  },
-  {
-   "entera": true,
-   "inicio": 99.22,
    "fin": 105.02,
-   "texto": "con el simple hecho de coger sol en la punta de los pies ya estás activando tu melasma.",
-   "corte_fin": 105.21
+   "corte_inicio": 94.28,
+   "corte_fin": 105.21,
+   "entera": true,
+   "texto": "por eso, aunque vengan y me digan «es que yo no cojo sol en la cara y me pongo mucho protector solar», con el simple hecho de coger sol en la punta de los pies ya estás activando tu melasma."
   },
   {
    "inicio": 107.76,
