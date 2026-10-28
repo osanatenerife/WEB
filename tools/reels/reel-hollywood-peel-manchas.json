@@ -4,23 +4,23 @@
  "archivo": "IMG_7146.mov",
  "pregunta": "¿hollywood peel|para manchas?",
  "color": "natural",
- "intro": 87.62,
- "fin": 97.17,
- "portada": 89.78,
+ "intro": 54.9,
+ "fin": 64.7,
+ "portada": 56.0,
  "frases": [
   {
-   "inicio": 87.7,
-   "fin": 90.72,
-   "texto": "el tratamiento de hollywood peel no está indicado para todo el mundo.",
-   "corte_inicio": 87.62
+   "inicio": 54.98,
+   "fin": 58.9,
+   "corte_inicio": 54.9,
+   "texto": "déjame decirte que el tratamiento de hollywood peel no está indicado para todo el mundo."
   },
   {
+   "inicio": 59.12,
+   "fin": 64.6,
+   "corte_fin": 64.7,
    "entera": true,
-   "inicio": 90.72,
-   "fin": 97.16,
-   "texto": "déjame decirte que si te lo vendieron como un tratamiento para la eliminación de manchas, te estafaron por completo.",
    "clave": true,
-   "corte_fin": 97.17
+   "texto": "si te lo vendieron como un tratamiento enfocado en la eliminación de manchas, déjame decirte que te estafaron."
   }
  ]
 }
