@@ -2,7 +2,7 @@ const hours = require('../config/hours');
 const { localToISO } = require('./timezone');
 const { getBusyIntervals } = require('./googleCalendar');
 
-const MIN_LEAD_MINUTES = 120; // no permitir reservar con menos de 2h de antelación
+const MIN_LEAD_MINUTES = 5; // margen mínimo para que la reserva no caiga literalmente "ya mismo"
 
 // Si reservar en un hueco concreto dejaría, justo después, un tramo libre
 // más pequeño que esto (pero no cero) antes del siguiente compromiso, ese
