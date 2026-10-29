@@ -853,7 +853,7 @@ def main():
         t += n / FPS
         tramos.setdefault(p["tramo"], []).append(p)
         vf = filtro_plano(p)
-        out = os.path.join(cache, f"toma_{br.huella('tlc', VERSION_TOMA, dt.VERSION, p['archivo'], round(p['inicio'], 3), n, vf)}.mp4")
+        out = os.path.join(cache, f"toma_{br.huella('tlc', VERSION_TOMA, dt.VERSION, cfg.get('dientes', 1.0), p['archivo'], round(p['inicio'], 3), n, vf)}.mp4")
         piezas.append(out)
         if not os.path.exists(out):
             # Encuadre con ffmpeg → dientes en Python → codificación con ffmpeg.
@@ -884,7 +884,7 @@ def main():
     def ejecutar(trabajo):
         if trabajo[0] == "dientes":
             _, lectura, escritura, destino = trabajo
-            dt.procesar(lectura, escritura, W, H)
+            dt.procesar(lectura, escritura, W, H, fuerza=cfg.get("dientes", 1.0))
         else:
             _, cmd, destino = trabajo
             br.run(cmd)

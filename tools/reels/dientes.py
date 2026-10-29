@@ -151,7 +151,7 @@ def aclarar(img, poligono, fuerza=1.0):
     return out
 
 
-def procesar(cmd_lectura, cmd_escritura, ancho, alto, cada=1):
+def procesar(cmd_lectura, cmd_escritura, ancho, alto, cada=1, fuerza=1.0):
     """Lee fotogramas en bruto (bgr24) de un ffmpeg, aclara los dientes y los pasa a otro
     ffmpeg que codifica. Los puntos de la boca se suavizan entre fotogramas (sin temblor)."""
     lector = subprocess.Popen(cmd_lectura, stdout=subprocess.PIPE)
@@ -170,7 +170,7 @@ def procesar(cmd_lectura, cmd_escritura, ancho, alto, cada=1):
                     pol = None
                 else:
                     pol = nuevo if pol is None else 0.4 * pol + 0.6 * nuevo
-            img = aclarar(img, pol)
+            img = aclarar(img, pol, fuerza)
             escritor.stdin.write(np.ascontiguousarray(img).tobytes())
             k += 1
     finally:
