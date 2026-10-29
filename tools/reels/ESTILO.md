@@ -314,6 +314,9 @@ Estilo **natural**, como las referencias de entrevista que eligió la dueña
   esta, y dos con el fondo oscurecido estilo Golden Brows. La piel de cada grabación se iguala a
   la de IMG_7049 sin tocar (`PIELES["natural"]`). El «golden» con la piel igualada la dejaba
   «muy amarilla, demasiado filtro»: no volver a calentar la piel.
+- **Vídeos de Vanessa (Mesoéclat, ICON)**: sin ningún ajuste de color y dientes con `"dientes": 0.35`;
+  con el ajuste sin amarillo y los dientes a fuerza 1 dijo «demasiado filtro, dientes demasiado
+  blancos, se ve raro, como vintage».
 - **Grabaciones con luz amarilla** (la tanda de IMG_7146–7155, cortina y luz cálida): subir la
   saturación sola deja la imagen amarilla («estilo Golden Brows», no le gusta). Primero se quita
   el amarillo hasta que el fondo claro quede gris neutro y después se añade un poco de color:

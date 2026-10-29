@@ -1,9 +1,8 @@
 {
  "titulo": "mesoeclat",
- "salida": "osana-mesoeclat",
+ "salida": "osana-mesoeclat-suave",
  "archivo": "IMG_7152.mov",
  "pregunta": "¿qué es el|mesoéclat?",
- "color": "natural",
  "intro": 29.95,
  "fin": 485.82,
  "portada": 32.0,
@@ -77,5 +76,6 @@
    "corte_inicio": 482.46,
    "corte_fin": 485.82
   }
- ]
+ ],
+ "dientes": 0.35
 }

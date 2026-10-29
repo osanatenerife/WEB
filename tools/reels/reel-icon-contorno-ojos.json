@@ -1,9 +1,8 @@
 {
  "titulo": "icon-contorno-ojos",
- "salida": "osana-icon-contorno-ojos",
+ "salida": "osana-icon-contorno-ojos-suave",
  "archivo": "IMG_7155.mov",
  "pregunta": "¿arrugas en el|contorno de|los ojos?",
- "color": "natural",
  "intro": 3.25,
  "fin": 279.06,
  "portada": 5.46,
@@ -74,5 +73,6 @@
    "corte_inicio": 274.52,
    "corte_fin": 279.3
   }
- ]
+ ],
+ "dientes": 0.35
 }
