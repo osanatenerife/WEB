@@ -1128,8 +1128,12 @@
         <div class="panel-field" style="margin-top:10px;"><label>Asunto</label><input type="text" class="cp-subject" placeholder="Ej. Feliz Navidad, {nombre}"></div>
         <div class="panel-field" style="margin-top:10px;"><label>Mensaje</label><textarea class="cp-body" rows="8" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:inherit;font-size:13px;" placeholder="Hola {nombre},&#10;&#10;Escribe aquí el texto del email. Deja una línea en blanco entre párrafos."></textarea></div>
         <div class="panel-field-row" style="margin-top:10px;">
-          <div class="panel-field"><label>Texto del botón (opcional)</label><input type="text" class="cp-cta-text" placeholder="Ej. Reserva tu sesión"></div>
-          <div class="panel-field"><label>Enlace del botón</label><input type="text" class="cp-cta-url" placeholder="https://osana.es/reserva.html"></div>
+          <div class="panel-field"><label>Texto del botón 1 (opcional)</label><input type="text" class="cp-cta-text" placeholder="Ej. Reserva tu sesión"></div>
+          <div class="panel-field"><label>Enlace del botón 1</label><input type="text" class="cp-cta-url" placeholder="https://osana.es/reserva.html"></div>
+        </div>
+        <div class="panel-field-row" style="margin-top:10px;">
+          <div class="panel-field"><label>Texto del botón 2 (opcional)</label><input type="text" class="cp-cta-text2" placeholder="Solo si quieres un segundo botón"></div>
+          <div class="panel-field"><label>Enlace del botón 2</label><input type="text" class="cp-cta-url2" placeholder="https://osana.es/reserva.html"></div>
         </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-campaign" style="margin-top:12px;">Enviar</button>
         <p class="panel-error" style="display:none;"></p>
@@ -1143,6 +1147,8 @@
     const bodyInput = slot.querySelector('.cp-body');
     const ctaTextInput = slot.querySelector('.cp-cta-text');
     const ctaUrlInput = slot.querySelector('.cp-cta-url');
+    const ctaTextInput2 = slot.querySelector('.cp-cta-text2');
+    const ctaUrlInput2 = slot.querySelector('.cp-cta-url2');
     const errorEl = slot.querySelector('.panel-error');
     const statusEl = slot.querySelector('.panel-status');
 
@@ -1175,7 +1181,17 @@
         return;
       }
       if (!!ctaTextInput.value.trim() !== !!ctaUrlInput.value.trim()) {
-        errorEl.textContent = 'Si añades un botón, indica el texto y el enlace.';
+        errorEl.textContent = 'Si añades el botón 1, indica el texto y el enlace.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (!!ctaTextInput2.value.trim() !== !!ctaUrlInput2.value.trim()) {
+        errorEl.textContent = 'Si añades el botón 2, indica el texto y el enlace.';
+        errorEl.style.display = 'block';
+        return;
+      }
+      if (ctaTextInput2.value.trim() && !ctaTextInput.value.trim()) {
+        errorEl.textContent = 'Para usar un segundo botón, rellena primero el botón 1.';
         errorEl.style.display = 'block';
         return;
       }
@@ -1191,6 +1207,8 @@
             headerImageDataUrl: headerImageDataUrl || undefined,
             ctaText: ctaTextInput.value.trim() || undefined,
             ctaUrl: ctaUrlInput.value.trim() || undefined,
+            ctaText2: ctaTextInput2.value.trim() || undefined,
+            ctaUrl2: ctaUrlInput2.value.trim() || undefined,
             categories: selectedCategories.length ? selectedCategories : undefined,
           }),
         });

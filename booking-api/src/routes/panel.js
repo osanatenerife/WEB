@@ -2662,7 +2662,7 @@ router.post('/panel/discount-email-blast', async (req, res) => {
 const HEADER_IMAGE_RE = /^data:image\/(png|jpe?g|gif|webp);base64,/;
 
 router.post('/panel/campaign-email', async (req, res) => {
-  const { subject, body, headerImageDataUrl, ctaText, ctaUrl, categories } = req.body || {};
+  const { subject, body, headerImageDataUrl, ctaText, ctaUrl, ctaText2, ctaUrl2, categories } = req.body || {};
   if (!subject || !subject.trim() || !body || !body.trim()) {
     return res.status(400).json({ error: 'Indica el asunto y el mensaje.' });
   }
@@ -2674,7 +2674,10 @@ router.post('/panel/campaign-email', async (req, res) => {
     return res.status(400).json({ error: 'La imagen no es válida o pesa demasiado (máx. ~4 MB).' });
   }
   if ((ctaText && ctaText.trim() && !(ctaUrl && ctaUrl.trim())) || (ctaUrl && ctaUrl.trim() && !(ctaText && ctaText.trim()))) {
-    return res.status(400).json({ error: 'Si añades un botón, indica el texto y el enlace.' });
+    return res.status(400).json({ error: 'Si añades el botón 1, indica el texto y el enlace.' });
+  }
+  if ((ctaText2 && ctaText2.trim() && !(ctaUrl2 && ctaUrl2.trim())) || (ctaUrl2 && ctaUrl2.trim() && !(ctaText2 && ctaText2.trim()))) {
+    return res.status(400).json({ error: 'Si añades el botón 2, indica el texto y el enlace.' });
   }
   try {
     const uniqueClients = await getUniqueClientEmails();
@@ -2699,8 +2702,10 @@ router.post('/panel/campaign-email', async (req, res) => {
         ? `<img src="${headerImageDataUrl}" alt="" style="width:100%;display:block;">`
         : `<div style="background:#1a1612;padding:26px 24px;text-align:center;"><img src="https://osana.es/images/logo-full-blanco.png" alt="Osana" style="height:32px;width:auto;"></div>`;
       const showCta = ctaText && ctaText.trim() && ctaUrl && ctaUrl.trim();
+      const showCta2 = ctaText2 && ctaText2.trim() && ctaUrl2 && ctaUrl2.trim();
+      const ctaButton = (text, url, primary) => `<a href="${escapeHtml(url.trim())}" style="display:inline-block;${primary ? 'background:#ac977e;color:#1a1612;' : 'background:transparent;color:#ac977e;border:1px solid #ac977e;'}text-decoration:none;padding:12px 26px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;margin:4px 6px;">${escapeHtml(text.trim())}</a>`;
       const ctaHtml = showCta
-        ? `<div style="text-align:center;margin:26px 0 4px;"><a href="${escapeHtml(ctaUrl.trim())}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${escapeHtml(ctaText.trim())}</a></div>`
+        ? `<div style="text-align:center;margin:26px 0 4px;">${ctaButton(ctaText, ctaUrl, true)}${showCta2 ? ctaButton(ctaText2, ctaUrl2, false) : ''}</div>`
         : '';
       // El enlace de baja lleva el email de cada destinataria, para poder
       // darla de baja con un solo clic sin pedirle que inicie sesión ni
