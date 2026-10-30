@@ -1,4 +1,7 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const {
   getAllBookings, findBookingById, updateBookingRow, appendBooking,
   getAllSessionBonos, findSessionBonoById, updateSessionBonoRow, appendSessionBono,
@@ -31,7 +34,6 @@ const { applyComboBuffer } = require('../lib/pricing');
 const hours = require('../config/hours');
 const services = require('../config/services');
 const employees = require('../config/employees');
-const crypto = require('crypto');
 
 const QUOTE_CATEGORIES = ['laser', 'corporal', 'facial', 'cejas'];
 
@@ -2659,7 +2661,23 @@ router.post('/panel/discount-email-blast', async (req, res) => {
 // escriba el equipo en el momento — sin plantilla fija.
 // El "{nombre}" en asunto/mensaje se sustituye por el nombre (de pila) de
 // cada clienta antes de enviar, usando el nombre de su reserva más reciente.
-const HEADER_IMAGE_RE = /^data:image\/(png|jpe?g|gif|webp);base64,/;
+const HEADER_IMAGE_RE = /^data:image\/(png|jpe?g|gif|webp);base64,(.+)$/s;
+const HEADER_IMAGE_PUBLIC_BASE = 'https://osana-9pub.onrender.com';
+const CAMPAIGN_HEADERS_DIR = path.join(__dirname, '../../assets/campaign-headers');
+
+// Gmail y otros clientes de correo bloquean las imágenes "data:" incrustadas
+// directamente en el HTML del email — por eso la imagen de cabecera que sube
+// el equipo no se manda tal cual, se guarda como archivo aquí y se referencia
+// por su URL pública (ver app.use('/assets', ...) en server.js).
+function saveCampaignHeaderImage(dataUrl) {
+  const match = HEADER_IMAGE_RE.exec(dataUrl);
+  if (!match) return null;
+  const ext = match[1] === 'jpeg' ? 'jpg' : match[1];
+  const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${ext}`;
+  fs.mkdirSync(CAMPAIGN_HEADERS_DIR, { recursive: true });
+  fs.writeFileSync(path.join(CAMPAIGN_HEADERS_DIR, filename), Buffer.from(match[2], 'base64'));
+  return `${HEADER_IMAGE_PUBLIC_BASE}/assets/campaign-headers/${filename}`;
+}
 
 router.post('/panel/campaign-email', async (req, res) => {
   const { subject, body, headerImageDataUrl, ctaText, ctaUrl, ctaText2, ctaUrl2, categories } = req.body || {};
@@ -2692,14 +2710,16 @@ router.post('/panel/campaign-email', async (req, res) => {
       }
     }
 
+    const headerImageUrl = headerImageDataUrl ? saveCampaignHeaderImage(headerImageDataUrl) : null;
+
     res.json({ ok: true, recipients: uniqueClients.size });
 
     (async () => {
       // Mismo estilo de marca que el email de confirmación de reserva:
       // cabecera oscura (con el logo, o la imagen que suba el equipo),
       // cuerpo en crema, botón dorado, pie oscuro con enlaces de contacto.
-      const headerHtml = headerImageDataUrl
-        ? `<img src="${headerImageDataUrl}" alt="" style="width:100%;display:block;">`
+      const headerHtml = headerImageUrl
+        ? `<img src="${headerImageUrl}" alt="" style="width:100%;display:block;">`
         : `<div style="background:#1a1612;padding:26px 24px;text-align:center;"><img src="https://osana.es/images/logo-full-blanco.png" alt="Osana" style="height:32px;width:auto;"></div>`;
       const showCta = ctaText && ctaText.trim() && ctaUrl && ctaUrl.trim();
       const showCta2 = ctaText2 && ctaText2.trim() && ctaUrl2 && ctaUrl2.trim();

@@ -6,6 +6,7 @@
 require('dns').setDefaultResultOrder('ipv4first');
 
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 
@@ -54,6 +55,12 @@ app.use('/api', bonoCheckoutRouter);
 app.use('/api', panelRouter);
 app.use('/api', whatsappIncomingRouter);
 app.use('/api', addTreatmentRouter);
+
+// Imágenes de cabecera de campañas de email (ver /panel/campaign-email) —
+// se sirven desde aquí en vez de incrustarlas como base64 en el email,
+// porque Gmail y otros clientes de correo bloquean las imágenes "data:"
+// incrustadas directamente en el HTML.
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
 
 app.get('/', (req, res) => {
   res.json({ ok: true, service: 'osana-booking-api' });
