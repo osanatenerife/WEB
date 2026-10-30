@@ -1,0 +1,74 @@
+{
+ "titulo": "criolipolisis",
+ "salida": "osana-criolipolisis",
+ "archivo": "IMG_7551.mov",
+ "pregunta": "¿qué es la|criolipólisis?",
+ "dientes": 0.35,
+ "intro": 3.39,
+ "fin": 563.73,
+ "portada": 5.0,
+ "frases": [
+  {
+   "inicio": 3.64,
+   "fin": 9.42,
+   "texto": "la realidad es que después de haber escuchado a tantas mujeres, me di cuenta que nosotros mayormente sufrimos todo.",
+   "corte_inicio": 3.54
+  },
+  {
+   "inicio": 9.6,
+   "fin": 19.3,
+   "texto": "y con esto me refiero a que pasamos muchos trastornos y cambios hormonales, pasamos por la menopausia, periodos muy fuertes y sin contar los embarazos.",
+   "corte_fin": 19.5
+  },
+  {
+   "inicio": 94.24,
+   "fin": 97.86,
+   "texto": "y como si todo esto fuera poco, tendemos también a localizar mucha grasa.",
+   "corte_inicio": 94.14,
+   "corte_fin": 98.06
+  },
+  {
+   "inicio": 134.16,
+   "fin": 139.16,
+   "texto": "y aunque esto tiene una explicación biológica, no deja de ser molesto y muy frustrante para nosotras.",
+   "corte_inicio": 134.06,
+   "corte_fin": 139.36
+  },
+  {
+   "inicio": 214.66,
+   "fin": 221.3,
+   "texto": "por eso hemos estudiado uno de los métodos más efectivos para tratar la grasa localizada, sin necesidad de pasar por quirófano",
+   "corte_inicio": 214.56,
+   "corte_fin": 221.34
+  },
+  {
+   "inicio": 222.54,
+   "fin": 223.84,
+   "texto": "y tampoco es nada invasivo.",
+   "corte_inicio": 222.44,
+   "corte_fin": 224.04
+  },
+  {
+   "inicio": 424.92,
+   "fin": 434.98,
+   "texto": "te estoy hablando de la criolipólisis. esto es un método que congela las células grasas, creando una necrosis. por lo tanto, la semana siguiente vas a desechar todas estas células mediante heces y orina.",
+   "clave": true,
+   "corte_inicio": 424.82,
+   "corte_fin": 435.18
+  },
+  {
+   "inicio": 523.26,
+   "fin": 531.64,
+   "texto": "lo recomendable es realizar tres sesiones, una por mes, aunque desde el primer mes se notan los cambios en la pérdida de volumen y en la desinflamación.",
+   "corte_inicio": 523.25,
+   "corte_fin": 531.63
+  },
+  {
+   "inicio": 560.2,
+   "fin": 563.72,
+   "texto": "si quieres más información sobre este tratamiento, puedes escribirnos.",
+   "corte_inicio": 560.19,
+   "corte_fin": 563.73
+  }
+ ]
+}

@@ -1,0 +1,53 @@
+{
+ "titulo": "hollywood-peel-explicacion",
+ "salida": "osana-hollywood-peel",
+ "archivo": "IMG_7552.mov",
+ "pregunta": "¿hollywood peel|para manchas?",
+ "dientes": 0.35,
+ "intro": 8.05,
+ "fin": 215.48,
+ "portada": 9.5,
+ "frases": [
+  {
+   "inicio": 8.3,
+   "fin": 12.72,
+   "texto": "si te vendieron el hollywood peel como tratamiento de manchas, déjame decirte que te mintieron.",
+   "corte_inicio": 8.29,
+   "corte_fin": 12.73
+  },
+  {
+   "inicio": 32.78,
+   "fin": 35.74,
+   "texto": "y aunque sí es un tratamiento láser con mucha demanda,",
+   "corte_inicio": 32.77
+  },
+  {
+   "inicio": 35.8,
+   "fin": 38.04,
+   "texto": "no trata específicamente las manchas.",
+   "clave": true,
+   "corte_fin": 38.03
+  },
+  {
+   "inicio": 93.02,
+   "fin": 105.26,
+   "texto": "este tratamiento va enfocado más en tratar marquitas superficiales de acné, textura de la piel, los poros que están muy visibles, incluso lo utilizamos también en las pieles que producen mucha grasa.",
+   "corte_inicio": 92.92,
+   "corte_fin": 105.46
+  },
+  {
+   "inicio": 125.94,
+   "fin": 136.14,
+   "texto": "en osana recomendamos hacer por lo menos unas tres sesiones para que tengas resultados visibles, o incluso lo podemos combinar con una limpieza facial para terminar de eliminar todas las células muertas.",
+   "corte_inicio": 125.84,
+   "corte_fin": 136.34
+  },
+  {
+   "inicio": 211.74,
+   "fin": 215.28,
+   "texto": "y como dato extra, te va a dar mucha luminosidad durante los siguientes días.",
+   "corte_inicio": 211.64,
+   "corte_fin": 215.48
+  }
+ ]
+}
