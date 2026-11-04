@@ -767,6 +767,14 @@ router.post('/panel/book-session', async (req, res) => {
     return await withLock(`bono:${bonoId}`, async () => {
     const bono = await findSessionBonoById(bonoId);
     if (!bono) return res.status(404).json({ error: 'Bono no encontrado.' });
+    // Sin email no hay forma de mandar el recordatorio de 48h de esta cita
+    // (el teléfono es obligatorio siempre, pero el email no) — se bloquea
+    // aquí, en el momento de agendar, que es cuando el equipo tiene delante
+    // a la clienta para pedírselo, en vez de dejar la cita sin recordatorio
+    // para siempre sin que nadie se entere.
+    if (!bono.clientEmail || !bono.clientEmail.trim()) {
+      return res.status(400).json({ error: `${bono.clientName || 'Esta clienta'} no tiene email guardado — añádeselo en "✎ Editar datos" antes de agendar, o no le llegará el recordatorio de 48h.` });
+    }
     const remaining = Number(bono.sessionsRemaining) || 0;
     if (remaining <= 0) return res.status(409).json({ error: 'Este bono no tiene sesiones restantes.' });
     if (useCount > remaining) {
@@ -3162,6 +3170,11 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
           return res.status(409).json({ error: `El bono de ${bono.serviceName} no tiene sesiones restantes.` });
         }
         bonos.push(bono);
+      }
+      // Mismo motivo que en /panel/book-session: sin email no hay forma de
+      // mandar el recordatorio de 48h, y aquí es el momento de pedírselo.
+      if (!bonos[0].clientEmail || !bonos[0].clientEmail.trim()) {
+        return res.status(400).json({ error: `${bonos[0].clientName || 'Esta clienta'} no tiene email guardado — añádeselo en "✎ Editar datos" antes de agendar, o no le llegará el recordatorio de 48h.` });
       }
       const phoneN = normalizePhone(bonos[0].clientPhone);
       if (!bonos.every((b) => normalizePhone(b.clientPhone) === phoneN)) {
