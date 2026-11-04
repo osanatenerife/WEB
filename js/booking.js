@@ -68,6 +68,9 @@
       en: 'I have read and accept the <a href="condiciones.html" target="_blank" rel="noopener">booking, cancellation and loyalty programme terms</a>.',
       it: 'Ho letto e accetto le <a href="condiciones.html" target="_blank" rel="noopener">condizioni di prenotazione, cancellazione e il programma fedeltà</a>.',
     },
+    rememberMe: { es: 'Recordar mis datos en este dispositivo para la próxima vez', en: 'Remember my details on this device for next time', it: 'Ricorda i miei dati su questo dispositivo per la prossima volta' },
+    rememberedNote: { es: 'Hemos rellenado los datos guardados en este dispositivo.', en: 'We filled in the details saved on this device.', it: 'Abbiamo inserito i dati salvati su questo dispositivo.' },
+    forgetMe: { es: 'Borrar mis datos de este dispositivo', en: 'Delete my details from this device', it: 'Cancella i miei dati da questo dispositivo' },
     termsRequired: { es: 'Tienes que aceptar las condiciones de reserva para continuar.', en: 'You need to accept the booking terms to continue.', it: 'Devi accettare le condizioni di prenotazione per continuare.' },
   };
   function t(key) { return (STR[key] && STR[key][LANG]) || (STR[key] && STR[key].es) || key; }
@@ -732,6 +735,8 @@
       </div>
     `;
     const input = els.employees.querySelector('.booking-laser-phone-input');
+    const savedForGate = loadSavedClient();
+    if (savedForGate && savedForGate.phone) input.value = savedForGate.phone;
     const btn = els.employees.querySelector('.booking-laser-phone-continue');
     const errorEl = els.employees.querySelector('.booking-laser-phone-error');
     const submit = async () => {
@@ -1002,6 +1007,8 @@
       return;
     }
 
+    rememberClientIfAsked({ name, phone, email, birthdate });
+
     els.submit.disabled = true;
     els.submit.textContent = t('connectingPayment');
 
@@ -1062,6 +1069,86 @@
       els.submit.textContent = t('goToPayment');
     }
   });
+
+  // ============================================================
+  // Recordar los datos de la clienta en SU dispositivo (localStorage), para
+  // que no tenga que escribirlos en cada reserva. Solo si marca la casilla;
+  // no se manda a ningún sitio nuevo, y se puede borrar desde el formulario.
+  // ============================================================
+  const CLIENT_STORAGE_KEY = 'osana_cliente_v1';
+
+  function loadSavedClient() {
+    try {
+      const data = JSON.parse(localStorage.getItem(CLIENT_STORAGE_KEY));
+      return data && typeof data === 'object' ? data : null;
+    } catch (e) {
+      return null; // navegación privada o almacenamiento bloqueado: como siempre
+    }
+  }
+
+  function forgetSavedClient() {
+    try { localStorage.removeItem(CLIENT_STORAGE_KEY); } catch (e) { /* nada que borrar */ }
+  }
+
+  function rememberClientIfAsked(client) {
+    const check = document.getElementById('booking-remember-check');
+    if (!check) return;
+    if (!check.checked) { forgetSavedClient(); return; }
+    try {
+      localStorage.setItem(CLIENT_STORAGE_KEY, JSON.stringify(client));
+    } catch (e) { /* sin almacenamiento: la reserva sigue igual */ }
+  }
+
+  function setupRememberedClient() {
+    const fields = { name: 'name', phone: 'tel', email: 'email', birthdate: 'bday' };
+    Object.keys(fields).forEach((key) => {
+      const el = document.getElementById(`booking-${key}`);
+      if (el) el.setAttribute('autocomplete', fields[key]);
+    });
+    const birthdateInput = document.getElementById('booking-birthdate');
+    const anchor = birthdateInput && birthdateInput.closest('.booking-field');
+    if (!anchor) return;
+
+    const box = document.createElement('div');
+    box.className = 'booking-field booking-remember';
+    box.innerHTML = `
+      <label class="booking-remember-label">
+        <input type="checkbox" id="booking-remember-check">
+        <span>${t('rememberMe')}</span>
+      </label>`;
+    anchor.insertAdjacentElement('afterend', box);
+
+    const saved = loadSavedClient();
+    if (!saved) return;
+    Object.keys(fields).forEach((key) => {
+      const el = document.getElementById(`booking-${key}`);
+      if (el && !el.value && typeof saved[key] === 'string') el.value = saved[key];
+    });
+    if (saved.phone) state.phone = saved.phone;
+    document.getElementById('booking-remember-check').checked = true;
+
+    const note = document.createElement('p');
+    note.className = 'booking-remember-note';
+    note.textContent = `${t('rememberedNote')} `;
+    const forget = document.createElement('button');
+    forget.type = 'button';
+    forget.className = 'booking-remember-forget';
+    forget.textContent = t('forgetMe');
+    forget.addEventListener('click', () => {
+      forgetSavedClient();
+      state.phone = '';
+      Object.keys(fields).forEach((key) => {
+        const el = document.getElementById(`booking-${key}`);
+        if (el) el.value = '';
+      });
+      document.getElementById('booking-remember-check').checked = false;
+      note.remove();
+    });
+    note.appendChild(forget);
+    box.appendChild(note);
+  }
+
+  setupRememberedClient();
 
   // Mensaje si venimos de vuelta de Stripe
   const params = new URLSearchParams(window.location.search);

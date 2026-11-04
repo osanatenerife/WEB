@@ -447,3 +447,27 @@ body.reserva-page .page-offset { padding-top: 92px; }
 .mb-pendingbono-info { display: flex; flex-direction: column; gap: 2px; }
 .mb-pendingbono-name { font-size: 14px; color: var(--txt); font-weight: 500; }
 .mb-pendingbono-meta { font-size: 11px; color: var(--txt-soft); }
+
+/* Recordar datos en el dispositivo */
+.booking-field .booking-remember-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+.booking-field .booking-remember-label input {
+  width: auto;
+  flex: none;
+  margin-top: 3px;
+}
+.booking-remember-note { margin: 8px 0 0; font-size: 13px; }
+.booking-remember-forget {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

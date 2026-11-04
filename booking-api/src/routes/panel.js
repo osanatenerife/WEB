@@ -2824,6 +2824,28 @@ router.post('/panel/followup-done', async (req, res) => {
 // vistazo — citas sin cerrar, agenda de los próximos días, seguimientos
 // pendientes, bonos con sesión por agendar, bonos cerca de caducar y
 // presupuestos sin pagar.
+// Citas de un día para la vista de calendario del panel (solo lectura).
+router.get('/panel/calendar', async (req, res) => {
+  const date = String(req.query.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'Fecha no válida.' });
+  try {
+    const all = await getAllBookings();
+    const bookings = all
+      .filter((b) => b.date === date && b.deletedAsMistake !== '1' && !/cancel/i.test(b.status || ''))
+      .map((b) => ({
+        bookingId: b.bookingId, name: b.name, phone: b.phone, email: b.email, serviceName: b.serviceName,
+        employeeId: b.employeeId, employeeName: b.employeeName, time: b.time,
+        durationMinutes: Number(b.durationMinutes) || 30, status: b.status,
+        price: b.price, amountPaid: b.amountPaid, finalAmount: b.finalAmount,
+        notes: b.notes, sessionNumber: b.sessionNumber,
+      }));
+    res.json({ date, bookings });
+  } catch (err) {
+    console.error('Error en /panel/calendar:', err);
+    res.status(500).json({ error: 'No se pudo cargar el calendario.' });
+  }
+});
+
 router.get('/panel/agenda', async (req, res) => {
   const days = Math.max(1, Number(req.query.days) || 7);
   try {
