@@ -1110,7 +1110,7 @@ async function updateFollowupRow(sheetRow, updates) {
   invalidateCache('followups');
 }
 
-module.exports = {
+const sheetsBackend = {
   appendBooking, getAllBookings, findBookingById, updateBookingRow, COLUMNS, appendGift,
   getAllGifts, updateGiftRow,
   getAllBirthdayRecords, upsertBirthdayRecord,
@@ -1122,4 +1122,34 @@ module.exports = {
   appendCustomQuote, getAllCustomQuotes, updateQuoteRow,
   appendDiscount, getAllDiscounts, updateDiscountRow,
   getAllUnsubscribedEmails, appendUnsubscribe,
+  // Solo para tools/ (benchmark, compare): medir sin caché.
+  _resetReadCache: () => readCache.clear(),
 };
+
+// ============================================================
+// Interruptor de "base de datos": DATA_BACKEND=sheets (por defecto, lo de
+// siempre) o DATA_BACKEND=supabase (mismas funciones, guardado en
+// Supabase — ver db-supabase.js). Cualquier otro valor para el arranque,
+// para no escribir sin querer en el sitio equivocado.
+// ============================================================
+const DATA_BACKEND = String(process.env.DATA_BACKEND || 'sheets').trim().toLowerCase();
+if (DATA_BACKEND !== 'sheets' && DATA_BACKEND !== 'supabase') {
+  throw new Error(`DATA_BACKEND="${process.env.DATA_BACKEND}" no es válido: usa "sheets" o "supabase".`);
+}
+const backend = DATA_BACKEND === 'supabase' ? require('./db-supabase') : sheetsBackend;
+
+// Modo solo lectura (DATA_READONLY=1, ver readOnly.js): segunda red por si
+// alguna escritura llegara hasta aquí — se rechaza en vez de escribir.
+if (require('./readOnly').isReadOnly()) {
+  const guarded = { ...backend };
+  for (const name of Object.keys(backend)) {
+    if (/^(append|update|upsert)/.test(name) && typeof backend[name] === 'function') {
+      guarded[name] = async () => {
+        throw new Error(`Modo solo lectura (DATA_READONLY=1): ${name} no puede escribir.`);
+      };
+    }
+  }
+  module.exports = guarded;
+} else {
+  module.exports = backend;
+}

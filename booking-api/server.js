@@ -5,8 +5,10 @@
 // Forzamos IPv4 primero para evitarlo.
 require('dns').setDefaultResultOrder('ipv4first');
 
-require('dotenv').config();
 const path = require('path');
+// .env.local (solo en local/pruebas, nunca se sube) tiene prioridad sobre
+// .env; en Render no existe ninguno de los dos y se usan sus variables.
+require('dotenv').config({ path: [path.join(__dirname, '.env.local'), path.join(__dirname, '.env')] });
 const express = require('express');
 const cors = require('cors');
 
@@ -32,6 +34,12 @@ const app = express();
 // sin aportar seguridad real. FRONTEND_URL se usa aparte solo para construir
 // las URLs de éxito/cancelación de Stripe (ver src/lib/origin.js).
 app.use(cors({ origin: true }));
+
+// Modo solo lectura (DATA_READONLY=1) para la ventana del cambio de base de
+// datos: va antes que todas las rutas, también el webhook (ver src/lib/readOnly.js).
+const { readOnlyGate, isReadOnly } = require('./src/lib/readOnly');
+app.use(readOnlyGate);
+if (isReadOnly()) console.warn('⚠️  DATA_READONLY=1: modo solo lectura, no se acepta ninguna escritura.');
 
 // El webhook de Stripe necesita el cuerpo SIN parsear (raw) para poder
 // verificar la firma — por eso usa su propio parser "raw" y se monta
