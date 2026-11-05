@@ -36,18 +36,18 @@ module.exports = [
   { serviceId: 'presoterapia', sessions: 6, price: 120 },
   { serviceId: 'radiofrecuencia-corporal', sessions: 3, price: 185 },
   { serviceId: 'radiofrecuencia-corporal', sessions: 6, price: 330 },
-  { serviceId: 'maderoterapia', sessions: 5, price: 360 },
-  { serviceId: 'maderoterapia', sessions: 10, price: 650 },
+  { serviceId: 'maderoterapia', sessions: 3, price: 210 },
+  { serviceId: 'maderoterapia', sessions: 6, price: 360 },
   { serviceId: 'electroestimulacion', sessions: 3, price: 120 },
   { serviceId: 'electroestimulacion', sessions: 6, price: 210 },
-  { serviceId: 'criolipolisis', sessions: 3, price: 390 },
-  { serviceId: 'criolipolisis', sessions: 6, price: 570 },
+  { serviceId: 'criolipolisis', sessions: 3, price: 300 },
+  { serviceId: 'criolipolisis', sessions: 6, price: 540 },
 
   // ── Masajes ──
-  { serviceId: 'drenaje-linfatico-50', sessions: 5, price: 350 },
-  { serviceId: 'drenaje-linfatico-50', sessions: 10, price: 620 },
-  { serviceId: 'drenaje-linfatico-manuela-shala', sessions: 5, price: 450 },
-  { serviceId: 'drenaje-linfatico-manuela-shala', sessions: 10, price: 800 },
+  { serviceId: 'drenaje-linfatico-50', sessions: 3, price: 195 },
+  { serviceId: 'drenaje-linfatico-50', sessions: 6, price: 370 },
+  { serviceId: 'drenaje-linfatico-manuela-shala', sessions: 3, price: 265 },
+  { serviceId: 'drenaje-linfatico-manuela-shala', sessions: 6, price: 480 },
 
   // ── Eliminación de tatuajes ──
   { serviceId: 'tatuaje-talla-s', sessions: 3, price: 120 },
