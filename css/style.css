@@ -492,7 +492,7 @@ nav#main-nav {
 .ptable[data-cols="4"] th:not(:first-child), .ptable[data-cols="4"] td:not(:first-child) { width: 85px; }
 .ptable[data-cols="2"] th:last-child, .ptable[data-cols="2"] td:last-child { width: 190px; }
 
-.pr-list { width: 100%; }
+.pr-list { max-width: 840px; margin: 0 auto; }
 .pr-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 17px 0; border-bottom: 1px solid var(--line); }
 .pr-row:last-child { border-bottom: none; }
 .pr-row:hover { background: rgba(42,37,32,0.03); }
