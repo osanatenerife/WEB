@@ -8,6 +8,7 @@
   const STR = {
     chooseToStart: { es: 'Elige un tratamiento para empezar.', en: 'Choose a treatment to get started.', it: 'Scegli un trattamento per iniziare.' },
     free: { es: 'Gratis', en: 'Free', it: 'Gratis' },
+    from: { es: 'Desde', en: 'From', it: 'Da' },
     totalDuration: { es: 'Duración total', en: 'Total duration', it: 'Durata totale' },
     withEmployee: { es: 'Con', en: 'With', it: 'Con' },
     at: { es: 'a las', en: 'at', it: 'alle' },
@@ -429,9 +430,11 @@
       const sorted = g.items.slice().sort((a, b) => a.durationMinutes - b.durationMinutes);
       const selectedItem = state.service && sorted.find((s) => s.id === state.service.id);
       const card = document.createElement('div');
+      const cheapest = sorted[0];
       card.className = 'booking-service-card booking-service-card-group' + (selectedItem ? ' selected open' : '');
       card.innerHTML = `
         <strong>${g.base}</strong>
+        <span class="booking-service-price booking-service-price-from">${t('from')} ${cheapest.price > 0 ? cheapest.price.toFixed(0) + ' €' : t('free')}</span>
         <div class="booking-duration-row">
           ${sorted.map((s) => `
             <button type="button" class="booking-duration-pill${selectedItem && selectedItem.id === s.id ? ' selected' : ''}" data-id="${s.id}">

@@ -75,6 +75,7 @@
 .booking-service-price { font-family: 'Raleway', sans-serif; font-weight: 600; color: var(--brown); margin-top: 8px; font-size: 14px; }
 
 .booking-service-card-group.open { background: var(--cream); }
+.booking-service-card-group.open .booking-service-price-from { display: none; }
 .booking-duration-row { display: none; gap: 8px; margin-top: 10px; }
 .booking-service-card-group.open .booking-duration-row { display: flex; }
 .booking-duration-pill {
