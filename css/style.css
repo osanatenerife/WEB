@@ -422,31 +422,33 @@ nav#main-nav {
 .intro-count { font-family: 'Raleway', sans-serif; font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-soft); white-space: nowrap; padding-top: 4px; }
 
 .services { padding: 44px 0 80px; }
-.svc { margin-bottom: 12px; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 22px -16px rgba(42,32,18,0.22); }
-.svc:last-child { margin-bottom: 0; }
+.svc-group { background: #fdfaf5; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 22px -16px rgba(42,32,18,0.22); }
+.svc { margin-bottom: 0; }
 .svc-head {
-  width: 100%; border: none; border-left: 6px solid var(--gold); cursor: pointer; text-align: left; padding: 22px 30px 22px 26px;
-  display: grid; grid-template-columns: 50px 1fr auto; align-items: center; gap: 16px;
-  background: #fdfaf5; transition: background 0.2s; color: var(--txt);
+  width: 100%; border: none; border-left: 4px solid transparent; cursor: pointer; text-align: left; padding: 20px 30px;
+  display: grid; grid-template-columns: 26px 1fr auto; align-items: center; gap: 16px;
+  background: transparent; transition: background 0.2s, border-color 0.2s; color: var(--txt);
+  border-bottom: 1px solid rgba(138,116,88,0.16);
 }
-.svc-head:hover { background: var(--cream); }
-.svc-n { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; color: var(--brown); }
-.svc-name { font-size: 19px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--txt); }
-.svc-sub { font-size: 12px; font-weight: 400; letter-spacing: 0.01em; color: var(--txt-soft); margin-top: 5px; }
-.svc-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brown); margin-bottom: 6px; }
+.svc:last-child .svc-head { border-bottom: none; }
+.svc-head:hover, .svc-head.open { background: var(--cream); border-left-color: var(--gold); }
+.svc-n { font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #b89b6e; }
+.svc-name { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: var(--txt); }
+.svc-sub { font-size: 11px; font-weight: 400; letter-spacing: 0.01em; color: var(--txt-soft); margin-top: 4px; }
+.svc-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--brown); margin-bottom: 5px; }
 .svc-badge::before { content: '✦'; font-size: 9px; }
-.svc-right { display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.svc-right { display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
 .svc-desde { text-align: right; }
 .svc-desde-label { font-size: 9.5px; font-weight: 500; letter-spacing: 0.18em; text-transform: uppercase; color: var(--txt-soft); display: block; margin-bottom: 2px; }
-.svc-desde-price { font-family: 'Raleway', sans-serif; font-size: 22px; font-weight: 700; color: var(--brown); }
-.svc-icon { width: 18px; height: 18px; position: relative; flex-shrink: 0; }
+.svc-desde-price { font-family: 'Raleway', sans-serif; font-size: 19px; font-weight: 700; color: var(--brown); }
+.svc-icon { width: 16px; height: 16px; position: relative; flex-shrink: 0; }
 .svc-icon::before, .svc-icon::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1.5px; background: var(--brown); transition: transform 0.3s, opacity 0.3s; }
 .svc-icon::after { transform: rotate(90deg); }
 .svc-head.open .svc-icon::after { transform: rotate(0deg); opacity: 0.35; }
 
 .svc-body { max-height: 0; overflow: hidden; transition: max-height 0.45s cubic-bezier(0.4,0,0.2,1); }
 .svc-body.open { max-height: 2000px; }
-.svc-inner { padding: 30px 48px 38px 98px; background: var(--svc-bg); }
+.svc-inner { padding: 30px 48px 38px 76px; background: var(--svc-bg); }
 .svc-desc { font-size: 13px; font-weight: 300; color: var(--txt-mid); line-height: 1.85; padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
 .svc-desc-tight { border-bottom: none; padding-bottom: 6px; margin-bottom: 4px; }
 .svc-benefits { font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--brown); padding-bottom: 20px; border-bottom: 1px solid var(--line); margin-bottom: 22px; }
