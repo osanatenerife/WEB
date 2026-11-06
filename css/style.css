@@ -367,8 +367,9 @@ nav#main-nav {
 }
 .klarna-headline em { font-style: italic; font-weight: 700; }
 .klarna-badge {
-  font-family: 'Raleway', sans-serif; font-weight: 800; font-style: italic; letter-spacing: -0.02em;
-  color: #17120f; background: #ffb3c7; padding: 6px 16px; border-radius: 20px; font-size: 0.85em;
+  font-family: 'Raleway', sans-serif; font-weight: 800; letter-spacing: -0.02em;
+  color: #17120f; background: #ffb3c7; padding: 2px 10px; border-radius: 14px; font-size: 0.62em;
+  display: inline-block; vertical-align: middle;
 }
 .klarna-note { margin: 2px 0 0; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--txt-soft); }
 @media (max-width: 560px) {
