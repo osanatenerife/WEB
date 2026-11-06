@@ -75,15 +75,14 @@
 .booking-service-price { font-family: 'Raleway', sans-serif; font-weight: 600; color: var(--brown); margin-top: 4px; font-size: 12.5px; }
 
 /* Tratamientos combinados (p.ej. "Cejas Definidas: hilo + henna + lifting") —
-   mismo tono tierra que el resto de acentos de la web, para que se noten
-   diferentes del resto sin desentonar. */
-.booking-service-card.pack { background: var(--brown); border-color: var(--brown); }
-.booking-service-card.pack:hover { border-color: var(--gold); }
-.booking-service-card.pack.selected { border-color: var(--gold); }
-.booking-service-card.pack strong { color: var(--cream2); }
-.booking-service-card.pack .booking-service-meta { color: rgba(246,238,218,0.7); }
-.booking-service-card.pack .booking-service-desc { color: rgba(246,238,218,0.7); }
-.booking-service-card.pack .booking-service-price { color: var(--cream2); }
+   tono tierra suave para que se noten diferentes sin desentonar. */
+.booking-service-card.pack { background: #c9bba4; border-color: #c9bba4; }
+.booking-service-card.pack:hover { border-color: var(--brown); }
+.booking-service-card.pack.selected { border-color: var(--brown); }
+.booking-service-card.pack strong { color: var(--txt); }
+.booking-service-card.pack .booking-service-meta { color: #5c5240; }
+.booking-service-card.pack .booking-service-desc { color: #5c5240; }
+.booking-service-card.pack .booking-service-price { color: #5c4a2e; }
 
 .booking-extras-section { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--line); }
 .booking-subtitle { font-size: 15px; font-weight: 600; color: var(--txt); margin-bottom: 14px; }
