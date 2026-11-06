@@ -477,6 +477,10 @@ nav#main-nav {
 .svc-two-col .ptable { max-width: none; margin: 0; }
 .svc-two-col .svc-faq { margin-top: 0; max-width: none; margin-left: 0; margin-right: 0; }
 
+.svc-faq-full { margin-top: 36px; padding-top: 30px; border-top: 1px solid var(--line); }
+.svc-faq-full .svc-faq-title { text-align: center; max-width: none; margin: 0 0 20px; }
+.svc-faq-full .svc-faq { max-width: none; margin: 0; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
 .ptable { width: 100%; max-width: 720px; margin: 0 auto; border-collapse: collapse; table-layout: fixed; }
 .ptable thead th { font-size: 10px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--txt-soft); padding: 0 0 14px; border-bottom: 1px solid var(--line); text-align: left; }
 .ptable thead th:not(:first-child) { text-align: right; }
@@ -851,6 +855,9 @@ body.osed-editing .osed-editable:focus { outline: 2px solid var(--gold); backgro
   .svc-inner { padding: 24px 20px 28px !important; }
 
   .svc-two-col { grid-template-columns: 1fr; gap: 30px; }
+  .svc-faq-full .svc-faq { grid-template-columns: 1fr; }
+  .pr-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .pr-tags { align-self: stretch; justify-content: space-between; }
 
   .ptable { display: block; width: 100%; }
   .ptable thead { display: none; }
