@@ -9,6 +9,7 @@
     chooseToStart: { es: 'Elige un tratamiento para empezar.', en: 'Choose a treatment to get started.', it: 'Scegli un trattamento per iniziare.' },
     free: { es: 'Gratis', en: 'Free', it: 'Gratis' },
     from: { es: 'Desde', en: 'From', it: 'Da' },
+    chooseDuration: { es: 'Elige la duración', en: 'Choose the duration', it: 'Scegli la durata' },
     totalDuration: { es: 'Duración total', en: 'Total duration', it: 'Durata totale' },
     withEmployee: { es: 'Con', en: 'With', it: 'Con' },
     at: { es: 'a las', en: 'at', it: 'alle' },
@@ -108,6 +109,7 @@
     loyaltyEligible: false,
     loyaltyBalance: 0,
     redeemAmount: 0, // importe de saldo de fidelidad ya aplicado (confirmado con "Canjear")
+    durationGroup: null, // si el servicio elegido es de un grupo con varias duraciones (p.ej. masajes), el array de opciones del grupo
   };
 
   // "extras" son modificadores de zona/tiempo del tratamiento principal
@@ -213,6 +215,7 @@
     catPills: document.getElementById('booking-cat-pills'),
     services: document.getElementById('booking-services'),
     bonoSection: document.getElementById('booking-bono-section'),
+    durationSection: document.getElementById('booking-duration-section'),
     addonsSection: document.getElementById('booking-addons-section'),
     addonsChips: document.getElementById('booking-addons-chips'),
     addonsSelect: document.getElementById('booking-addons-select'),
@@ -415,7 +418,7 @@
       if (g.items.length === 1) {
         const s = g.items[0];
         const card = document.createElement('div');
-        card.className = 'booking-service-card' + (state.service && state.service.id === s.id ? ' selected' : '');
+        card.className = 'booking-service-card' + (s.pack ? ' pack' : '') + (state.service && state.service.id === s.id ? ' selected' : '');
         card.innerHTML = `
           <strong>${s.name}</strong>
           <span class="booking-service-meta">${s.durationMinutes} min</span>
@@ -427,38 +430,57 @@
         return;
       }
 
+      // Varias duraciones para el mismo tratamiento (p.ej. masajes): la tarjeta
+      // solo elige el TIPO — al seleccionarla aparece, debajo de toda la rejilla,
+      // un bloque para elegir la duración (mismo patrón visual que el bono de
+      // sesiones de depilación láser), en vez de botones diminutos dentro de la
+      // propia tarjeta.
       const sorted = g.items.slice().sort((a, b) => a.durationMinutes - b.durationMinutes);
       const selectedItem = state.service && sorted.find((s) => s.id === state.service.id);
       const card = document.createElement('div');
-      const cheapest = sorted[0];
-      card.className = 'booking-service-card booking-service-card-group' + (selectedItem ? ' selected open' : '');
-      card.innerHTML = `
+      card.className = 'booking-service-card' + (selectedItem ? ' selected' : '');
+      card.innerHTML = selectedItem ? `
         <strong>${g.base}</strong>
-        <span class="booking-service-price booking-service-price-from">${t('from')} ${cheapest.price > 0 ? cheapest.price.toFixed(0) + ' €' : t('free')}</span>
-        <div class="booking-duration-row">
-          ${sorted.map((s) => `
-            <button type="button" class="booking-duration-pill${selectedItem && selectedItem.id === s.id ? ' selected' : ''}" data-id="${s.id}">
-              <span class="booking-duration-pill-min">${s.durationMinutes} min</span>
-              <span class="booking-duration-pill-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
-            </button>
-          `).join('')}
-        </div>
+        <span class="booking-service-meta">${selectedItem.durationMinutes} min</span>
+        <span class="booking-service-price">${selectedItem.price > 0 ? selectedItem.price.toFixed(0) + ' €' : t('free')}</span>
+      ` : `
+        <strong>${g.base}</strong>
+        <span class="booking-service-price booking-service-price-from">${t('from')} ${sorted[0].price > 0 ? sorted[0].price.toFixed(0) + ' €' : t('free')}</span>
       `;
-      card.addEventListener('click', (e) => {
-        if (card.classList.contains('open')) return;
-        els.services.querySelectorAll('.booking-service-card-group.open').forEach((c) => c.classList.remove('open'));
-        card.classList.add('open');
-      });
-      card.querySelectorAll('.booking-duration-pill').forEach((pill) => {
-        pill.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const svc = sorted.find((s) => s.id === pill.dataset.id);
-          card.querySelectorAll('.booking-duration-pill').forEach((p) => p.classList.remove('selected'));
-          pill.classList.add('selected');
-          selectService(svc, card);
-        });
+      card.addEventListener('click', () => {
+        if (selectedItem) return; // ya elegida — la duración se cambia desde el bloque de abajo
+        selectService(sorted[0], card, sorted);
       });
       els.services.appendChild(card);
+    });
+  }
+
+  function renderDurationSection() {
+    const group = state.durationGroup;
+    if (!group) {
+      els.durationSection.style.display = 'none';
+      els.durationSection.innerHTML = '';
+      return;
+    }
+    els.durationSection.style.display = 'block';
+    els.durationSection.innerHTML = `
+      <div class="booking-bono-title">${t('chooseDuration')}</div>
+      <div class="booking-bono-options">
+        ${group.map((s) => `
+          <button type="button" class="booking-bono-option${state.service && state.service.id === s.id ? ' selected' : ''}" data-id="${s.id}">
+            <span class="booking-bono-option-name">${s.durationMinutes} min</span>
+            <span class="booking-bono-option-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
+          </button>
+        `).join('')}
+      </div>
+    `;
+    els.durationSection.querySelectorAll('.booking-bono-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const svc = group.find((s) => s.id === btn.dataset.id);
+        const cardEl = els.services.querySelector('.booking-service-card.selected');
+        selectService(svc, cardEl, group, true);
+        renderServiceGrid();
+      });
     });
   }
 
@@ -535,21 +557,28 @@
     });
   }
 
-  function selectService(service, cardEl) {
+  function selectService(service, cardEl, durationGroup, keepExtras) {
     state.service = service;
-    state.extras = [];
-    state.extraServices = [];
-    state.extraBonos = [];
-    state.wantsBono = false;
+    state.durationGroup = durationGroup || null;
+    // Cambiar solo la duración dentro del mismo grupo (p.ej. masajes) no debe
+    // tirar los extras/añadidos ya elegidos — eso solo tiene sentido al
+    // cambiar de tratamiento de verdad.
+    if (!keepExtras) {
+      state.extras = [];
+      state.extraServices = [];
+      state.extraBonos = [];
+      state.wantsBono = false;
+    }
     document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
-    cardEl.classList.add('selected');
+    if (cardEl) cardEl.classList.add('selected');
     renderSummary();
     renderBonoSection();
+    renderDurationSection();
     els.addonsSection.style.display = 'block';
     els.step1Actions.style.display = 'block';
     renderAddonsChips();
     renderAddonsSelect();
-    loadExtras();
+    if (!keepExtras) loadExtras();
   }
 
   // ── "Otros tratamientos" añadidos a la misma cita ──
