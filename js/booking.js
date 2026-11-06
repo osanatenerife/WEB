@@ -362,16 +362,66 @@
   function renderServiceGrid() {
     const items = servicesByCategory[activeCategory] || [];
     els.services.innerHTML = '';
+
+    // Agrupa servicios que comparten nombre base (p. ej. "Masaje relajante · 30 min",
+    // "· 60 min", "· 90 min") para que el cliente elija primero el tipo, sin ver el
+    // precio, y luego la duración en una fila compacta de opciones.
+    const groups = [];
+    const groupIndexByBase = {};
     items.forEach((s) => {
+      const base = s.name.replace(/\s*·\s*\d+\s*min\s*$/i, '').trim();
+      if (groupIndexByBase[base] === undefined) {
+        groupIndexByBase[base] = groups.length;
+        groups.push({ base, items: [] });
+      }
+      groups[groupIndexByBase[base]].items.push(s);
+    });
+
+    groups.forEach((g) => {
+      if (g.items.length === 1) {
+        const s = g.items[0];
+        const card = document.createElement('div');
+        card.className = 'booking-service-card' + (state.service && state.service.id === s.id ? ' selected' : '');
+        card.innerHTML = `
+          <strong>${s.name}</strong>
+          <span class="booking-service-meta">${s.durationMinutes} min</span>
+          ${s.description ? `<span class="booking-service-desc">${s.description}</span>` : ''}
+          <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
+        `;
+        card.addEventListener('click', () => selectService(s, card));
+        els.services.appendChild(card);
+        return;
+      }
+
+      const sorted = g.items.slice().sort((a, b) => a.durationMinutes - b.durationMinutes);
+      const selectedItem = state.service && sorted.find((s) => s.id === state.service.id);
       const card = document.createElement('div');
-      card.className = 'booking-service-card' + (state.service && state.service.id === s.id ? ' selected' : '');
+      card.className = 'booking-service-card booking-service-card-group' + (selectedItem ? ' selected open' : '');
       card.innerHTML = `
-        <strong>${s.name}</strong>
-        <span class="booking-service-meta">${s.durationMinutes} min</span>
-        ${s.description ? `<span class="booking-service-desc">${s.description}</span>` : ''}
-        <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
+        <strong>${g.base}</strong>
+        <div class="booking-duration-row">
+          ${sorted.map((s) => `
+            <button type="button" class="booking-duration-pill${selectedItem && selectedItem.id === s.id ? ' selected' : ''}" data-id="${s.id}">
+              <span class="booking-duration-pill-min">${s.durationMinutes} min</span>
+              <span class="booking-duration-pill-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
+            </button>
+          `).join('')}
+        </div>
       `;
-      card.addEventListener('click', () => selectService(s, card));
+      card.addEventListener('click', (e) => {
+        if (card.classList.contains('open')) return;
+        els.services.querySelectorAll('.booking-service-card-group.open').forEach((c) => c.classList.remove('open'));
+        card.classList.add('open');
+      });
+      card.querySelectorAll('.booking-duration-pill').forEach((pill) => {
+        pill.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const svc = sorted.find((s) => s.id === pill.dataset.id);
+          card.querySelectorAll('.booking-duration-pill').forEach((p) => p.classList.remove('selected'));
+          pill.classList.add('selected');
+          selectService(svc, card);
+        });
+      });
       els.services.appendChild(card);
     });
   }
