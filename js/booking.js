@@ -49,7 +49,7 @@
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package`, it: (n) => `Pacchetto ${n} sedute` },
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}`, it: (n) => `Risparmi ${n} €` },
     bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. El resto se agendan en el centro.`, en: (n) => `Today you book session 1 of ${n}. The rest are scheduled at the center.`, it: (n) => `Oggi prenoti la seduta 1 di ${n}. Le altre si fissano in centro.` },
-    bonoFullNote: { es: 'También puedes financiar el bono si pagas el total ahora.', en: 'You can also finance the package if you pay the full amount now.', it: 'Puoi anche finanziare il pacchetto se paghi tutto ora.' },
+    bonoFullNote: { es: 'Si pagas el total ahora, puedes financiarlo con Klarna en hasta 3 cuotas sin intereses.', en: 'If you pay the full amount now, you can finance it with Klarna in up to 3 interest-free instalments.', it: 'Se paghi tutto ora, puoi finanziarlo con Klarna fino a 3 rate senza interessi.' },
     bonoTermsLabel: {
       es: 'He leído y acepto que, tras la primera ausencia sin preaviso o cancelación con menos de 48h se me avisará, y a partir de la segunda vez se descontará una sesión del bono.',
       en: 'I have read and accept that after the first no-show or cancellation with less than 48h notice I will be warned, and from the second time onward a session will be deducted from the package.',
