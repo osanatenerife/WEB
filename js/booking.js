@@ -63,6 +63,17 @@
     discountApplied: { es: (n) => `Código aplicado: -${n.toFixed(2)} €`, en: (n) => `Code applied: -€${n.toFixed(2)}`, it: (n) => `Codice applicato: -${n.toFixed(2)} €` },
     discountLine: { es: 'Descuento', en: 'Discount', it: 'Sconto' },
     discountStale: { es: 'El código ya no aplica a tu selección actual — vuelve a introducirlo si quieres aplicarlo.', en: 'The code no longer applies to your current selection — enter it again if you want to apply it.', it: 'Il codice non è più valido per la tua selezione attuale — reinseriscilo se vuoi applicarlo.' },
+    loyaltyTitle: { es: 'Saldo acumulado', en: 'Loyalty balance', it: 'Saldo accumulato' },
+    loyaltyBalanceText: { es: (n) => `Tienes ${n.toFixed(2)} € acumulados`, en: (n) => `You have €${n.toFixed(2)} saved up`, it: (n) => `Hai ${n.toFixed(2)} € accumulati` },
+    loyaltyBelowMinText: { es: (n) => `Tienes ${n.toFixed(2)} € acumulados — a partir de 10 € puedes canjearlos.`, en: (n) => `You have €${n.toFixed(2)} saved up — redeemable from €10.`, it: (n) => `Hai ${n.toFixed(2)} € accumulati — canjeabili a partire da 10 €.` },
+    loyaltyRedeemLabel: { es: '¿Cuánto quieres canjear?', en: 'How much would you like to redeem?', it: 'Quanto vuoi utilizzare?' },
+    loyaltyRedeemBtn: { es: 'Canjear', en: 'Redeem', it: 'Utilizza' },
+    loyaltyRedeemApplied: { es: (n) => `Saldo canjeado: -${n.toFixed(2)} €`, en: (n) => `Balance redeemed: -€${n.toFixed(2)}`, it: (n) => `Saldo utilizzato: -${n.toFixed(2)} €` },
+    loyaltyRedeemRemove: { es: 'Quitar', en: 'Remove', it: 'Rimuovi' },
+    loyaltyRedeemMin: { es: 'El canje mínimo es de 10 €.', en: 'The minimum redemption is €10.', it: "L'importo minimo da utilizzare è 10 €." },
+    loyaltyRedeemMax: { es: (n) => `Como máximo puedes canjear ${n.toFixed(2)} €.`, en: (n) => `You can redeem up to €${n.toFixed(2)}.`, it: (n) => `Puoi utilizzare al massimo ${n.toFixed(2)} €.` },
+    loyaltyRedeemBlockedByDiscount: { es: 'No puedes canjear saldo y usar un código de descuento a la vez. Quita el código si quieres canjear saldo.', en: "You can't redeem balance and use a discount code at the same time. Remove the code if you want to redeem balance.", it: 'Non puoi utilizzare il saldo e un codice sconto insieme. Rimuovi il codice se vuoi usare il saldo.' },
+    loyaltyDiscountBlockedByRedeem: { es: 'Ya has canjeado saldo de fidelidad — quítalo si quieres usar un código de descuento.', en: "You've already redeemed loyalty balance — remove it if you want to use a discount code.", it: 'Hai già utilizzato il saldo fedeltà — rimuovilo se vuoi usare un codice sconto.' },
     termsLabel: {
       es: 'He leído y acepto las <a href="condiciones.html" target="_blank" rel="noopener">condiciones de reserva, cancelación y el programa de fidelidad</a>.',
       en: 'I have read and accept the <a href="condiciones.html" target="_blank" rel="noopener">booking, cancellation and loyalty programme terms</a>.',
@@ -92,6 +103,10 @@
     discountValidatedIds: [], // ids de tratamientos con los que se validó (modo suelto) — si la selección cambia, el descuento deja de aplicar
     discountValidatedBonoSig: '', // firma de los bonos con los que se validó (modo bono) — mismo criterio que discountValidatedIds
     phone: '', // se rellena antes de tiempo solo si hace falta comprobar si es clienta nueva (ver hasLaserSelected)
+    loyaltyChecked: '', // "telefono|email" con el que ya se comprobó el saldo, para no repetir la llamada
+    loyaltyEligible: false,
+    loyaltyBalance: 0,
+    redeemAmount: 0, // importe de saldo de fidelidad ya aplicado (confirmado con "Canjear")
   };
 
   // "extras" son modificadores de zona/tiempo del tratamiento principal
@@ -159,10 +174,14 @@
     return current !== '' && current === validated;
   }
   function discountAmount() { return discountIsStillValid() ? state.discountAmount : 0; }
+  // El canje de saldo de fidelidad solo está disponible para sesiones
+  // sueltas (no para compras de bono, que van por bono-checkout — ver
+  // handleSubmit) y nunca a la vez que un código de descuento.
+  function redeemAmount() { return (!hasAnyBono() && discountAmount() === 0) ? (state.redeemAmount || 0) : 0; }
   function totalPrice() {
     const primary = state.wantsBono && state.bono ? state.bono.bonoPrice : (state.service ? state.service.price : 0);
     const modifiers = state.wantsBono ? 0 : extrasPrice();
-    return primary + modifiers + addonsPrice() + extraBonosPrice() - discountAmount();
+    return primary + modifiers + addonsPrice() + extraBonosPrice() - discountAmount() - redeemAmount();
   }
   function selectedServiceIds() {
     return [state.service.id, ...state.extraServices.map((s) => s.id), ...state.extraBonos.map((b) => b.serviceId)];
@@ -203,6 +222,9 @@
     discountCodeInput: document.getElementById('booking-discount-code'),
     discountApplyBtn: document.getElementById('booking-discount-apply'),
     discountMsg: document.getElementById('booking-discount-msg'),
+    loyaltyBox: document.getElementById('booking-loyalty-box'),
+    clientPhone: document.getElementById('booking-phone'),
+    clientEmail: document.getElementById('booking-email'),
   };
 
   function showError(msg) {

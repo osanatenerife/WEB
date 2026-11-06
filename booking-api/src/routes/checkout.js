@@ -13,6 +13,9 @@ const { resolveDiscount } = require('../lib/discounts');
 const { handleBookingPayment } = require('./webhook');
 const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
+const { getLoyaltyMovementsForPhone } = require('../lib/sheets');
+const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { normalizePhone } = require('../lib/clientId');
 
 const router = express.Router();
 
@@ -69,7 +72,7 @@ function round2(n) {
 }
 
 router.post('/checkout', async (req, res) => {
-  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, discountCode, termsAccepted, lang } = req.body || {};
+  const { serviceId, employeeId, date, time, clientName, clientPhone, clientEmail, clientBirthdate, paymentChoice, extraIds, extraServiceIds, discountCode, redeemAmount, termsAccepted, lang } = req.body || {};
   const reservaPath = lang === 'en' ? '/en/reserva.html' : lang === 'it' ? '/it/reserva.html' : '/reserva.html';
 
   if (!serviceId || !employeeId || !date || !time || !clientName || !clientPhone || !clientEmail) {
@@ -77,6 +80,13 @@ router.post('/checkout', async (req, res) => {
   }
   if (!termsAccepted) {
     return res.status(400).json({ error: 'Tienes que aceptar las condiciones de reserva para continuar.' });
+  }
+  const redeemRequested = round2(Number(redeemAmount) || 0);
+  if (redeemRequested > 0 && discountCode) {
+    return res.status(400).json({ error: 'No puedes canjear saldo de fidelidad y usar un código de descuento a la vez — elige solo uno.' });
+  }
+  if (redeemRequested > 0 && redeemRequested < MIN_REDEEM_AMOUNT) {
+    return res.status(400).json({ error: `El canje mínimo de saldo es de ${MIN_REDEEM_AMOUNT} €.` });
   }
 
   const service = services.find((s) => s.id === serviceId);
@@ -95,7 +105,23 @@ router.post('/checkout', async (req, res) => {
     // El descuento se vuelve a comprobar en el servidor a partir del código,
     // nunca del importe que mande el navegador — evita que se manipule el precio.
     const discount = await resolveDiscount(discountCode, [service, ...additionalServices], 'loose');
-    const price = round2(priceBeforeDiscount - (discount ? discount.amount : 0));
+
+    // El saldo de fidelidad a canjear también se revalida aquí contra el
+    // saldo real (nunca el importe que mande el navegador) — y otra vez,
+    // dentro de un bloqueo, en el momento en que el pago se confirma de
+    // verdad (ver handleBookingPayment en webhook.js), por si dos pagos
+    // del mismo saldo se completasen casi a la vez.
+    let redeemApplied = 0;
+    if (redeemRequested > 0) {
+      const movements = await getLoyaltyMovementsForPhone(normalizePhone(clientPhone));
+      const balance = computeLoyaltyBalance(movements);
+      if (redeemRequested > balance) {
+        return res.status(409).json({ error: `Saldo insuficiente: dispones de ${balance.toFixed(2)} €.` });
+      }
+      redeemApplied = Math.min(redeemRequested, priceBeforeDiscount);
+    }
+
+    const price = round2(priceBeforeDiscount - (discount ? discount.amount : 0) - redeemApplied);
 
     const startISO = localToISO(date, time.length === 5 ? time : time + ':00', hours.timezone);
     const endISO = addMinutes(startISO, duration);
@@ -127,6 +153,7 @@ router.post('/checkout', async (req, res) => {
         additionalServices.length ? `Tratamientos añadidos: ${additionalServices.map((s) => s.name).join(', ')}` : null,
         selectedExtras.length ? `Extras: ${selectedExtras.map((e) => e.name).join(', ')}` : null,
         discount ? `Código de descuento: ${discount.code} (-${discount.amount.toFixed(2)} €)` : null,
+        redeemApplied > 0 ? `Saldo de fidelidad canjeado: -${redeemApplied.toFixed(2)} €` : null,
         `Pago online: ${amount.toFixed(2)} € (${type})`,
         amount < price ? `Resto a pagar en centro: ${(price - amount).toFixed(2)} €` : null,
         '',
@@ -164,6 +191,7 @@ router.post('/checkout', async (req, res) => {
           date, time, durationMinutes: String(duration),
           clientName, clientPhone, clientEmail: clientEmail || '', clientBirthdate: clientBirthdate || '',
           price: String(price), amount: String(amount), paymentType: type,
+          redeemAmount: redeemApplied > 0 ? String(redeemApplied) : '',
           lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
           termsAcceptedAt: new Date().toISOString(),
         },
@@ -205,6 +233,7 @@ router.post('/checkout', async (req, res) => {
         paymentType: type,
         discountCode: discount ? discount.code : '',
         discountAmount: discount ? String(discount.amount) : '',
+        redeemAmount: redeemApplied > 0 ? String(redeemApplied) : '',
         termsAcceptedAt: new Date().toISOString(),
         lang: lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es',
       },

@@ -159,6 +159,29 @@ router.get('/my-bookings', async (req, res) => {
   }
 });
 
+// ── Saldo de fidelidad para el paso de pago de una reserva nueva ──
+// Pensado para reserva.html: en cuanto la clienta escribe teléfono + email,
+// si el sistema la reconoce (mismo criterio de seguridad que /my-bookings:
+// tiene que coincidir con al menos una reserva real suya), le mostramos su
+// saldo para que pueda decidir si lo canjea en esta misma reserva.
+router.get('/loyalty-balance', async (req, res) => {
+  const { phone, email } = req.query;
+  if (!phone || !email) {
+    return res.json({ eligible: false, balance: 0 });
+  }
+  try {
+    const all = await getAllBookings();
+    const hasOwnedBooking = all.some((b) => isOwner(b, phone, email));
+    if (!hasOwnedBooking) return res.json({ eligible: false, balance: 0 });
+    const movements = await getLoyaltyMovementsForPhone(normalizePhone(phone));
+    const balance = computeLoyaltyBalance(movements);
+    res.json({ eligible: true, balance });
+  } catch (err) {
+    console.error(err);
+    res.json({ eligible: false, balance: 0 });
+  }
+});
+
 // ── Historial de visitas pasadas (solo lectura, sin cancelar/reprogramar) ──
 router.get('/my-bookings/history', async (req, res) => {
   const { phone, email } = req.query;

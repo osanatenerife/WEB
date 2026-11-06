@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
 const { appendBooking, appendGift, getAllGifts, appendSessionBono, getAllBookings, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
-const { earnRateFor, computeLoyaltyBalance, currentExpiryDate } = require('../config/loyalty');
+const { earnRateFor, computeLoyaltyBalance, currentExpiryDate, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { earnLoyalty } = require('../lib/loyaltyEarn');
@@ -255,7 +255,7 @@ async function handleBookingPayment(session) {
   const {
     bookingId, calendarId, eventId, serviceId, employeeId, date, time,
     durationMinutes, clientName, clientPhone, clientEmail, clientBirthdate, price, amount, paymentType, lang,
-    extraServiceIds, termsAcceptedAt,
+    extraServiceIds, termsAcceptedAt, redeemAmount,
   } = session.metadata || {};
 
   // Stripe puede reenviar el mismo evento más de una vez (reintentos si la
@@ -337,6 +337,48 @@ async function handleBookingPayment(session) {
         if (saved) {
           await updateBookingRow(saved._sheetRow, saved, { finalAmount: realAmountPaid, remainderPaidHow: '' });
           await earnLoyalty({ booking: saved, portionAmount: realAmountPaid, paidHow: 'tarjeta' });
+        }
+      }
+
+      // Si la clienta canjeó saldo de fidelidad al reservar, el pago ya se
+      // cobró con ese descuento aplicado — ahora que la reserva está
+      // confirmada de verdad, restamos el saldo gastado. Se vuelve a
+      // comprobar el saldo real dentro de un bloqueo (por si dos pagos del
+      // mismo saldo se confirmasen casi a la vez) en vez de fiarnos del
+      // importe guardado en el pago — si por lo que sea ya no hay saldo
+      // suficiente, no bloqueamos la reserva (el cobro ya se hizo), pero se
+      // deja constancia en los logs para revisarlo a mano.
+      const redeemRequested = round2(Number(redeemAmount) || 0);
+      if (redeemRequested > 0) {
+        try {
+          await withLock(`loyalty:${normalizePhone(clientPhone)}`, async () => {
+            const movements = await getLoyaltyMovementsForPhone(normalizePhone(clientPhone));
+            const balance = computeLoyaltyBalance(movements);
+            const toRedeem = round2(Math.min(redeemRequested, balance));
+            if (toRedeem <= 0) {
+              console.error(`Canje de fidelidad no aplicado para la reserva ${bookingId}: saldo ya agotado al confirmar el pago (se pidieron ${redeemRequested} €).`);
+              return;
+            }
+            await appendLoyaltyMovement({
+              date: new Date().toISOString().slice(0, 10),
+              phoneNormalized: normalizePhone(clientPhone),
+              emailNormalized: normalizeEmail(clientEmail || ''),
+              name: clientName || '',
+              type: 'redeem',
+              bookingId,
+              serviceName: combinedServiceName,
+              category: '',
+              baseAmount: '',
+              paidHow: '',
+              rateApplied: '',
+              amount: toRedeem,
+            });
+            if (toRedeem < redeemRequested) {
+              console.error(`Canje parcial para la reserva ${bookingId}: se pidieron ${redeemRequested} € pero solo había ${toRedeem} € de saldo disponible al confirmar el pago.`);
+            }
+          });
+        } catch (redeemErr) {
+          console.error('No se pudo registrar el canje de saldo de fidelidad:', redeemErr);
         }
       }
     } catch (sheetErr) {
