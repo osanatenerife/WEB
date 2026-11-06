@@ -174,14 +174,25 @@
     return current !== '' && current === validated;
   }
   function discountAmount() { return discountIsStillValid() ? state.discountAmount : 0; }
-  // El canje de saldo de fidelidad solo está disponible para sesiones
-  // sueltas (no para compras de bono, que van por bono-checkout — ver
-  // handleSubmit) y nunca a la vez que un código de descuento.
-  function redeemAmount() { return (!hasAnyBono() && discountAmount() === 0) ? (state.redeemAmount || 0) : 0; }
-  function totalPrice() {
+  // Precio antes de descuento/canje — lo usan discountAmount/redeemAmount
+  // (para no poder canjear/descontar más de lo que de verdad cuesta) y
+  // totalPrice (que sí resta ambos).
+  function rawPrice() {
     const primary = state.wantsBono && state.bono ? state.bono.bonoPrice : (state.service ? state.service.price : 0);
     const modifiers = state.wantsBono ? 0 : extrasPrice();
-    return primary + modifiers + addonsPrice() + extraBonosPrice() - discountAmount() - redeemAmount();
+    return primary + modifiers + addonsPrice() + extraBonosPrice();
+  }
+  // El canje de saldo de fidelidad solo está disponible para sesiones
+  // sueltas (no para compras de bono, que van por bono-checkout — ver
+  // handleSubmit) y nunca a la vez que un código de descuento. Se limita
+  // también a lo que cuesta la reserva, por si el carrito cambia después
+  // de haber canjeado un importe mayor.
+  function redeemAmount() {
+    if (hasAnyBono() || discountAmount() > 0) return 0;
+    return Math.min(state.redeemAmount || 0, rawPrice());
+  }
+  function totalPrice() {
+    return rawPrice() - discountAmount() - redeemAmount();
   }
   function selectedServiceIds() {
     return [state.service.id, ...state.extraServices.map((s) => s.id), ...state.extraBonos.map((b) => b.serviceId)];
