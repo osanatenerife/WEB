@@ -78,6 +78,8 @@
     loyaltyRedeemMax: { es: (n) => `Como máximo puedes canjear ${n.toFixed(2)} €.`, en: (n) => `You can redeem up to €${n.toFixed(2)}.`, it: (n) => `Puoi utilizzare al massimo ${n.toFixed(2)} €.` },
     loyaltyRedeemBlockedByDiscount: { es: 'No puedes canjear saldo y usar un código de descuento a la vez. Quita el código si quieres canjear saldo.', en: "You can't redeem balance and use a discount code at the same time. Remove the code if you want to redeem balance.", it: 'Non puoi utilizzare il saldo e un codice sconto insieme. Rimuovi il codice se vuoi usare il saldo.' },
     loyaltyDiscountBlockedByRedeem: { es: 'Ya has canjeado saldo de fidelidad — quítalo si quieres usar un código de descuento.', en: "You've already redeemed loyalty balance — remove it if you want to use a discount code.", it: 'Hai già utilizzato il saldo fedeltà — rimuovilo se vuoi usare un codice sconto.' },
+    loyaltyBlockedByPromo: { es: 'El saldo de fidelidad no se puede canjear en promociones.', en: "Loyalty balance can't be redeemed on promotions.", it: 'Il saldo fedeltà non è utilizzabile sulle promozioni.' },
+    loyaltyRedeemLine: { es: 'Saldo de fidelidad canjeado', en: 'Loyalty balance redeemed', it: 'Saldo fedeltà utilizzato' },
     termsLabel: {
       es: 'He leído y acepto las <a href="condiciones.html" target="_blank" rel="noopener">condiciones de reserva, cancelación y el programa de fidelidad</a>.',
       en: 'I have read and accept the <a href="condiciones.html" target="_blank" rel="noopener">booking, cancellation and loyalty programme terms</a>.',
@@ -187,13 +189,21 @@
     const modifiers = state.wantsBono ? 0 : extrasPrice();
     return primary + modifiers + addonsPrice() + extraBonosPrice();
   }
+  // El saldo de fidelidad no se puede canjear en promociones (ofertas
+  // puntuales ya rebajadas, ver categoría "Promociones") — solo en
+  // tratamientos y packs a precio normal.
+  function hasAnyPromo() {
+    const promoLabel = t('promoCategory');
+    if (state.service && state.service.category === promoLabel) return true;
+    return state.extraServices.some((s) => s.category === promoLabel);
+  }
   // El canje de saldo de fidelidad solo está disponible para sesiones
   // sueltas (no para compras de bono, que van por bono-checkout — ver
-  // handleSubmit) y nunca a la vez que un código de descuento. Se limita
-  // también a lo que cuesta la reserva, por si el carrito cambia después
-  // de haber canjeado un importe mayor.
+  // handleSubmit), nunca a la vez que un código de descuento, y nunca en
+  // promociones. Se limita también a lo que cuesta la reserva, por si el
+  // carrito cambia después de haber canjeado un importe mayor.
   function redeemAmount() {
-    if (hasAnyBono() || discountAmount() > 0) return 0;
+    if (hasAnyBono() || discountAmount() > 0 || hasAnyPromo()) return 0;
     return Math.min(state.redeemAmount || 0, rawPrice());
   }
   function totalPrice() {
@@ -293,6 +303,9 @@
     if (discountIsStillValid()) {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('discountLine')} (${state.discountCode})</span><span>-${state.discountAmount.toFixed(0)} €</span></div>`;
     }
+    if (redeemAmount() > 0) {
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('loyaltyRedeemLine')}</span><span>-${redeemAmount().toFixed(0)} €</span></div>`;
+    }
     html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong>${state.wantsBono ? ` · ${t('bonoSessionNote')(state.bono.sessions)}` : ''}</div>`;
     if (employee) {
       html += `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>`;
@@ -314,11 +327,127 @@
       els.discountMsg.className = 'booking-discount-msg error';
       els.discountMsg.style.display = 'block';
     }
+    // Si el carrito cambió y lo canjeado ya no cabe en el nuevo precio, o pasó
+    // a incluir una promoción, se recorta/oculta — redeemAmount() ya lo hace
+    // al calcular, aquí solo refrescamos la caja para que se vea igual.
+    renderLoyaltyBox();
   }
+
+  // ── Saldo de fidelidad (se comprueba en cuanto hay teléfono + email de
+  // una clienta que ya tiene alguna reserva — ver /api/loyalty-balance) ──
+  const MIN_REDEEM = 10;
+  async function checkLoyaltyBalance() {
+    const phone = els.clientPhone.value.trim();
+    const email = els.clientEmail.value.trim();
+    if (!phone || !email) return;
+    const key = `${phone}|${email}`;
+    if (state.loyaltyChecked === key) return;
+    state.loyaltyChecked = key;
+    try {
+      const res = await fetch(`${BOOKING_API_BASE}/loyalty-balance?phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(email)}`);
+      const data = await res.json();
+      state.loyaltyEligible = !!data.eligible;
+      state.loyaltyBalance = data.balance || 0;
+    } catch (e) {
+      state.loyaltyEligible = false;
+      state.loyaltyBalance = 0;
+    }
+    renderLoyaltyBox();
+  }
+
+  function renderLoyaltyBox() {
+    const box = els.loyaltyBox;
+    if (!box) return;
+
+    // Ya canjeado: se muestra siempre lo aplicado — solo se puede quitar,
+    // no cambiar el importe (para eso se quita y se vuelve a canjear).
+    if (state.redeemAmount > 0) {
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div class="booking-loyalty-label">${t('loyaltyTitle')}</div>
+        <div class="booking-loyalty-applied">
+          <strong>${t('loyaltyRedeemApplied')(redeemAmount())}</strong>
+          <button type="button" class="booking-loyalty-remove-btn">${t('loyaltyRedeemRemove')}</button>
+        </div>
+      `;
+      box.querySelector('.booking-loyalty-remove-btn').addEventListener('click', () => {
+        state.redeemAmount = 0;
+        renderLoyaltyBox();
+        renderSummary();
+        renderPayOptions();
+      });
+      return;
+    }
+
+    if (!state.loyaltyEligible || state.loyaltyBalance <= 0) {
+      box.style.display = 'none';
+      box.innerHTML = '';
+      return;
+    }
+
+    const blockedByPromo = hasAnyPromo();
+    const blockedByDiscount = discountIsStillValid();
+    box.style.display = 'block';
+    if (blockedByPromo || blockedByDiscount) {
+      box.innerHTML = `
+        <div class="booking-loyalty-label">${t('loyaltyTitle')}</div>
+        <div class="booking-loyalty-balance">${t('loyaltyBalanceText')(state.loyaltyBalance)}</div>
+        <p class="booking-loyalty-msg error">${blockedByPromo ? t('loyaltyBlockedByPromo') : t('loyaltyRedeemBlockedByDiscount')}</p>
+      `;
+      return;
+    }
+
+    const canRedeem = state.loyaltyBalance >= MIN_REDEEM;
+    box.innerHTML = `
+      <div class="booking-loyalty-label">${t('loyaltyTitle')}</div>
+      <div class="booking-loyalty-balance">${canRedeem ? t('loyaltyBalanceText')(state.loyaltyBalance) : t('loyaltyBelowMinText')(state.loyaltyBalance)}</div>
+      ${canRedeem ? `
+        <div class="booking-loyalty-redeem-row">
+          <input type="number" min="${MIN_REDEEM}" step="1" inputmode="numeric" placeholder="${t('loyaltyRedeemLabel')}">
+          <button type="button" class="booking-loyalty-redeem-btn">${t('loyaltyRedeemBtn')}</button>
+        </div>
+        <p class="booking-loyalty-msg" style="display:none;"></p>
+      ` : ''}
+    `;
+    if (canRedeem) {
+      const input = box.querySelector('.booking-loyalty-redeem-row input');
+      const msg = box.querySelector('.booking-loyalty-msg');
+      box.querySelector('.booking-loyalty-redeem-btn').addEventListener('click', () => {
+        const amount = Math.round(Number(input.value) || 0);
+        msg.style.display = 'none';
+        if (amount < MIN_REDEEM) {
+          msg.textContent = t('loyaltyRedeemMin');
+          msg.className = 'booking-loyalty-msg error';
+          msg.style.display = 'block';
+          return;
+        }
+        const max = Math.floor(Math.min(state.loyaltyBalance, rawPrice()));
+        if (amount > max) {
+          msg.textContent = t('loyaltyRedeemMax')(max);
+          msg.className = 'booking-loyalty-msg error';
+          msg.style.display = 'block';
+          return;
+        }
+        state.redeemAmount = amount;
+        renderLoyaltyBox();
+        renderSummary();
+        renderPayOptions();
+      });
+    }
+  }
+
+  els.clientPhone.addEventListener('blur', checkLoyaltyBalance);
+  els.clientEmail.addEventListener('blur', checkLoyaltyBalance);
 
   els.discountApplyBtn.addEventListener('click', async () => {
     const code = els.discountCodeInput.value.trim();
     els.discountMsg.style.display = 'none';
+    if (state.redeemAmount > 0) {
+      els.discountMsg.textContent = t('loyaltyDiscountBlockedByRedeem');
+      els.discountMsg.className = 'booking-discount-msg error';
+      els.discountMsg.style.display = 'block';
+      return;
+    }
     if (!code) return;
     const bonoMode = hasAnyBono();
     const bonoSels = bonoMode ? currentBonoSelections() : [];
@@ -357,6 +486,7 @@
     }
     els.discountApplyBtn.disabled = false;
     renderSummary();
+    renderPayOptions();
   });
 
   // ── PASO 1: cargar servicios ──
@@ -372,12 +502,12 @@
         servicesByCategory[s.category] = servicesByCategory[s.category] || [];
         servicesByCategory[s.category].push(s);
       });
-      // "Promociones" se muestra siempre la primera, aunque en ese momento no
+      // "Promociones" se muestra siempre la última, aunque en ese momento no
       // haya ninguna promoción activa (ver renderServiceGrid) — así siempre
       // está en el mismo sitio y es fácil de encontrar.
       const promoLabel = t('promoCategory');
       if (!servicesByCategory[promoLabel]) servicesByCategory[promoLabel] = [];
-      const categories = [promoLabel, ...Object.keys(servicesByCategory).filter((c) => c !== promoLabel)];
+      const categories = [...Object.keys(servicesByCategory).filter((c) => c !== promoLabel), promoLabel];
       activeCategory = categories[0];
       renderCatPills(categories);
       renderServiceGrid();
@@ -1177,6 +1307,7 @@
           clientBirthdate: birthdate || undefined,
           paymentChoice: state.payChoice,
           discountCode: discountIsStillValid() ? state.discountCode : undefined,
+          redeemAmount: redeemAmount() > 0 ? redeemAmount() : undefined,
           termsAccepted: true,
           lang: LANG,
         };

@@ -96,6 +96,11 @@ router.post('/checkout', async (req, res) => {
 
   const selectedExtras = resolveExtras(parseExtraIds(extraIds));
   const additionalServices = resolveExtraServices(parseExtraIds(extraServiceIds));
+  // El saldo de fidelidad no se puede canjear en promociones (ofertas
+  // puntuales ya rebajadas) — solo en tratamientos/packs a precio normal.
+  if (redeemRequested > 0 && [service, ...additionalServices].some((s) => s.category === 'Promociones')) {
+    return res.status(400).json({ error: 'El canje de saldo de fidelidad no aplica a promociones.' });
+  }
   const duration = totalDuration(service, selectedExtras, additionalServices);
   const priceBeforeDiscount = totalPrice(service, selectedExtras, additionalServices);
   const bookingId = crypto.randomUUID();
