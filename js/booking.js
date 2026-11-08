@@ -9,6 +9,8 @@
     chooseToStart: { es: 'Elige un tratamiento para empezar.', en: 'Choose a treatment to get started.', it: 'Scegli un trattamento per iniziare.' },
     free: { es: 'Gratis', en: 'Free', it: 'Gratis' },
     from: { es: 'Desde', en: 'From', it: 'Da' },
+    promoCategory: { es: 'Promociones', en: 'Promotions', it: 'Promozioni' },
+    noPromos: { es: 'No hay promociones activas de momento.', en: 'No active promotions right now.', it: 'Al momento non ci sono promozioni attive.' },
     chooseDuration: { es: 'Elige la duración', en: 'Choose the duration', it: 'Scegli la durata' },
     totalDuration: { es: 'Duración total', en: 'Total duration', it: 'Durata totale' },
     withEmployee: { es: 'Con', en: 'With', it: 'Con' },
@@ -370,7 +372,12 @@
         servicesByCategory[s.category] = servicesByCategory[s.category] || [];
         servicesByCategory[s.category].push(s);
       });
-      const categories = Object.keys(servicesByCategory);
+      // "Promociones" se muestra siempre la primera, aunque en ese momento no
+      // haya ninguna promoción activa (ver renderServiceGrid) — así siempre
+      // está en el mismo sitio y es fácil de encontrar.
+      const promoLabel = t('promoCategory');
+      if (!servicesByCategory[promoLabel]) servicesByCategory[promoLabel] = [];
+      const categories = [promoLabel, ...Object.keys(servicesByCategory).filter((c) => c !== promoLabel)];
       activeCategory = categories[0];
       renderCatPills(categories);
       renderServiceGrid();
@@ -399,6 +406,11 @@
   function renderServiceGrid() {
     const items = servicesByCategory[activeCategory] || [];
     els.services.innerHTML = '';
+
+    if (activeCategory === t('promoCategory') && items.length === 0) {
+      els.services.innerHTML = `<p class="booking-loading">${t('noPromos')}</p>`;
+      return;
+    }
 
     // Agrupa servicios que comparten nombre base (p. ej. "Masaje relajante · 30 min",
     // "· 60 min", "· 90 min") para que el cliente elija primero el tipo, sin ver el

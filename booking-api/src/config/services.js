@@ -125,4 +125,11 @@ module.exports = [
   { id: 'valoracion-micropigmentacion', category: 'Micropigmentación', categoryEn: 'Microblading', categoryIt: 'Micropigmentazione', name: 'Valoración de micropigmentación', nameEn: 'Microblading assessment', nameIt: 'Valutazione micropigmentazione', durationMinutes: 30, price: 0, paymentPolicy: 'deposit_or_full', depositPercent: 0 },
   { id: 'retoque-micropigmentacion', category: 'Micropigmentación', categoryEn: 'Microblading', categoryIt: 'Micropigmentazione', name: 'Retoque micropigmentación anual', nameEn: 'Annual microblading touch-up', nameIt: 'Ritocco micropigmentazione annuale', durationMinutes: 120, price: 150, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
   { id: 'micropigmentacion-cejas-retoque', category: 'Micropigmentación', categoryEn: 'Microblading', categoryIt: 'Micropigmentazione', name: 'Micropigmentación cejas + retoque', nameEn: 'Eyebrow microblading + touch-up', nameIt: 'Micropigmentazione sopracciglia + ritocco', durationMinutes: 210, price: 300, paymentPolicy: 'deposit_or_full', depositPercent: 30 },
+
+  // ── 09 · PROMOCIONES ──
+  // Categoría aparte para ofertas puntuales (Black Friday, etc.) — se
+  // reservan y pagan online igual que el resto. Añade o quita entradas
+  // aquí según qué promociones estén activas; el frontend ya muestra
+  // "no hay promociones activas" cuando esta lista está vacía.
+  { id: 'promo-hollywood-peel-3', category: 'Promociones', categoryEn: 'Promotions', categoryIt: 'Promozioni', name: 'Hollywood Peel · 3 sesiones (Promoción)', nameEn: 'Hollywood Peel · 3 sessions (Promotion)', nameIt: 'Hollywood Peel · 3 sedute (Promozione)', durationMinutes: 60, price: 180, paymentPolicy: 'deposit_or_full', depositPercent: 30, pack: true },
 ];
