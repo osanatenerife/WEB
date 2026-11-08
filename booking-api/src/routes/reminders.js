@@ -8,9 +8,16 @@ const { sendBookingConfirmationEmail } = require('./webhook');
 
 const router = express.Router();
 
-// Ventana real: recordatorio entre 47 y 49h antes de la cita (~48h).
-const WINDOW_MIN_HOURS = 47;
-const WINDOW_MAX_HOURS = 49;
+// Ventana real: recordatorio entre 36 y 60h antes de la cita (~48h).
+// Tiene que ser ancha porque GitHub Actions no garantiza que el cron
+// dispare cada hora en punto — en la práctica, en cuentas normales, puede
+// retrasarse varias horas cuando hay mucha carga en GitHub (a veces hasta
+// 8-9h entre una ejecución y la siguiente, aunque esté puesto "cada hora").
+// Con la ventana antigua (47-49h, solo 2h de margen) muchas citas se
+// quedaban sin recordatorio porque su ventana se abría y cerraba entera
+// en el hueco entre dos ejecuciones reales — nunca llegaba a dispararse.
+const WINDOW_MIN_HOURS = 36;
+const WINDOW_MAX_HOURS = 60;
 
 function appointmentDateTime(booking) {
   const time = booking.time.length === 5 ? booking.time : `${booking.time}:00`;
