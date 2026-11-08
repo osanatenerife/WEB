@@ -55,7 +55,9 @@
     bonoSingleLabel: { es: 'Solo esta sesión', en: 'Just this session', it: 'Solo questa seduta' },
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package`, it: (n) => `Pacchetto ${n} sedute` },
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}`, it: (n) => `Risparmi ${n} €` },
-    bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. El resto se agendan en el centro.`, en: (n) => `Today you book session 1 of ${n}. The rest are scheduled at the center.`, it: (n) => `Oggi prenoti la seduta 1 di ${n}. Le altre si fissano in centro.` },
+    bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. ${n - 1 === 1 ? 'La otra queda guardada' : `Las otras ${n - 1} quedan guardadas`} en "Mis reservas" para que la${n - 1 === 1 ? '' : 's'} agendes cuando quieras.`, en: (n) => `Today you book session 1 of ${n}. The other ${n - 1 === 1 ? 'one is' : `${n - 1} are`} saved in "My bookings" so you can schedule ${n - 1 === 1 ? 'it' : 'them'} whenever you like.`, it: (n) => `Oggi prenoti la seduta 1 di ${n}. ${n - 1 === 1 ? "L'altra resta salvata" : `Le altre ${n - 1} restano salvate`} in "Le mie prenotazioni" per fissarl${n - 1 === 1 ? 'a' : 'e'} quando vuoi.` },
+    multiSessionTitle: { es: '¿Vas a necesitar varias sesiones? Cómpralas ya y agéndalas cuando quieras', en: 'Need several sessions? Buy them now and schedule them whenever you like', it: 'Ti servono più sedute? Comprale ora e fissale quando vuoi' },
+    multiSessionLabel: { es: (n) => `${n} sesiones`, en: (n) => `${n} sessions`, it: (n) => `${n} sedute` },
     bonoFullNote: { es: 'Si pagas el total ahora, puedes financiarlo con Klarna en hasta 3 cuotas sin intereses.', en: 'If you pay the full amount now, you can finance it with Klarna in up to 3 interest-free instalments.', it: 'Se paghi tutto ora, puoi finanziarlo con Klarna fino a 3 rate senza interessi.' },
     bonoTermsLabel: {
       es: 'He leído y acepto que, tras la primera ausencia sin preaviso o cancelación con menos de 48h se me avisará, y a partir de la segunda vez se descontará una sesión del bono.',
@@ -292,7 +294,7 @@
     }
     let html;
     if (state.wantsBono && state.bono) {
-      html = `<div class="booking-summary-row"><strong>${t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div>`;
+      html = `<div class="booking-summary-row"><strong>${state.bono.custom ? t('multiSessionLabel')(state.bono.sessions) : t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div>`;
     } else {
       html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
       extras.forEach((ex) => {
@@ -303,7 +305,7 @@
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div>`;
     });
     extraBonos.forEach((b) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div>`;
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div>`;
     });
     if (discountIsStillValid()) {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('discountLine')} (${state.discountCode})</span><span>-${state.discountAmount.toFixed(0)} €</span></div>`;
@@ -685,8 +687,40 @@
     }
   }
 
+  // Tratamientos sin bono configurado: se pueden comprar igualmente varias
+  // sesiones a la vez (precio de sesión suelta × n). Se registran como un
+  // bono más, así que las sesiones restantes aparecen solas en "Mis
+  // reservas" para agendarlas. Mismo criterio que lib/bonoTiers.js del
+  // servidor: ni promociones, ni packs, ni tratamientos gratuitos.
+  const MULTI_SESSION_OPTIONS = [2, 3, 4, 5];
+  function isMultiSessionEligible(svc) {
+    return !!svc && svc.price > 0 && !svc.pack && svc.category !== t('promoCategory');
+  }
+  function bonoTiersFor(svc) {
+    if (!svc) return null;
+    if (bonosById[svc.id] && bonosById[svc.id].length) return bonosById[svc.id];
+    if (!isMultiSessionEligible(svc)) return null;
+    return MULTI_SESSION_OPTIONS.map((n) => ({
+      serviceId: svc.id,
+      serviceName: svc.name,
+      category: svc.category,
+      sessions: n,
+      bonoPrice: Math.round(svc.price * n * 100) / 100,
+      singleSessionPrice: svc.price,
+      custom: true,
+    }));
+  }
+  function bonoTierButtonInner(bono, showPerSession) {
+    const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
+    return `
+          ${save >= 1 ? `<span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>` : ''}
+          <span class="booking-bono-option-name">${bono.custom ? t('multiSessionLabel')(bono.sessions) : t('bonoPackLabel')(bono.sessions)}</span>
+          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
+          ${showPerSession && save >= 1 ? `<span class="booking-bono-option-per-session">${t('bonoPerSession')((bono.bonoPrice / bono.sessions).toFixed(0))}</span>` : ''}`;
+  }
+
   function renderBonoSection() {
-    const tiers = state.service ? bonosById[state.service.id] : null;
+    const tiers = bonoTiersFor(state.service);
     if (!tiers || !tiers.length) {
       els.bonoSection.style.display = 'none';
       els.bonoSection.innerHTML = '';
@@ -694,22 +728,24 @@
       state.bono = null;
       return;
     }
-    state.bono = tiers[0];
+    // Si ya había un bono elegido de este mismo tratamiento (p.ej. al
+    // cambiar solo la duración), se mantiene; si no, se parte de "solo esta
+    // sesión" (el primer paquete solo se usa para el texto de la nota).
+    let keepIdx = -1;
+    if (state.wantsBono && state.bono) {
+      keepIdx = tiers.findIndex((b) => b.sessions === state.bono.sessions);
+      if (keepIdx < 0) keepIdx = 0;
+    }
+    state.bono = tiers[keepIdx >= 0 ? keepIdx : 0];
     const singlePrice = tiers[0].singleSessionPrice;
-    const tierButtons = tiers.map((bono, i) => {
-      const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
-      return `
-        <button type="button" class="booking-bono-option booking-bono-option-pack${i === 0 ? ' selected' : ''}" data-bono="${i}">
-          <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
-          <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
-          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
-          <span class="booking-bono-option-per-session">${t('bonoPerSession')((bono.bonoPrice / bono.sessions).toFixed(0))}</span>
+    const tierButtons = tiers.map((bono, i) => `
+        <button type="button" class="booking-bono-option booking-bono-option-pack${i === keepIdx ? ' selected' : ''}" data-bono="${i}">
+          ${bonoTierButtonInner(bono, true)}
         </button>
-      `;
-    }).join('');
+      `).join('');
     els.bonoSection.style.display = 'block';
     els.bonoSection.innerHTML = `
-      <div class="booking-bono-title">✦ ${t('bonoTitle')}</div>
+      <div class="booking-bono-title">✦ ${tiers[0].custom ? t('multiSessionTitle') : t('bonoTitle')}</div>
       <div class="booking-bono-options">
         <button type="button" class="booking-bono-option${!state.wantsBono ? ' selected' : ''}" data-bono="single">
           <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
@@ -811,7 +847,7 @@
       const chip = document.createElement('span');
       chip.className = 'booking-addon-chip booking-addon-chip-bono';
       const label = document.createElement('span');
-      label.textContent = `${b.serviceName} — ${t('bonoPackLabel')(b.sessions)}`;
+      label.textContent = `${b.serviceName} — ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)}`;
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'booking-addon-remove';
@@ -848,16 +884,11 @@
   function showAddonsModeChooser(svc, tiers) {
     els.addonsModeChooser.style.display = 'block';
     els.addonsSelect.disabled = true;
-    const tierButtons = tiers.map((bono, i) => {
-      const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
-      return `
+    const tierButtons = tiers.map((bono, i) => `
         <button type="button" class="booking-bono-option booking-bono-option-pack" data-mode="bono" data-tier="${i}">
-          <span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>
-          <span class="booking-bono-option-name">${t('bonoPackLabel')(bono.sessions)}</span>
-          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
+          ${bonoTierButtonInner(bono, false)}
         </button>
-      `;
-    }).join('');
+      `).join('');
     els.addonsModeChooser.innerHTML = `
       <div class="booking-addons-mode-label">${svc.name}</div>
       <div class="booking-bono-options">
@@ -887,7 +918,7 @@
     const id = els.addonsSelect.value;
     if (!id) return;
     const svc = findServiceById(id);
-    const tiers = bonosById[id];
+    const tiers = bonoTiersFor(svc);
     if (svc && tiers && tiers.length) {
       showAddonsModeChooser(svc, tiers);
     } else if (svc) {

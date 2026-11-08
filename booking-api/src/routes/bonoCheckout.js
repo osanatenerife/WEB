@@ -2,6 +2,7 @@ const express = require('express');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const bonos = require('../config/bonos');
+const { resolveBonoTier, MAX_MULTI_SESSIONS } = require('../lib/bonoTiers');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const hours = require('../config/hours');
@@ -56,7 +57,7 @@ router.post('/bono-checkout', async (req, res) => {
 
   const bonoItems = [];
   for (const sel of bonoSelections) {
-    const bono = bonos.find((b) => b.serviceId === sel.serviceId && Number(b.sessions) === Number(sel.sessions));
+    const bono = sel ? resolveBonoTier(sel.serviceId, sel.sessions) : null;
     const service = services.find((s) => s.id === sel.serviceId);
     if (!bono || !service) return res.status(404).json({ error: 'Bono no encontrado para uno de los tratamientos elegidos.' });
     bonoItems.push({ service, bono, bonoId: crypto.randomUUID() });
@@ -221,7 +222,7 @@ router.get('/bonos', (req, res) => {
       singleSessionPrice: service.price,
     };
   }).filter(Boolean);
-  res.json({ bonos: list });
+  res.json({ bonos: list, multiSessionMax: MAX_MULTI_SESSIONS });
 });
 
 module.exports = router;
