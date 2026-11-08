@@ -2689,9 +2689,12 @@ function saveCampaignHeaderImage(dataUrl) {
 }
 
 router.post('/panel/campaign-email', async (req, res) => {
-  const { subject, body, headerImageDataUrl, ctaText, ctaUrl, ctaText2, ctaUrl2, categories } = req.body || {};
+  const { subject, body, headerImageDataUrl, ctaText, ctaUrl, ctaText2, ctaUrl2, categories, testEmail } = req.body || {};
   if (!subject || !subject.trim() || !body || !body.trim()) {
     return res.status(400).json({ error: 'Indica el asunto y el mensaje.' });
+  }
+  if (testEmail !== undefined && !/^\S+@\S+\.\S+$/.test(String(testEmail).trim())) {
+    return res.status(400).json({ error: 'El email de prueba no es válido.' });
   }
   // categories vacío/ausente = todas las clientas (comportamiento de
   // siempre); si se indica, solo a quien haya pedido alguna vez un
@@ -2707,21 +2710,30 @@ router.post('/panel/campaign-email', async (req, res) => {
     return res.status(400).json({ error: 'Si añades el botón 2, indica el texto y el enlace.' });
   }
   try {
-    const uniqueClients = await getUniqueClientEmails();
-    // Nunca se manda publicidad a quien ya se dio de baja (obligatorio por
-    // ley, LSSI-CE) — los emails transaccionales de sus propias citas no
-    // pasan por aquí, así que seguirán llegándole igual.
-    const unsubscribed = await getAllUnsubscribedEmails();
-    for (const email of unsubscribed) uniqueClients.delete(email);
-    if (categoryFilter.length) {
-      for (const [email, client] of uniqueClients) {
-        if (!categoryFilter.some((c) => client.categories.has(c))) uniqueClients.delete(email);
+    // Prueba: manda SOLO a esa dirección, igual de maquetado que el envío
+    // real (mismo HTML, misma imagen de cabecera si se sube), para poder
+    // ver cómo queda antes de lanzarlo a toda la lista — no toca la lista
+    // de clientas ni cuenta como campaña enviada.
+    let uniqueClients;
+    if (testEmail !== undefined) {
+      uniqueClients = new Map([[String(testEmail).trim().toLowerCase(), { email: String(testEmail).trim(), name: 'Prueba' }]]);
+    } else {
+      uniqueClients = await getUniqueClientEmails();
+      // Nunca se manda publicidad a quien ya se dio de baja (obligatorio por
+      // ley, LSSI-CE) — los emails transaccionales de sus propias citas no
+      // pasan por aquí, así que seguirán llegándole igual.
+      const unsubscribed = await getAllUnsubscribedEmails();
+      for (const email of unsubscribed) uniqueClients.delete(email);
+      if (categoryFilter.length) {
+        for (const [email, client] of uniqueClients) {
+          if (!categoryFilter.some((c) => client.categories.has(c))) uniqueClients.delete(email);
+        }
       }
     }
 
     const headerImageUrl = headerImageDataUrl ? saveCampaignHeaderImage(headerImageDataUrl) : null;
 
-    res.json({ ok: true, recipients: uniqueClients.size });
+    res.json({ ok: true, recipients: uniqueClients.size, isTest: testEmail !== undefined });
 
     (async () => {
       // Mismo estilo de marca que el email de confirmación de reserva:

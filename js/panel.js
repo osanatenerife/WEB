@@ -1135,6 +1135,10 @@
           <div class="panel-field"><label>Texto del botón 2 (opcional)</label><input type="text" class="cp-cta-text2" placeholder="Solo si quieres un segundo botón"></div>
           <div class="panel-field"><label>Enlace del botón 2</label><input type="text" class="cp-cta-url2" placeholder="https://osana.es/reserva.html"></div>
         </div>
+        <div class="panel-field-row" style="margin-top:12px;align-items:flex-end;">
+          <div class="panel-field"><label>Email de prueba (opcional)</label><input type="email" class="cp-test-email" placeholder="tuemail@ejemplo.com"></div>
+          <button type="button" class="panel-btn panel-btn-ghost panel-confirm-campaign-test">Mandarme una prueba</button>
+        </div>
         <button type="button" class="panel-btn panel-btn-primary panel-confirm-campaign" style="margin-top:12px;">Enviar</button>
         <p class="panel-error" style="display:none;"></p>
         <p class="panel-status" style="display:none;"></p>
@@ -1172,33 +1176,76 @@
       reader.readAsDataURL(file);
     });
 
-    slot.querySelector('.panel-confirm-campaign').addEventListener('click', async (ev) => {
+    const testEmailInput = slot.querySelector('.cp-test-email');
+
+    // Validaciones compartidas por el botón de prueba y el de envío real —
+    // devuelve el mensaje de error, o null si todo está bien.
+    function campaignFormError() {
+      if (!subjectInput.value.trim() || !bodyInput.value.trim()) return 'Escribe el asunto y el mensaje.';
+      if (!!ctaTextInput.value.trim() !== !!ctaUrlInput.value.trim()) return 'Si añades el botón 1, indica el texto y el enlace.';
+      if (!!ctaTextInput2.value.trim() !== !!ctaUrlInput2.value.trim()) return 'Si añades el botón 2, indica el texto y el enlace.';
+      if (ctaTextInput2.value.trim() && !ctaTextInput.value.trim()) return 'Para usar un segundo botón, rellena primero el botón 1.';
+      return null;
+    }
+
+    slot.querySelector('.panel-confirm-campaign-test').addEventListener('click', async (ev) => {
       errorEl.style.display = 'none';
       statusEl.style.display = 'none';
-      if (!subjectInput.value.trim() || !bodyInput.value.trim()) {
-        errorEl.textContent = 'Escribe el asunto y el mensaje.';
+      const formError = campaignFormError();
+      if (formError) {
+        errorEl.textContent = formError;
         errorEl.style.display = 'block';
         return;
       }
-      if (!!ctaTextInput.value.trim() !== !!ctaUrlInput.value.trim()) {
-        errorEl.textContent = 'Si añades el botón 1, indica el texto y el enlace.';
+      if (!testEmailInput.value.trim()) {
+        errorEl.textContent = 'Escribe el email al que mandar la prueba.';
         errorEl.style.display = 'block';
         return;
       }
-      if (!!ctaTextInput2.value.trim() !== !!ctaUrlInput2.value.trim()) {
-        errorEl.textContent = 'Si añades el botón 2, indica el texto y el enlace.';
+      ev.target.disabled = true;
+      try {
+        await panelFetch('/panel/campaign-email', {
+          method: 'POST',
+          body: JSON.stringify({
+            subject: subjectInput.value.trim(), body: bodyInput.value.trim(),
+            headerImageDataUrl: headerImageDataUrl || undefined,
+            ctaText: ctaTextInput.value.trim() || undefined,
+            ctaUrl: ctaUrlInput.value.trim() || undefined,
+            ctaText2: ctaTextInput2.value.trim() || undefined,
+            ctaUrl2: ctaUrlInput2.value.trim() || undefined,
+            testEmail: testEmailInput.value.trim(),
+          }),
+        });
+        // Ofrece mandar a todas ya mismo, sin tener que volver a bajar hasta
+        // el botón de "Enviar" ni escribir nada de nuevo — el formulario de
+        // arriba sigue intacto, por si en vez de eso prefiere seguir editando.
+        statusEl.innerHTML = `
+          Prueba enviada a ${escapeHtml(testEmailInput.value.trim())} — revisa la bandeja de entrada (y el spam, por si acaso).
+          <div style="margin-top:8px;">
+            <button type="button" class="panel-btn panel-btn-primary panel-btn-sm panel-send-to-all-now">✓ Enviar a todos ahora</button>
+          </div>
+        `;
+        statusEl.style.display = 'block';
+        statusEl.querySelector('.panel-send-to-all-now').addEventListener('click', (ev2) => sendToAll(ev2.target));
+      } catch (e) {
+        errorEl.textContent = e.message;
         errorEl.style.display = 'block';
-        return;
       }
-      if (ctaTextInput2.value.trim() && !ctaTextInput.value.trim()) {
-        errorEl.textContent = 'Para usar un segundo botón, rellena primero el botón 1.';
+      ev.target.disabled = false;
+    });
+
+    async function sendToAll(triggerBtn) {
+      errorEl.style.display = 'none';
+      const formError = campaignFormError();
+      if (formError) {
+        errorEl.textContent = formError;
         errorEl.style.display = 'block';
         return;
       }
       const selectedCategories = Array.from(slot.querySelectorAll('.cp-category:checked')).map((c) => c.value);
       const audienceLabel = selectedCategories.length ? `clientas de: ${selectedCategories.join(', ')}` : 'TODAS las clientas registradas';
       if (!confirm(`¿Enviar este email a ${audienceLabel}? No se puede deshacer.`)) return;
-      ev.target.disabled = true;
+      triggerBtn.disabled = true;
       try {
         const data = await panelFetch('/panel/campaign-email', {
           method: 'POST',
@@ -1220,13 +1267,17 @@
         // esta misma campaña dos veces sin querer.
         statusEl.textContent = `Enviando a ${data.recipients} clientas en segundo plano — puede tardar varios minutos. Ya puedes cerrar esta pantalla, no hace falta esperar aquí.`;
         statusEl.style.display = 'block';
-        ev.target.textContent = 'Enviado ✓';
+        triggerBtn.textContent = 'Enviado ✓';
+        slot.querySelector('.panel-confirm-campaign').disabled = true;
+        slot.querySelector('.panel-confirm-campaign').textContent = 'Enviado ✓';
       } catch (e) {
         errorEl.textContent = e.message;
         errorEl.style.display = 'block';
-        ev.target.disabled = false;
+        triggerBtn.disabled = false;
       }
-    });
+    }
+
+    slot.querySelector('.panel-confirm-campaign').addEventListener('click', (ev) => sendToAll(ev.target));
   });
 
   function renderClient(client) {
