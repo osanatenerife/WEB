@@ -14,7 +14,7 @@ const { handleBookingPayment } = require('./webhook');
 const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
 const { getLoyaltyMovementsForPhone } = require('../lib/sheets');
-const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { computeLoyaltyBalance, minRedeemAmount } = require('../config/loyalty');
 const { normalizePhone } = require('../lib/clientId');
 
 const router = express.Router();
@@ -85,8 +85,9 @@ router.post('/checkout', async (req, res) => {
   if (redeemRequested > 0 && discountCode) {
     return res.status(400).json({ error: 'No puedes canjear saldo de fidelidad y usar un código de descuento a la vez — elige solo uno.' });
   }
-  if (redeemRequested > 0 && redeemRequested < MIN_REDEEM_AMOUNT) {
-    return res.status(400).json({ error: `El canje mínimo de saldo es de ${MIN_REDEEM_AMOUNT} €.` });
+  const minRedeem = minRedeemAmount();
+  if (redeemRequested > 0 && redeemRequested < minRedeem) {
+    return res.status(400).json({ error: `El canje mínimo de saldo es de ${minRedeem} €.` });
   }
 
   const service = services.find((s) => s.id === serviceId);

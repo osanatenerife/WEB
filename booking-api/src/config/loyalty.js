@@ -26,6 +26,17 @@ function earnRateFor(category, paidHow) {
 // Importe mínimo por canje. Sin tope máximo.
 const MIN_REDEEM_AMOUNT = 10; // en euros
 
+// El saldo del año caduca el 31 de diciembre (ver computeLoyaltyBalance) —
+// durante todo diciembre se deja canjear CUALQUIER importe, sin el mínimo
+// habitual, para que a nadie se le quede saldo sin usar antes de que
+// desaparezca. Se usa tanto en la reserva online como en el canje del panel.
+function isDecemberGracePeriod() {
+  return new Date().getMonth() === 11;
+}
+function minRedeemAmount() {
+  return isDecemberGracePeriod() ? 0 : MIN_REDEEM_AMOUNT;
+}
+
 function round2(n) {
   return Math.round(n * 100) / 100;
 }
@@ -58,4 +69,5 @@ function currentExpiryDate() {
 module.exports = {
   BASE_RATE, CASH_BONUS, earnRateFor, MIN_REDEEM_AMOUNT,
   computeLoyaltyBalance, currentExpiryDate,
+  isDecemberGracePeriod, minRedeemAmount,
 };

@@ -75,10 +75,12 @@
     loyaltyRedeemApplied: { es: (n) => `Saldo canjeado: -${n.toFixed(2)} €`, en: (n) => `Balance redeemed: -€${n.toFixed(2)}`, it: (n) => `Saldo utilizzato: -${n.toFixed(2)} €` },
     loyaltyRedeemRemove: { es: 'Quitar', en: 'Remove', it: 'Rimuovi' },
     loyaltyRedeemMin: { es: 'El canje mínimo es de 10 €.', en: 'The minimum redemption is €10.', it: "L'importo minimo da utilizzare è 10 €." },
+    loyaltyRedeemEnterAmount: { es: 'Indica cuánto quieres canjear.', en: 'Enter how much you want to redeem.', it: 'Indica quanto vuoi utilizzare.' },
     loyaltyRedeemMax: { es: (n) => `Como máximo puedes canjear ${n.toFixed(2)} €.`, en: (n) => `You can redeem up to €${n.toFixed(2)}.`, it: (n) => `Puoi utilizzare al massimo ${n.toFixed(2)} €.` },
     loyaltyRedeemBlockedByDiscount: { es: 'No puedes canjear saldo y usar un código de descuento a la vez. Quita el código si quieres canjear saldo.', en: "You can't redeem balance and use a discount code at the same time. Remove the code if you want to redeem balance.", it: 'Non puoi utilizzare il saldo e un codice sconto insieme. Rimuovi il codice se vuoi usare il saldo.' },
     loyaltyDiscountBlockedByRedeem: { es: 'Ya has canjeado saldo de fidelidad — quítalo si quieres usar un código de descuento.', en: "You've already redeemed loyalty balance — remove it if you want to use a discount code.", it: 'Hai già utilizzato il saldo fedeltà — rimuovilo se vuoi usare un codice sconto.' },
     loyaltyBlockedByPromo: { es: 'El saldo de fidelidad no se puede canjear en promociones.', en: "Loyalty balance can't be redeemed on promotions.", it: 'Il saldo fedeltà non è utilizzabile sulle promozioni.' },
+    loyaltyDecemberReminder: { es: '✦ Tus puntos caducan el 31 de diciembre — ¡canjéalos antes de que termine el mes! Este mes no hay importe mínimo.', en: '✦ Your points expire on December 31st — redeem them before the month ends! No minimum amount this month.', it: '✦ I tuoi punti scadono il 31 dicembre — utilizzali prima della fine del mese! Questo mese non c\'è un importo minimo.' },
     loyaltyRedeemLine: { es: 'Saldo de fidelidad canjeado', en: 'Loyalty balance redeemed', it: 'Saldo fedeltà utilizzato' },
     termsLabel: {
       es: 'He leído y acepto las <a href="condiciones.html" target="_blank" rel="noopener">condiciones de reserva, cancelación y el programa de fidelidad</a>.',
@@ -335,7 +337,11 @@
 
   // ── Saldo de fidelidad (se comprueba en cuanto hay teléfono + email de
   // una clienta que ya tiene alguna reserva — ver /api/loyalty-balance) ──
-  const MIN_REDEEM = 10;
+  // El saldo del año caduca el 31 de diciembre — durante todo diciembre se
+  // deja canjear cualquier importe, sin el mínimo habitual de 10 €, para
+  // que no se quede nadie con saldo sin usar antes de que desaparezca.
+  const IS_DECEMBER = new Date().getMonth() === 11;
+  const MIN_REDEEM = IS_DECEMBER ? 0 : 10;
   async function checkLoyaltyBalance() {
     const phone = els.clientPhone.value.trim();
     const email = els.clientEmail.value.trim();
@@ -401,6 +407,7 @@
     box.innerHTML = `
       <div class="booking-loyalty-label">${t('loyaltyTitle')}</div>
       <div class="booking-loyalty-balance">${canRedeem ? t('loyaltyBalanceText')(state.loyaltyBalance) : t('loyaltyBelowMinText')(state.loyaltyBalance)}</div>
+      ${IS_DECEMBER ? `<p class="booking-loyalty-msg booking-loyalty-december">${t('loyaltyDecemberReminder')}</p>` : ''}
       ${canRedeem ? `
         <div class="booking-loyalty-redeem-row">
           <input type="number" min="${MIN_REDEEM}" step="1" inputmode="numeric" placeholder="${t('loyaltyRedeemLabel')}">
@@ -411,10 +418,16 @@
     `;
     if (canRedeem) {
       const input = box.querySelector('.booking-loyalty-redeem-row input');
-      const msg = box.querySelector('.booking-loyalty-msg');
+      const msg = box.querySelector('.booking-loyalty-msg:not(.booking-loyalty-december)');
       box.querySelector('.booking-loyalty-redeem-btn').addEventListener('click', () => {
         const amount = Math.round(Number(input.value) || 0);
         msg.style.display = 'none';
+        if (amount <= 0) {
+          msg.textContent = t('loyaltyRedeemEnterAmount');
+          msg.className = 'booking-loyalty-msg error';
+          msg.style.display = 'block';
+          return;
+        }
         if (amount < MIN_REDEEM) {
           msg.textContent = t('loyaltyRedeemMin');
           msg.className = 'booking-loyalty-msg error';

@@ -22,7 +22,7 @@ const { sendEmail } = require('../lib/email');
 const { sendBookingConfirmationEmail } = require('./webhook');
 const { googleCalendarLink } = require('../lib/calendarLink');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
-const { computeLoyaltyBalance, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
+const { computeLoyaltyBalance, minRedeemAmount } = require('../config/loyalty');
 const { earnLoyalty, reverseLoyaltyForBooking } = require('../lib/loyaltyEarn');
 const { hasOtherActiveBookingsOnSameEvent } = require('../lib/sharedCalendarEvent');
 const { withLock, withLocks } = require('../lib/asyncLock');
@@ -1726,7 +1726,7 @@ router.post('/panel/close', async (req, res) => {
     // no pueda duplicar el canje (ver nota junto a updateBookingRow).
     let redeemed = 0;
     let phoneN = '';
-    if (!alreadyClosed && redeemAmount && Number(redeemAmount) >= MIN_REDEEM_AMOUNT) {
+    if (!alreadyClosed && redeemAmount && Number(redeemAmount) >= minRedeemAmount()) {
       phoneN = normalizePhone(booking.phone);
       const movements = await getLoyaltyMovementsForPhone(phoneN);
       const balance = computeLoyaltyBalance(movements);
@@ -1943,8 +1943,9 @@ router.post('/panel/redeem', async (req, res) => {
   if (!phone || !redeemAmount || redeemAmount <= 0) {
     return res.status(400).json({ error: 'Indica el teléfono de la clienta y el importe a canjear.' });
   }
-  if (redeemAmount < MIN_REDEEM_AMOUNT) {
-    return res.status(400).json({ error: `El canje mínimo es de ${MIN_REDEEM_AMOUNT} €.` });
+  const minRedeem = minRedeemAmount();
+  if (redeemAmount < minRedeem) {
+    return res.status(400).json({ error: `El canje mínimo es de ${minRedeem} €.` });
   }
   try {
     const phoneN = normalizePhone(phone);
