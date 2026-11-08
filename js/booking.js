@@ -10,6 +10,9 @@
     free: { es: 'Gratis', en: 'Free', it: 'Gratis' },
     from: { es: 'Desde', en: 'From', it: 'Da' },
     promoCategory: { es: 'Promociones', en: 'Promotions', it: 'Promozioni' },
+    promoGroupFacial: { es: 'Facial', en: 'Facial', it: 'Viso' },
+    promoGroupCorporal: { es: 'Corporal', en: 'Body', it: 'Corpo' },
+    promoGroupLaser: { es: 'Láser', en: 'Laser', it: 'Laser' },
     noPromos: { es: 'No hay promociones activas de momento.', en: 'No active promotions right now.', it: 'Al momento non ci sono promozioni attive.' },
     chooseDuration: { es: 'Elige la duración', en: 'Choose the duration', it: 'Scegli la durata' },
     totalDuration: { es: 'Duración total', en: 'Total duration', it: 'Durata totale' },
@@ -546,15 +549,7 @@
     });
   }
 
-  function renderServiceGrid() {
-    const items = servicesByCategory[activeCategory] || [];
-    els.services.innerHTML = '';
-
-    if (activeCategory === t('promoCategory') && items.length === 0) {
-      els.services.innerHTML = `<p class="booking-loading">${t('noPromos')}</p>`;
-      return;
-    }
-
+  function renderServiceCards(items) {
     // Agrupa servicios que comparten nombre base (p. ej. "Masaje relajante · 30 min",
     // "· 60 min", "· 90 min") para que el cliente elija primero el tipo, sin ver el
     // precio, y luego la duración en una fila compacta de opciones.
@@ -576,9 +571,10 @@
         card.className = 'booking-service-card' + (s.pack ? ' pack' : '') + (state.service && state.service.id === s.id ? ' selected' : '');
         card.innerHTML = `
           <strong>${s.name}</strong>
+          ${s.promoBadge ? `<span class="booking-promo-badge">${s.promoBadge}</span>` : ''}
           <span class="booking-service-meta">${s.durationMinutes} min</span>
           ${s.description ? `<span class="booking-service-desc">${s.description}</span>` : ''}
-          <span class="booking-service-price">${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
+          <span class="booking-service-price">${s.originalPrice ? `<span class="booking-service-price-was">${s.originalPrice.toFixed(0)} €</span> ` : ''}${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span>
         `;
         card.addEventListener('click', () => selectService(s, card));
         els.services.appendChild(card);
@@ -608,6 +604,39 @@
       });
       els.services.appendChild(card);
     });
+  }
+
+  function renderServiceGrid() {
+    const items = servicesByCategory[activeCategory] || [];
+    els.services.innerHTML = '';
+
+    if (activeCategory === t('promoCategory') && items.length === 0) {
+      els.services.innerHTML = `<p class="booking-loading">${t('noPromos')}</p>`;
+      return;
+    }
+
+    // En Promociones, si los tratamientos tienen promoGroup (Facial/Corporal/
+    // Láser), se separan en bloques con su propio título — más fácil de
+    // escanear cuando hay muchas promociones activas a la vez (Black Friday).
+    const hasPromoGroups = activeCategory === t('promoCategory') && items.some((s) => s.promoGroup);
+    if (!hasPromoGroups) {
+      renderServiceCards(items);
+      return;
+    }
+    const order = ['Facial', 'Corporal', 'Laser'];
+    order.forEach((group) => {
+      const groupItems = items.filter((s) => s.promoGroup === group);
+      if (!groupItems.length) return;
+      const header = document.createElement('div');
+      header.className = 'booking-promo-subheader';
+      header.textContent = t('promoGroup' + group);
+      els.services.appendChild(header);
+      renderServiceCards(groupItems);
+    });
+    // Promociones sin grupo asignado (p.ej. de temporada, no de Black
+    // Friday) van al final, sin cabecera de bloque.
+    const ungrouped = items.filter((s) => !s.promoGroup);
+    if (ungrouped.length) renderServiceCards(ungrouped);
   }
 
   function renderDurationSection() {

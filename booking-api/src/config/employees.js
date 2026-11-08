@@ -20,8 +20,15 @@
 
 const services = require('./services');
 
-// Solo Anna hace estos tratamientos (kobido/lifting facial y maderoterapia)
-const especialidadesAnna = ['kobido-facial', 'lifting-facial', 'maderoterapia'];
+// Solo Anna hace estos tratamientos (kobido/lifting facial y maderoterapia,
+// más sus versiones en promoción de Black Friday)
+const especialidadesAnna = ['kobido-facial', 'lifting-facial', 'maderoterapia', 'promo-maderoterapia-bf', 'promo-limpieza-kobido-pack-bf'];
+
+// Promos de Black Friday que puede hacer cualquiera de las 3 (hay cabina
+// libre) — se añaden solo al "services" de Anna, sin excluirlas de
+// Raquel/Vanessa (que ya las tienen por defecto, al no estar en su lista
+// de excluidas).
+const promosCualquieraBf = ['promo-criolipolisis-bf', 'promo-crio-presoterapia-pack-bf'];
 
 // Ya no se trabaja con Essentia (antes lo llevaba Yuli) — todo lo que cae en
 // "Masajes" en la web, más el drenaje linfático de "Corporales", pasa a ser
@@ -77,6 +84,7 @@ module.exports = [
     services: [
       ...especialidadesAnna,
       ...masajesYCorporalesAnna,
+      ...promosCualquieraBf,
       'radiofrecuencia-facial', 'radiofrecuencia-corporal', 'limpieza-profunda',
       'hollywood-peel', 'dermapen', 'exosomas-dermapen', 'limpieza-facial-premium',
       'ritual-basic-skin', 'ritual-relaxing', 'ritual-flash-lifting',

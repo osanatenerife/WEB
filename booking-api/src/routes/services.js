@@ -6,18 +6,29 @@ const hours = require('../config/hours');
 const { parseExtraIds: parseIds } = require('../lib/pricing');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
 const { getAllBookings, appendUnsubscribe } = require('../lib/sheets');
+const { localToISO } = require('../lib/timezone');
 
 const router = express.Router();
+
+// Algunas promociones se suben con antelación pero no deben aparecer (ni
+// ser reservables) hasta una fecha concreta — activeFrom es la fecha
+// "YYYY-MM-DD" (medianoche, hora de Canarias) a partir de la cual se
+// muestran. Se usa tanto aquí (para que no aparezcan en el listado) como
+// en /checkout (para que tampoco se puedan reservar a mano antes de hora).
+function isActiveNow(service) {
+  if (!service.activeFrom) return true;
+  return new Date(localToISO(service.activeFrom, '00:00', hours.timezone)) <= new Date();
+}
 
 // Lista pública de servicios agrupados por categoría
 // ?lang=en / ?lang=it devuelve nombre y categoría en ese idioma (con fallback al español si faltara)
 router.get('/services', (req, res) => {
   const { lang } = req.query;
-  let list = services;
+  let list = services.filter(isActiveNow);
   if (lang === 'en') {
-    list = services.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category, description: s.descriptionEn || s.description }));
+    list = list.map((s) => ({ ...s, name: s.nameEn || s.name, category: s.categoryEn || s.category, description: s.descriptionEn || s.description }));
   } else if (lang === 'it') {
-    list = services.map((s) => ({ ...s, name: s.nameIt || s.name, category: s.categoryIt || s.category, description: s.descriptionIt || s.description }));
+    list = list.map((s) => ({ ...s, name: s.nameIt || s.name, category: s.categoryIt || s.category, description: s.descriptionIt || s.description }));
   }
   res.json({ services: list });
 });

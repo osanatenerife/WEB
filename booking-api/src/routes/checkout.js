@@ -13,7 +13,7 @@ const { resolveDiscount } = require('../lib/discounts');
 const { handleBookingPayment } = require('./webhook');
 const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
-const { getLoyaltyMovementsForPhone } = require('../lib/sheets');
+const { getLoyaltyMovementsForPhone, getAllBookings } = require('../lib/sheets');
 const { computeLoyaltyBalance, minRedeemAmount } = require('../config/loyalty');
 const { normalizePhone } = require('../lib/clientId');
 
@@ -94,6 +94,12 @@ router.post('/checkout', async (req, res) => {
   const employee = employees.find((e) => e.id === employeeId);
   if (!service) return res.status(404).json({ error: 'Servicio no encontrado' });
   if (!employee) return res.status(404).json({ error: 'Empleada no encontrada' });
+  // Algunas promociones se suben con antelación pero no se activan hasta
+  // una fecha concreta (ver isActiveNow en routes/services.js) — no
+  // aparecen en el listado, y tampoco se pueden reservar a mano antes de hora.
+  if (service.activeFrom && new Date(localToISO(service.activeFrom, '00:00', hours.timezone)) > new Date()) {
+    return res.status(404).json({ error: 'Esta promoción todavía no está activa.' });
+  }
 
   const selectedExtras = resolveExtras(parseExtraIds(extraIds));
   const additionalServices = resolveExtraServices(parseExtraIds(extraServiceIds));
@@ -101,6 +107,24 @@ router.post('/checkout', async (req, res) => {
   // puntuales ya rebajadas) — solo en tratamientos/packs a precio normal.
   if (redeemRequested > 0 && [service, ...additionalServices].some((s) => s.category === 'Promociones')) {
     return res.status(400).json({ error: 'El canje de saldo de fidelidad no aplica a promociones.' });
+  }
+
+  // Algunas promociones limitan cuántas sesiones puede comprar la misma
+  // clienta (p.ej. máximo 3 sesiones de láser en Black Friday, para que no
+  // se compren muchas de golpe) — se cuenta contra sus reservas confirmadas
+  // de cualquier servicio del mismo "promoLimitGroup".
+  if (service.promoLimitGroup) {
+    const phoneN = normalizePhone(clientPhone);
+    const all = await getAllBookings();
+    const alreadyBooked = all.filter((b) => {
+      if (b.status !== 'confirmed') return false;
+      if (normalizePhone(b.phone) !== phoneN) return false;
+      const bookedService = services.find((s) => s.id === b.serviceId);
+      return bookedService && bookedService.promoLimitGroup === service.promoLimitGroup;
+    }).length;
+    if (alreadyBooked >= service.promoLimitCount) {
+      return res.status(409).json({ error: `Ya has reservado el máximo de ${service.promoLimitCount} sesiones de esta promoción.` });
+    }
   }
   const duration = totalDuration(service, selectedExtras, additionalServices);
   const priceBeforeDiscount = totalPrice(service, selectedExtras, additionalServices);
