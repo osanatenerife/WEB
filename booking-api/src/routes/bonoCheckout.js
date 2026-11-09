@@ -2,7 +2,10 @@ const express = require('express');
 const services = require('../config/services');
 const employees = require('../config/employees');
 const bonos = require('../config/bonos');
-const { resolveBonoTier, MAX_MULTI_SESSIONS } = require('../lib/bonoTiers');
+const { resolveBonoTier, isPromo, MAX_MULTI_SESSIONS } = require('../lib/bonoTiers');
+const { getAllBookings, getAllSessionBonos } = require('../lib/sheets');
+const { normalizePhone } = require('../lib/clientId');
+const { localToISO: toISO } = require('../lib/timezone');
 const { getAvailableSlots } = require('../lib/availability');
 const { localToISO, addMinutes } = require('../lib/timezone');
 const hours = require('../config/hours');
@@ -69,6 +72,51 @@ router.post('/bono-checkout', async (req, res) => {
     singleItems.push({ service });
   }
   if (!bonoItems.length) return res.status(400).json({ error: 'No hay ningún bono en esta reserva.' });
+
+  const allItems = [...bonoItems, ...singleItems];
+  // Promociones que aún no han empezado (activeFrom) no se pueden comprar.
+  if (allItems.some((it) => it.service.activeFrom && new Date(toISO(it.service.activeFrom, '00:00', hours.timezone)) > new Date())) {
+    return res.status(404).json({ error: 'Esta promoción todavía no está activa.' });
+  }
+
+  // Tope de sesiones por compra: de una misma promoción (o de un mismo
+  // tratamiento comprado en varias sesiones sin bono configurado) no se
+  // pueden comprar más de MAX_MULTI_SESSIONS (3) de una vez, aunque se
+  // intente repetir el tratamiento en el carrito.
+  const sessionsByService = {};
+  allItems.forEach((it) => {
+    const n = it.bono ? Number(it.bono.sessions) : 1;
+    sessionsByService[it.service.id] = (sessionsByService[it.service.id] || 0) + n;
+  });
+  const overCap = allItems.find((it) => (isPromo(it.service) || (it.bono && it.bono.custom))
+    && sessionsByService[it.service.id] > MAX_MULTI_SESSIONS);
+  if (overCap) {
+    return res.status(400).json({ error: `Máximo ${MAX_MULTI_SESSIONS} sesiones de "${overCap.service.name}" por compra.` });
+  }
+
+  // Promociones con límite por clienta (promoLimitGroup, p.ej. máximo 3
+  // sesiones de láser en Black Friday): cuenta lo que ya tiene reservado y
+  // las sesiones pendientes de sus bonos de ese grupo, más lo de esta compra.
+  const limitedGroups = [...new Set(allItems.map((it) => it.service.promoLimitGroup).filter(Boolean))];
+  if (limitedGroups.length) {
+    const phoneN = normalizePhone(clientPhone);
+    const [allBookings, allBonos] = await Promise.all([getAllBookings(), getAllSessionBonos()]);
+    for (const group of limitedGroups) {
+      const inGroup = (id) => { const s = services.find((x) => x.id === id); return !!s && s.promoLimitGroup === group; };
+      const limit = Math.max(...allItems.filter((it) => it.service.promoLimitGroup === group).map((it) => it.service.promoLimitCount || MAX_MULTI_SESSIONS));
+      const booked = allBookings.filter((bk) => bk.status === 'confirmed' && normalizePhone(bk.phone) === phoneN && inGroup(bk.serviceId)).length;
+      const pending = allBonos.filter((bo) => bo.status === 'active' && normalizePhone(bo.clientPhone) === phoneN && inGroup(bo.serviceId))
+        .reduce((sum, bo) => sum + (Number(bo.sessionsRemaining) || 0), 0);
+      const requested = allItems.filter((it) => it.service.promoLimitGroup === group)
+        .reduce((sum, it) => sum + (it.bono ? Number(it.bono.sessions) : 1), 0);
+      if (booked + pending + requested > limit) {
+        const left = Math.max(0, limit - booked - pending);
+        return res.status(409).json({ error: left > 0
+          ? `En esta promoción el máximo es de ${limit} sesiones por clienta — solo puedes comprar ${left} más.`
+          : `Ya has reservado el máximo de ${limit} sesiones de esta promoción.` });
+      }
+    }
+  }
 
   // Stripe limita cada valor de metadata a 500 caracteres. Con muchos
   // tratamientos combinados el JSON de bonoItems/singleItems podría superar

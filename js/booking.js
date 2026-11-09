@@ -56,7 +56,7 @@
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package`, it: (n) => `Pacchetto ${n} sedute` },
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}`, it: (n) => `Risparmi ${n} €` },
     bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. ${n - 1 === 1 ? 'La otra queda guardada' : `Las otras ${n - 1} quedan guardadas`} en "Mis reservas" para que la${n - 1 === 1 ? '' : 's'} agendes cuando quieras.`, en: (n) => `Today you book session 1 of ${n}. The other ${n - 1 === 1 ? 'one is' : `${n - 1} are`} saved in "My bookings" so you can schedule ${n - 1 === 1 ? 'it' : 'them'} whenever you like.`, it: (n) => `Oggi prenoti la seduta 1 di ${n}. ${n - 1 === 1 ? "L'altra resta salvata" : `Le altre ${n - 1} restano salvate`} in "Le mie prenotazioni" per fissarl${n - 1 === 1 ? 'a' : 'e'} quando vuoi.` },
-    multiSessionTitle: { es: '¿Vas a necesitar varias sesiones? Cómpralas ya y agéndalas cuando quieras', en: 'Need several sessions? Buy them now and schedule them whenever you like', it: 'Ti servono più sedute? Comprale ora e fissale quando vuoi' },
+    multiSessionTitle: { es: '¿Vas a necesitar varias sesiones? Cómpralas ya (máx. 3) y agéndalas cuando quieras', en: 'Need several sessions? Buy them now (max. 3) and schedule them whenever you like', it: 'Ti servono più sedute? Comprale ora (max. 3) e fissale quando vuoi' },
     multiSessionLabel: { es: (n) => `${n} sesiones`, en: (n) => `${n} sessions`, it: (n) => `${n} sedute` },
     bonoFullNote: { es: 'Si pagas el total ahora, puedes financiarlo con Klarna en hasta 3 cuotas sin intereses.', en: 'If you pay the full amount now, you can finance it with Klarna in up to 3 interest-free instalments.', it: 'Se paghi tutto ora, puoi finanziarlo con Klarna fino a 3 rate senza interessi.' },
     bonoTermsLabel: {
@@ -691,10 +691,13 @@
   // sesiones a la vez (precio de sesión suelta × n). Se registran como un
   // bono más, así que las sesiones restantes aparecen solas en "Mis
   // reservas" para agendarlas. Mismo criterio que lib/bonoTiers.js del
-  // servidor: ni promociones, ni packs, ni tratamientos gratuitos.
-  const MULTI_SESSION_OPTIONS = [2, 3, 4, 5];
+  // servidor: máximo 3 sesiones; en promociones también (packs incluidos)
+  // salvo las de presoterapia; nunca packs normales ni tratamientos gratuitos.
+  const MULTI_SESSION_OPTIONS = [2, 3];
   function isMultiSessionEligible(svc) {
-    return !!svc && svc.price > 0 && !svc.pack && svc.category !== t('promoCategory');
+    if (!svc || !(svc.price > 0)) return false;
+    if (svc.category === t('promoCategory')) return !svc.id.includes('presoterapia');
+    return !svc.pack;
   }
   function bonoTiersFor(svc) {
     if (!svc) return null;

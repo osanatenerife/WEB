@@ -13,7 +13,7 @@ const { resolveDiscount } = require('../lib/discounts');
 const { handleBookingPayment } = require('./webhook');
 const { withLock } = require('../lib/asyncLock');
 const crypto = require('crypto');
-const { getLoyaltyMovementsForPhone, getAllBookings } = require('../lib/sheets');
+const { getLoyaltyMovementsForPhone, getAllBookings, getAllSessionBonos } = require('../lib/sheets');
 const { computeLoyaltyBalance, minRedeemAmount } = require('../config/loyalty');
 const { normalizePhone } = require('../lib/clientId');
 
@@ -115,13 +115,16 @@ router.post('/checkout', async (req, res) => {
   // de cualquier servicio del mismo "promoLimitGroup".
   if (service.promoLimitGroup) {
     const phoneN = normalizePhone(clientPhone);
-    const all = await getAllBookings();
-    const alreadyBooked = all.filter((b) => {
-      if (b.status !== 'confirmed') return false;
-      if (normalizePhone(b.phone) !== phoneN) return false;
-      const bookedService = services.find((s) => s.id === b.serviceId);
-      return bookedService && bookedService.promoLimitGroup === service.promoLimitGroup;
-    }).length;
+    const [all, allBonos] = await Promise.all([getAllBookings(), getAllSessionBonos()]);
+    const inGroup = (id) => {
+      const s = services.find((x) => x.id === id);
+      return !!s && s.promoLimitGroup === service.promoLimitGroup;
+    };
+    // Cuenta las sesiones ya reservadas y también las pendientes de agendar
+    // de bonos de esa misma promoción (compradas en varias sesiones a la vez).
+    const alreadyBooked = all.filter((b) => b.status === 'confirmed' && normalizePhone(b.phone) === phoneN && inGroup(b.serviceId)).length
+      + allBonos.filter((bo) => bo.status === 'active' && normalizePhone(bo.clientPhone) === phoneN && inGroup(bo.serviceId))
+        .reduce((sum, bo) => sum + (Number(bo.sessionsRemaining) || 0), 0);
     if (alreadyBooked >= service.promoLimitCount) {
       return res.status(409).json({ error: `Ya has reservado el máximo de ${service.promoLimitCount} sesiones de esta promoción.` });
     }
