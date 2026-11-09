@@ -56,7 +56,12 @@
     bonoPackLabel: { es: (n) => `Bono ${n} sesiones`, en: (n) => `${n}-session package`, it: (n) => `Pacchetto ${n} sedute` },
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}`, it: (n) => `Risparmi ${n} €` },
     bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. ${n - 1 === 1 ? 'La otra queda guardada' : `Las otras ${n - 1} quedan guardadas`} en "Mis reservas" para que la${n - 1 === 1 ? '' : 's'} agendes cuando quieras.`, en: (n) => `Today you book session 1 of ${n}. The other ${n - 1 === 1 ? 'one is' : `${n - 1} are`} saved in "My bookings" so you can schedule ${n - 1 === 1 ? 'it' : 'them'} whenever you like.`, it: (n) => `Oggi prenoti la seduta 1 di ${n}. ${n - 1 === 1 ? "L'altra resta salvata" : `Le altre ${n - 1} restano salvate`} in "Le mie prenotazioni" per fissarl${n - 1 === 1 ? 'a' : 'e'} quando vuoi.` },
-    multiSessionTitle: { es: '¿Vas a necesitar varias sesiones? Cómpralas ya (máx. 3) y agéndalas cuando quieras', en: 'Need several sessions? Buy them now (max. 3) and schedule them whenever you like', it: 'Ti servono più sedute? Comprale ora (max. 3) e fissale quando vuoi' },
+    multiSessionTitle: { es: '¿Vas a necesitar varias sesiones? Cómpralas ya y agéndalas cuando quieras', en: 'Need several sessions? Buy them now and schedule them whenever you like', it: 'Ti servono più sedute? Comprale ora e fissale quando vuoi' },
+    qtyLabel: { es: 'Nº de sesiones', en: 'Number of sessions', it: 'N. di sedute' },
+    qtyLess: { es: 'Una sesión menos', en: 'One session less', it: 'Una seduta in meno' },
+    qtyMore: { es: 'Una sesión más', en: 'One more session', it: 'Una seduta in più' },
+    qtyNote: { es: 'Pulsa + para comprar varias sesiones a la vez: reservas hoy la 1ª y el resto las agendas cuando quieras desde "Mis reservas".', en: 'Tap + to buy several sessions at once: book the 1st today and schedule the rest whenever you like from "My bookings".', it: 'Premi + per comprare più sedute insieme: prenoti oggi la 1ª e le altre le fissi quando vuoi da "Le mie prenotazioni".' },
+    qtyPackHint: { es: (n, price, save) => `Con el bono de ${n} sesiones (${price} €) ahorras ${save} €.`, en: (n, price, save) => `With the ${n}-session package (€${price}) you save €${save}.`, it: (n, price, save) => `Con il pacchetto da ${n} sedute (${price} €) risparmi ${save} €.` },
     multiSessionLabel: { es: (n) => `${n} sesiones`, en: (n) => `${n} sessions`, it: (n) => `${n} sedute` },
     bonoFullNote: { es: 'Si pagas el total ahora, puedes financiarlo con Klarna en hasta 3 cuotas sin intereses.', en: 'If you pay the full amount now, you can finance it with Klarna in up to 3 interest-free instalments.', it: 'Se paghi tutto ora, puoi finanziarlo con Klarna fino a 3 rate senza interessi.' },
     bonoTermsLabel: {
@@ -687,23 +692,36 @@
     }
   }
 
-  // Tratamientos sin bono configurado: se pueden comprar igualmente varias
-  // sesiones a la vez (precio de sesión suelta × n). Se registran como un
-  // bono más, así que las sesiones restantes aparecen solas en "Mis
-  // reservas" para agendarlas. Mismo criterio que lib/bonoTiers.js del
-  // servidor: máximo 3 sesiones; en promociones también (packs incluidos)
-  // salvo las de presoterapia; nunca packs normales ni tratamientos gratuitos.
-  const MULTI_SESSION_OPTIONS = [2, 3];
+  // ── Nº de sesiones de cada tratamiento (selector − / + del carrito) ──
+  // Cada tratamiento del carrito se puede comprar en 1, 2 o 3 sesiones
+  // (precio de sesión suelta × n), y además en los bonos que tenga
+  // configurados (p.ej. bono de 3 con descuento, o bono de 6 sesiones). Si
+  // hay bono configurado para ese nº de sesiones, se usa su precio. Con 2+
+  // sesiones se compra como bono: se agenda hoy la 1ª y el resto quedan
+  // solas en "Mis reservas". Mismo criterio que lib/bonoTiers.js del
+  // servidor: en promociones también, salvo las de presoterapia; nunca en
+  // packs normales ni tratamientos gratuitos.
+  const MULTI_SESSION_MAX = 3;
   function isMultiSessionEligible(svc) {
     if (!svc || !(svc.price > 0)) return false;
     if (svc.category === t('promoCategory')) return !svc.id.includes('presoterapia');
     return !svc.pack;
   }
-  function bonoTiersFor(svc) {
-    if (!svc) return null;
-    if (bonosById[svc.id] && bonosById[svc.id].length) return bonosById[svc.id];
-    if (!isMultiSessionEligible(svc)) return null;
-    return MULTI_SESSION_OPTIONS.map((n) => ({
+  // Cantidades posibles para un tratamiento, en orden: [1, 2, 3, 6...]
+  function sessionQuantitiesFor(svc) {
+    if (!svc) return [1];
+    const set = new Set([1]);
+    if (isMultiSessionEligible(svc)) for (let n = 2; n <= MULTI_SESSION_MAX; n++) set.add(n);
+    (bonosById[svc.id] || []).forEach((b) => set.add(b.sessions));
+    return Array.from(set).sort((a, b) => a - b);
+  }
+  // "Bono" para n sesiones: el configurado si existe, si no uno a precio
+  // suelto × n. null para 1 sesión (va como sesión suelta normal).
+  function bonoForQty(svc, n) {
+    if (!svc || n < 2) return null;
+    const configured = (bonosById[svc.id] || []).find((b) => b.sessions === n);
+    if (configured) return { ...configured, serviceName: svc.name, custom: false };
+    return {
       serviceId: svc.id,
       serviceName: svc.name,
       category: svc.category,
@@ -711,73 +729,92 @@
       bonoPrice: Math.round(svc.price * n * 100) / 100,
       singleSessionPrice: svc.price,
       custom: true,
-    }));
+    };
   }
-  function bonoTierButtonInner(bono, showPerSession) {
-    const save = Math.max(0, bono.singleSessionPrice * bono.sessions - bono.bonoPrice);
-    return `
-          ${save >= 1 ? `<span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>` : ''}
-          <span class="booking-bono-option-name">${bono.custom ? t('multiSessionLabel')(bono.sessions) : t('bonoPackLabel')(bono.sessions)}</span>
-          <span class="booking-bono-option-price">${bono.bonoPrice.toFixed(0)} €</span>
-          ${showPerSession && save >= 1 ? `<span class="booking-bono-option-per-session">${t('bonoPerSession')((bono.bonoPrice / bono.sessions).toFixed(0))}</span>` : ''}`;
+  function bonoLabel(b) {
+    return b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions);
+  }
+  // Pinta el selector "− n +" — onChange recibe la nueva cantidad.
+  function buildQtyStepper(qtys, current, onChange) {
+    const wrap = document.createElement('span');
+    wrap.className = 'booking-qty';
+    const idx = qtys.indexOf(current);
+    const minus = document.createElement('button');
+    minus.type = 'button';
+    minus.className = 'booking-qty-btn';
+    minus.textContent = '−';
+    minus.setAttribute('aria-label', t('qtyLess'));
+    minus.disabled = idx <= 0;
+    const value = document.createElement('span');
+    value.className = 'booking-qty-value';
+    value.textContent = current;
+    const plus = document.createElement('button');
+    plus.type = 'button';
+    plus.className = 'booking-qty-btn';
+    plus.textContent = '+';
+    plus.setAttribute('aria-label', t('qtyMore'));
+    plus.disabled = idx >= qtys.length - 1;
+    minus.addEventListener('click', () => { if (idx > 0) onChange(qtys[idx - 1]); });
+    plus.addEventListener('click', () => { if (idx < qtys.length - 1) onChange(qtys[idx + 1]); });
+    wrap.appendChild(minus);
+    wrap.appendChild(value);
+    wrap.appendChild(plus);
+    return wrap;
   }
 
   function renderBonoSection() {
-    const tiers = bonoTiersFor(state.service);
-    if (!tiers || !tiers.length) {
+    const svc = state.service;
+    const qtys = sessionQuantitiesFor(svc);
+    if (qtys.length < 2) {
       els.bonoSection.style.display = 'none';
       els.bonoSection.innerHTML = '';
       state.wantsBono = false;
       state.bono = null;
       return;
     }
-    // Si ya había un bono elegido de este mismo tratamiento (p.ej. al
-    // cambiar solo la duración), se mantiene; si no, se parte de "solo esta
-    // sesión" (el primer paquete solo se usa para el texto de la nota).
-    let keepIdx = -1;
-    if (state.wantsBono && state.bono) {
-      keepIdx = tiers.findIndex((b) => b.sessions === state.bono.sessions);
-      if (keepIdx < 0) keepIdx = 0;
-    }
-    state.bono = tiers[keepIdx >= 0 ? keepIdx : 0];
-    const singlePrice = tiers[0].singleSessionPrice;
-    const tierButtons = tiers.map((bono, i) => `
-        <button type="button" class="booking-bono-option booking-bono-option-pack${i === keepIdx ? ' selected' : ''}" data-bono="${i}">
-          ${bonoTierButtonInner(bono, true)}
-        </button>
-      `).join('');
+    // Si ya había varias sesiones elegidas (p.ej. al cambiar solo la
+    // duración dentro de un grupo), se mantiene la cantidad si es posible.
+    let qty = state.wantsBono && state.bono ? state.bono.sessions : 1;
+    if (!qtys.includes(qty)) qty = 1;
+    state.wantsBono = qty > 1;
+    state.bono = bonoForQty(svc, qty);
+
+    const hasDiscountPack = (bonosById[svc.id] || []).length > 0;
+    const price = state.bono ? state.bono.bonoPrice : svc.price;
+    const save = state.bono ? Math.max(0, svc.price * qty - state.bono.bonoPrice) : 0;
+    const nextPack = (bonosById[svc.id] || []).find((b) => b.sessions > qty);
     els.bonoSection.style.display = 'block';
     els.bonoSection.innerHTML = `
-      <div class="booking-bono-title">✦ ${tiers[0].custom ? t('multiSessionTitle') : t('bonoTitle')}</div>
-      <div class="booking-bono-options">
-        <button type="button" class="booking-bono-option${!state.wantsBono ? ' selected' : ''}" data-bono="single">
-          <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
-          <span class="booking-bono-option-price">${singlePrice.toFixed(0)} €</span>
-        </button>
-        ${tierButtons}
+      <div class="booking-bono-title">✦ ${hasDiscountPack ? t('bonoTitle') : t('multiSessionTitle')}</div>
+      <div class="booking-qty-row">
+        <span class="booking-qty-label">${t('qtyLabel')}</span>
+        <span class="booking-qty-slot"></span>
+        <span class="booking-qty-total">
+          <span class="booking-bono-option-price">${price.toFixed(0)} €</span>
+          ${save >= 1 ? `<span class="booking-bono-option-badge">${t('bonoSaveNote')(save.toFixed(0))}</span>` : ''}
+          ${qty > 1 && save >= 1 ? `<span class="booking-qty-per">${t('bonoPerSession')((price / qty).toFixed(0))}</span>` : ''}
+        </span>
       </div>
-      <p class="booking-bono-note">${t('bonoSessionNote')(state.bono.sessions)}</p>
+      ${state.bono && !state.bono.custom ? `<p class="booking-qty-packname">${bonoLabel(state.bono)}</p>` : ''}
+      ${!state.wantsBono && nextPack ? `<p class="booking-qty-hint">${t('qtyPackHint')(nextPack.sessions, nextPack.bonoPrice.toFixed(0), Math.max(0, svc.price * nextPack.sessions - nextPack.bonoPrice).toFixed(0))}</p>` : ''}
+      <p class="booking-bono-note">${state.wantsBono ? t('bonoSessionNote')(qty) : t('qtyNote')}</p>
     `;
-    els.bonoSection.querySelectorAll('.booking-bono-option').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.wantsBono = btn.dataset.bono !== 'single';
-        if (state.wantsBono) state.bono = tiers[Number(btn.dataset.bono)];
-        els.bonoSection.querySelectorAll('.booking-bono-option').forEach((b) => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        els.bonoSection.querySelector('.booking-bono-note').textContent = t('bonoSessionNote')(state.bono.sessions);
-        // Los tratamientos añadidos (sueltos o bono) se mantienen igual al
-        // cambiar el principal — solo cambian los "extras" de zona/tiempo,
-        // que no tienen sentido si el principal pasa a ser un bono.
-        if (state.wantsBono) {
-          state.extras = [];
-          els.extrasSection.style.display = 'none';
-        } else {
-          loadExtras();
-        }
-        renderAddonsSelect();
-        renderSummary();
-      });
-    });
+    els.bonoSection.querySelector('.booking-qty-slot').appendChild(buildQtyStepper(qtys, qty, (n) => {
+      const wasBono = state.wantsBono;
+      state.wantsBono = n > 1;
+      state.bono = bonoForQty(svc, n);
+      // Los "extras" de zona/tiempo del principal no tienen sentido si el
+      // principal pasa a ser un bono; los tratamientos añadidos se mantienen.
+      if (state.wantsBono) {
+        state.extras = [];
+        els.extrasSection.style.display = 'none';
+      } else if (wasBono) {
+        loadExtras();
+      }
+      renderBonoSection();
+      renderAddonsSelect();
+      renderSummary();
+    }));
   }
 
   function selectService(service, cardEl, durationGroup, keepExtras) {
@@ -790,6 +827,7 @@
       state.extras = [];
       state.extraServices = [];
       state.extraBonos = [];
+      addonOrder = [];
       state.wantsBono = false;
     }
     document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
@@ -805,9 +843,11 @@
   }
 
   // ── "Otros tratamientos" añadidos a la misma cita ──
-  // Se puede añadir cualquier tratamiento, tenga o no bono disponible. Si lo
-  // tiene, se elige con botones (igual que el principal) sesión suelta o
-  // bono antes de añadirlo; si no, se añade directo como sesión suelta.
+  // Se añaden con 1 sesión y en el propio chip se sube o baja el nº de
+  // sesiones con − / + (igual que el principal). Con 1 sesión va en
+  // extraServices; con 2+ en extraBonos. addonOrder guarda el orden en que
+  // se añadieron para que el chip no cambie de sitio al cambiar la cantidad.
+  let addonOrder = [];
   function renderAddonsSelect() {
     const usedIds = new Set(selectedServiceIds());
     els.addonsSelect.innerHTML = `<option value="">${t('addTreatment')}</option>`;
@@ -826,41 +866,43 @@
     });
   }
 
+  function setAddonQty(svc, n) {
+    state.extraServices = state.extraServices.filter((x) => x.id !== svc.id);
+    state.extraBonos = state.extraBonos.filter((x) => x.serviceId !== svc.id);
+    if (n <= 0) {
+      addonOrder = addonOrder.filter((id) => id !== svc.id);
+    } else if (n === 1) {
+      state.extraServices.push(svc);
+    } else {
+      state.extraBonos.push(bonoForQty(svc, n));
+    }
+    onAddonsChanged();
+  }
+
   function renderAddonsChips() {
     els.addonsChips.innerHTML = '';
-    state.extraServices.forEach((s) => {
+    const ids = addonOrder.filter((id) => state.extraServices.some((s) => s.id === id) || state.extraBonos.some((b) => b.serviceId === id));
+    // Por si algo se añadió sin pasar por addonOrder, que no se pierda.
+    [...state.extraServices.map((s) => s.id), ...state.extraBonos.map((b) => b.serviceId)].forEach((id) => { if (!ids.includes(id)) ids.push(id); });
+    addonOrder = ids;
+    ids.forEach((id) => {
+      const svc = findServiceById(id);
+      if (!svc) return;
+      const bono = state.extraBonos.find((b) => b.serviceId === id);
+      const qty = bono ? bono.sessions : 1;
       const chip = document.createElement('span');
-      chip.className = 'booking-addon-chip';
+      chip.className = 'booking-addon-chip' + (bono ? ' booking-addon-chip-bono' : '');
       const label = document.createElement('span');
-      label.textContent = s.name;
+      label.textContent = bono && !bono.custom ? `${svc.name} — ${bonoLabel(bono)}` : svc.name;
+      chip.appendChild(label);
+      const qtys = sessionQuantitiesFor(svc);
+      if (qtys.length > 1) chip.appendChild(buildQtyStepper(qtys, qty, (n) => setAddonQty(svc, n)));
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'booking-addon-remove';
       removeBtn.setAttribute('aria-label', t('removeAddon'));
       removeBtn.textContent = '✕';
-      removeBtn.addEventListener('click', () => {
-        state.extraServices = state.extraServices.filter((x) => x.id !== s.id);
-        onAddonsChanged();
-      });
-      chip.appendChild(label);
-      chip.appendChild(removeBtn);
-      els.addonsChips.appendChild(chip);
-    });
-    state.extraBonos.forEach((b) => {
-      const chip = document.createElement('span');
-      chip.className = 'booking-addon-chip booking-addon-chip-bono';
-      const label = document.createElement('span');
-      label.textContent = `${b.serviceName} — ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)}`;
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'booking-addon-remove';
-      removeBtn.setAttribute('aria-label', t('removeAddon'));
-      removeBtn.textContent = '✕';
-      removeBtn.addEventListener('click', () => {
-        state.extraBonos = state.extraBonos.filter((x) => x.serviceId !== b.serviceId);
-        onAddonsChanged();
-      });
-      chip.appendChild(label);
+      removeBtn.addEventListener('click', () => setAddonQty(svc, 0));
       chip.appendChild(removeBtn);
       els.addonsChips.appendChild(chip);
     });
@@ -873,58 +915,12 @@
     if (!state.wantsBono) loadExtras();
   }
 
-  function hideAddonsModeChooser() {
-    els.addonsModeChooser.style.display = 'none';
-    els.addonsModeChooser.innerHTML = '';
-    // Se reactiva el desplegable al cerrar el selector de modo — mientras
-    // estaba abierto se bloqueaba para que elegir un segundo tratamiento no
-    // sustituyera en silencio la elección pendiente del primero (pasaba
-    // porque showAddonsModeChooser() reemplaza el contenido entero del
-    // selector de modo cada vez que se llama).
-    els.addonsSelect.disabled = false;
-  }
-
-  function showAddonsModeChooser(svc, tiers) {
-    els.addonsModeChooser.style.display = 'block';
-    els.addonsSelect.disabled = true;
-    const tierButtons = tiers.map((bono, i) => `
-        <button type="button" class="booking-bono-option booking-bono-option-pack" data-mode="bono" data-tier="${i}">
-          ${bonoTierButtonInner(bono, false)}
-        </button>
-      `).join('');
-    els.addonsModeChooser.innerHTML = `
-      <div class="booking-addons-mode-label">${svc.name}</div>
-      <div class="booking-bono-options">
-        <button type="button" class="booking-bono-option" data-mode="single">
-          <span class="booking-bono-option-name">${t('bonoSingleLabel')}</span>
-          <span class="booking-bono-option-price">${svc.price.toFixed(0)} €</span>
-        </button>
-        ${tierButtons}
-      </div>
-      <button type="button" class="booking-addons-mode-cancel" data-mode="cancel">${t('cancel')}</button>
-    `;
-    els.addonsModeChooser.querySelectorAll('[data-mode]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        if (btn.dataset.mode === 'bono') {
-          state.extraBonos.push(tiers[Number(btn.dataset.tier)]);
-        } else if (btn.dataset.mode === 'single') {
-          state.extraServices.push(svc);
-        }
-        // "cancel" no añade nada, solo cierra el selector sin perder nada más.
-        hideAddonsModeChooser();
-        onAddonsChanged();
-      });
-    });
-  }
-
   els.addonsSelect.addEventListener('change', () => {
     const id = els.addonsSelect.value;
     if (!id) return;
     const svc = findServiceById(id);
-    const tiers = bonoTiersFor(svc);
-    if (svc && tiers && tiers.length) {
-      showAddonsModeChooser(svc, tiers);
-    } else if (svc) {
+    if (svc) {
+      addonOrder.push(svc.id);
       state.extraServices.push(svc);
       onAddonsChanged();
     }
