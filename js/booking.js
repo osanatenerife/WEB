@@ -127,24 +127,37 @@
   // suelta o bono, cualquier combinación, indistintamente del principal.
   function extrasDuration() { return state.extras.reduce((sum, e) => sum + e.durationMinutes, 0); }
   function extrasPrice() { return state.extras.reduce((sum, e) => sum + e.price, 0); }
-  function addonsDuration() { return state.extraServices.reduce((sum, s) => sum + s.durationMinutes, 0); }
   function addonsPrice() { return state.extraServices.reduce((sum, s) => sum + s.price, 0); }
-  function extraBonosDuration() { return state.extraBonos.reduce((sum, b) => sum + ((findServiceById(b.serviceId) || {}).durationMinutes || 0), 0); }
   function extraBonosPrice() { return state.extraBonos.reduce((sum, b) => sum + b.bonoPrice, 0); }
   // Igual que en el servidor (ver COMBO_ARRIVAL_BUFFER_MINUTES en
   // pricing.js): con 2+ tratamientos reales en la misma visita, el margen
   // de llegada solo hace falta una vez — se resta del total aquí también
   // para que la vista previa coincida con lo que de verdad se reserva.
   const COMBO_ARRIVAL_BUFFER_MINUTES = 15;
+  // Depilación láser: cada zona lleva su cabinMinutes (tiempo real en
+  // cabina, sin margen — ver config/services.js en el servidor). Si hay
+  // varias zonas de láser en la misma visita, cuentan como UN solo bloque
+  // (suma de cabinMinutes + un margen único), no con el margen genérico de
+  // arriba — mismo cálculo que en el servidor (lib/pricing.js).
+  const LASER_OVERHEAD_MINUTES = 10;
   function totalDuration() {
-    const primary = state.service ? state.service.durationMinutes : 0;
     const modifiers = state.wantsBono ? 0 : extrasDuration();
-    const naive = primary + modifiers + addonsDuration() + extraBonosDuration();
-    const extraServiceDurations = state.extraServices.map((s) => s.durationMinutes);
-    const extraBonoDurations = state.extraBonos.map((b) => (findServiceById(b.serviceId) || {}).durationMinutes || 0);
-    const itemCount = 1 + extraServiceDurations.length + extraBonoDurations.length;
-    if (itemCount < 2) return naive;
-    const longest = Math.max(primary, ...extraServiceDurations, ...extraBonoDurations);
+    const mainItems = [];
+    if (state.service) mainItems.push(state.service);
+    state.extraServices.forEach((s) => mainItems.push(s));
+    state.extraBonos.forEach((b) => {
+      const s = findServiceById(b.serviceId);
+      if (s) mainItems.push(s);
+    });
+    const laserItems = mainItems.filter((s) => s.cabinMinutes != null);
+    const otherItems = mainItems.filter((s) => s.cabinMinutes == null);
+    const pieces = otherItems.map((s) => s.durationMinutes);
+    if (laserItems.length) {
+      pieces.push(laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
+    }
+    const naive = pieces.reduce((sum, m) => sum + m, 0) + modifiers;
+    if (pieces.length < 2) return naive;
+    const longest = Math.max(...pieces);
     return Math.max(longest, naive - COMBO_ARRIVAL_BUFFER_MINUTES);
   }
   function hasAnyBono() { return state.wantsBono || state.extraBonos.length > 0; }

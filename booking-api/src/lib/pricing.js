@@ -32,17 +32,36 @@ function applyComboBuffer(naiveTotal, itemCount, longestItemMinutes) {
   return Math.max(longestItemMinutes, naiveTotal - COMBO_ARRIVAL_BUFFER_MINUTES);
 }
 
+// Depilación láser: cada zona tiene un "cabinMinutes" (tiempo real tratando,
+// sin margen — ver config/services.js) en vez de usar directamente
+// durationMinutes para calcular combos. Cuando se juntan varias zonas de
+// láser en la misma visita, el margen de cambio/cobro solo se cuenta UNA
+// vez para todo el grupo (no el COMBO_ARRIVAL_BUFFER_MINUTES genérico, que
+// da una cifra menos precisa) — confirmado con la dueña con tiempos reales
+// de cabina para cada zona.
+const LASER_OVERHEAD_MINUTES = 10;
+
 function totalDuration(service, resolvedExtras, extraServices = []) {
   // Los "extras" (resolvedExtras) son modificadores del tratamiento
   // principal (p.ej. un tinte) — no cuentan como tratamiento aparte a
   // efectos del margen de llegada. Los "extraServices" sí son
   // tratamientos reales añadidos a la misma visita.
-  const naive = service.durationMinutes
-    + resolvedExtras.reduce((sum, e) => sum + e.durationMinutes, 0)
-    + extraServices.reduce((sum, s) => sum + s.durationMinutes, 0);
-  const itemCount = 1 + extraServices.length;
-  const longest = Math.max(service.durationMinutes, ...extraServices.map((s) => s.durationMinutes));
-  return applyComboBuffer(naive, itemCount, longest);
+  const extrasMinutes = resolvedExtras.reduce((sum, e) => sum + e.durationMinutes, 0);
+  const mainItems = [service, ...extraServices];
+  const laserItems = mainItems.filter((s) => s.cabinMinutes != null);
+  const otherItems = mainItems.filter((s) => s.cabinMinutes == null);
+
+  // El grupo de zonas de láser (si hay alguna) cuenta como UNA sola pieza
+  // a efectos de margen — su propio cálculo ya incluye un margen preciso,
+  // así que no hace falta restarle también el margen genérico.
+  const pieces = otherItems.map((s) => s.durationMinutes);
+  if (laserItems.length) {
+    pieces.push(laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
+  }
+
+  const naive = pieces.reduce((sum, m) => sum + m, 0) + extrasMinutes;
+  const longest = Math.max(...pieces);
+  return applyComboBuffer(naive, pieces.length, longest);
 }
 
 function totalPrice(service, resolvedExtras, extraServices = []) {
