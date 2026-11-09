@@ -299,18 +299,18 @@
     }
     let html;
     if (state.wantsBono && state.bono) {
-      html = `<div class="booking-summary-row"><strong>${state.bono.custom ? t('multiSessionLabel')(state.bono.sessions) : t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div>`;
+      html = `<div class="booking-summary-row"><strong>${state.bono.custom ? t('multiSessionLabel')(state.bono.sessions) : t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div><div class="booking-summary-qty" data-qty-main></div>`;
     } else {
-      html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div>`;
+      html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div><div class="booking-summary-qty" data-qty-main></div>`;
       extras.forEach((ex) => {
         html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span></div>`;
       });
     }
     extraServices.forEach((s) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div>`;
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div><div class="booking-summary-qty" data-qty-addon="${s.id}"></div>`;
     });
     extraBonos.forEach((b) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div>`;
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div><div class="booking-summary-qty" data-qty-addon="${b.serviceId}"></div>`;
     });
     if (discountIsStillValid()) {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('discountLine')} (${state.discountCode})</span><span>-${state.discountAmount.toFixed(0)} €</span></div>`;
@@ -327,6 +327,28 @@
       html += `<div class="booking-summary-line">${dateLabel} ${t('at')} ${time}</div>`;
     }
     els.summary.innerHTML = html;
+    // Selector − / + también aquí, en "Tu reserva" (siempre a la vista en
+    // ordenador): en Promociones la lista es larga y el recuadro de sesiones
+    // de debajo quedaba fuera de la pantalla. Solo se ve en el paso 1 (CSS).
+    const mainSlot = els.summary.querySelector('[data-qty-main]');
+    if (mainSlot) {
+      const qtys = sessionQuantitiesFor(service);
+      if (qtys.length > 1) {
+        const qty = state.wantsBono && state.bono ? state.bono.sessions : 1;
+        mainSlot.innerHTML = `<span class="booking-summary-qty-label">${t('qtyLabel')}</span>`;
+        mainSlot.appendChild(buildQtyStepper(qtys, qty, setMainQty));
+      } else {
+        mainSlot.remove();
+      }
+    }
+    els.summary.querySelectorAll('[data-qty-addon]').forEach((slot) => {
+      const svc = findServiceById(slot.dataset.qtyAddon);
+      const qtys = sessionQuantitiesFor(svc);
+      if (!svc || qtys.length < 2) { slot.remove(); return; }
+      const bono = state.extraBonos.find((b) => b.serviceId === svc.id);
+      slot.innerHTML = `<span class="booking-summary-qty-label">${t('qtyLabel')}</span>`;
+      slot.appendChild(buildQtyStepper(qtys, bono ? bono.sessions : 1, (n) => setAddonQty(svc, n)));
+    });
 
     // Si había un código aplicado y la selección ha cambiado desde entonces,
     // avisamos de que hay que volver a comprobarlo (en vez de aplicarlo mal).
@@ -799,22 +821,26 @@
       ${!state.wantsBono && nextPack ? `<p class="booking-qty-hint">${t('qtyPackHint')(nextPack.sessions, nextPack.bonoPrice.toFixed(0), Math.max(0, svc.price * nextPack.sessions - nextPack.bonoPrice).toFixed(0))}</p>` : ''}
       <p class="booking-bono-note">${state.wantsBono ? t('bonoSessionNote')(qty) : t('qtyNote')}</p>
     `;
-    els.bonoSection.querySelector('.booking-qty-slot').appendChild(buildQtyStepper(qtys, qty, (n) => {
-      const wasBono = state.wantsBono;
-      state.wantsBono = n > 1;
-      state.bono = bonoForQty(svc, n);
-      // Los "extras" de zona/tiempo del principal no tienen sentido si el
-      // principal pasa a ser un bono; los tratamientos añadidos se mantienen.
-      if (state.wantsBono) {
-        state.extras = [];
-        els.extrasSection.style.display = 'none';
-      } else if (wasBono) {
-        loadExtras();
-      }
-      renderBonoSection();
-      renderAddonsSelect();
-      renderSummary();
-    }));
+    els.bonoSection.querySelector('.booking-qty-slot').appendChild(buildQtyStepper(qtys, qty, setMainQty));
+  }
+
+  function setMainQty(n) {
+    const svc = state.service;
+    if (!svc) return;
+    const wasBono = state.wantsBono;
+    state.wantsBono = n > 1;
+    state.bono = bonoForQty(svc, n);
+    // Los "extras" de zona/tiempo del principal no tienen sentido si el
+    // principal pasa a ser un bono; los tratamientos añadidos se mantienen.
+    if (state.wantsBono) {
+      state.extras = [];
+      els.extrasSection.style.display = 'none';
+    } else if (wasBono) {
+      loadExtras();
+    }
+    renderBonoSection();
+    renderAddonsSelect();
+    renderSummary();
   }
 
   function selectService(service, cardEl, durationGroup, keepExtras) {
@@ -840,6 +866,12 @@
     renderAddonsChips();
     renderAddonsSelect();
     if (!keepExtras) loadExtras();
+    // En móvil "Tu reserva" queda al final de la página: al elegir un
+    // tratamiento se baja lo justo para que se vea el selector de sesiones
+    // (en listas largas como Promociones quedaba fuera de la pantalla).
+    if (!keepExtras && window.innerWidth <= 980 && els.bonoSection.style.display !== 'none') {
+      setTimeout(() => els.bonoSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+    }
   }
 
   // ── "Otros tratamientos" añadidos a la misma cita ──

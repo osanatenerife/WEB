@@ -530,3 +530,9 @@
 .booking-addon-chip .booking-qty { border-color: var(--line); }
 .booking-addon-chip .booking-qty-btn { width: 24px; height: 24px; font-size: 15px; }
 .booking-addon-chip .booking-qty-value { min-width: 16px; font-size: 12.5px; }
+/* Selector − / + dentro de "Tu reserva" (solo en el paso 1) */
+.booking-summary-qty { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 4px; }
+.booking-summary-qty-label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brown); }
+.booking-summary-qty .booking-qty { background: #fff; border-color: var(--brown); }
+.booking-summary-qty .booking-qty-btn { width: 30px; height: 30px; font-size: 17px; }
+.booking-shell:not([data-active-step="1"]) .booking-summary-qty { display: none; }
