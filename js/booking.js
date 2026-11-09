@@ -156,6 +156,28 @@
   // (suma de cabinMinutes + un margen único), no con el margen genérico de
   // arriba — mismo cálculo que en el servidor (lib/pricing.js).
   const LASER_OVERHEAD_MINUTES = 10;
+  // Combos de láser con duración exacta ya confirmada (ver
+  // config/laserComboOverrides.js en el servidor, misma lista) — combinar
+  // varias zonas grandes ahorra más tiempo del que calcula la suma simple.
+  const LASER_COMBO_OVERRIDES = [
+    { ids: ['laser-labio', 'laser-menton'], minutes: 20 },
+    { ids: ['laser-axilas', 'laser-ingles'], minutes: 35 },
+    { ids: ['laser-axilas', 'laser-intimo-completo', 'laser-medios-brazos'], minutes: 60 },
+    { ids: ['laser-piernas-completas', 'laser-axilas', 'laser-ingles'], minutes: 60 },
+    { ids: ['laser-espalda', 'laser-pecho-abdomen'], minutes: 45 },
+    { ids: ['laser-gluteos', 'laser-medias-piernas'], minutes: 45 },
+    { ids: ['laser-facial', 'laser-labio', 'laser-menton', 'laser-linea-alba'], minutes: 40 },
+    { ids: ['laser-brazos', 'laser-axilas', 'laser-intimo-completo'], minutes: 50 },
+    { ids: ['laser-piernas-completas', 'laser-gluteos'], minutes: 50 },
+  ];
+  function findLaserComboOverride(laserItems) {
+    if (laserItems.length < 2) return null;
+    const idSet = new Set(laserItems.map((s) => s.id));
+    const match = LASER_COMBO_OVERRIDES.find((combo) => (
+      combo.ids.length === idSet.size && combo.ids.every((id) => idSet.has(id))
+    ));
+    return match ? match.minutes : null;
+  }
 
   // ── Líneas del carrito ──
   // Cada tratamiento del carrito: cuántas sesiones se compran y si su 1ª
@@ -195,7 +217,10 @@
     const otherItems = mainItems.filter((s) => s.cabinMinutes == null);
     const pieces = otherItems.map((s) => s.durationMinutes || 0);
     if (laserItems.length) {
-      pieces.push(laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
+      const override = findLaserComboOverride(laserItems);
+      pieces.push(override != null
+        ? override
+        : laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
     }
     const naive = pieces.reduce((sum, m) => sum + m, 0) + modifiers;
     if (pieces.length < 2) return naive;

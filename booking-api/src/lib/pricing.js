@@ -1,5 +1,6 @@
 const services = require('../config/services');
 const extras = require('../config/extras');
+const laserComboOverrides = require('../config/laserComboOverrides');
 
 // Acepta "id1,id2" (query string) o un array (body JSON)
 function parseExtraIds(raw) {
@@ -41,6 +42,20 @@ function applyComboBuffer(naiveTotal, itemCount, longestItemMinutes) {
 // de cabina para cada zona.
 const LASER_OVERHEAD_MINUTES = 10;
 
+// Para combos de láser concretos ya confirmados con la dueña (ver
+// config/laserComboOverrides.js), la suma simple de cabinMinutes + un
+// margen no basta — combinar varias zonas grandes ahorra más tiempo del
+// que calcula esa fórmula. Busca una coincidencia EXACTA de conjunto de
+// ids (sin importar el orden); si no hay ninguna, se sigue con la fórmula.
+function findLaserComboOverride(laserItems) {
+  if (laserItems.length < 2) return null;
+  const idSet = new Set(laserItems.map((s) => s.id));
+  const match = laserComboOverrides.find((combo) => (
+    combo.ids.length === idSet.size && combo.ids.every((id) => idSet.has(id))
+  ));
+  return match ? match.minutes : null;
+}
+
 // Duración de una visita a partir de sus tratamientos "reales" (el grupo de
 // zonas de láser, si hay alguna, cuenta como UNA sola pieza con su propio
 // margen preciso — ver arriba) + minutos sueltos de modificadores (p.ej. un
@@ -52,7 +67,10 @@ function durationForItems(mainItems, extrasMinutes = 0) {
 
   const pieces = otherItems.map((s) => s.durationMinutes);
   if (laserItems.length) {
-    pieces.push(laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
+    const override = findLaserComboOverride(laserItems);
+    pieces.push(override != null
+      ? override
+      : laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
   }
 
   const naive = pieces.reduce((sum, m) => sum + m, 0) + extrasMinutes;
