@@ -41,27 +41,32 @@ function applyComboBuffer(naiveTotal, itemCount, longestItemMinutes) {
 // de cabina para cada zona.
 const LASER_OVERHEAD_MINUTES = 10;
 
-function totalDuration(service, resolvedExtras, extraServices = []) {
-  // Los "extras" (resolvedExtras) son modificadores del tratamiento
-  // principal (p.ej. un tinte) — no cuentan como tratamiento aparte a
-  // efectos del margen de llegada. Los "extraServices" sí son
-  // tratamientos reales añadidos a la misma visita.
-  const extrasMinutes = resolvedExtras.reduce((sum, e) => sum + e.durationMinutes, 0);
-  const mainItems = [service, ...extraServices];
+// Duración de una visita a partir de sus tratamientos "reales" (el grupo de
+// zonas de láser, si hay alguna, cuenta como UNA sola pieza con su propio
+// margen preciso — ver arriba) + minutos sueltos de modificadores (p.ej. un
+// tinte) que se suman aparte, sin contar como pieza propia. Compartida por
+// el checkout normal y el de bonos, para que ambos calculen igual.
+function durationForItems(mainItems, extrasMinutes = 0) {
   const laserItems = mainItems.filter((s) => s.cabinMinutes != null);
   const otherItems = mainItems.filter((s) => s.cabinMinutes == null);
 
-  // El grupo de zonas de láser (si hay alguna) cuenta como UNA sola pieza
-  // a efectos de margen — su propio cálculo ya incluye un margen preciso,
-  // así que no hace falta restarle también el margen genérico.
   const pieces = otherItems.map((s) => s.durationMinutes);
   if (laserItems.length) {
     pieces.push(laserItems.reduce((sum, s) => sum + s.cabinMinutes, 0) + LASER_OVERHEAD_MINUTES);
   }
 
   const naive = pieces.reduce((sum, m) => sum + m, 0) + extrasMinutes;
-  const longest = Math.max(...pieces);
+  const longest = pieces.length ? Math.max(...pieces) : 0;
   return applyComboBuffer(naive, pieces.length, longest);
+}
+
+function totalDuration(service, resolvedExtras, extraServices = []) {
+  // Los "extras" (resolvedExtras) son modificadores del tratamiento
+  // principal (p.ej. un tinte) — no cuentan como tratamiento aparte a
+  // efectos del margen de llegada. Los "extraServices" sí son
+  // tratamientos reales añadidos a la misma visita.
+  const extrasMinutes = resolvedExtras.reduce((sum, e) => sum + e.durationMinutes, 0);
+  return durationForItems([service, ...extraServices], extrasMinutes);
 }
 
 function totalPrice(service, resolvedExtras, extraServices = []) {
@@ -72,5 +77,5 @@ function totalPrice(service, resolvedExtras, extraServices = []) {
 
 module.exports = {
   parseExtraIds, resolveExtras, resolveExtraServices, totalDuration, totalPrice,
-  applyComboBuffer, COMBO_ARRIVAL_BUFFER_MINUTES,
+  applyComboBuffer, COMBO_ARRIVAL_BUFFER_MINUTES, durationForItems,
 };

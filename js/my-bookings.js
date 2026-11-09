@@ -23,6 +23,7 @@
     confirmCancel: { es: '¿Seguro que quieres cancelar esta cita?', en: 'Are you sure you want to cancel this appointment?', it: 'Sei sicura di voler cancellare questo appuntamento?' },
     cancelledRefunded: { es: '✓ Cita cancelada — se ha reembolsado el importe pagado.', en: '✓ Appointment cancelled — the amount paid has been refunded.', it: '✓ Appuntamento cancellato — l\'importo pagato è stato rimborsato.' },
     cancelledNoRefund: { es: '✓ Cita cancelada — al ser con menos de 48h de antelación, no hay reembolso automático. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — since it was less than 48h in advance, there is no automatic refund. Message us on WhatsApp if you have questions.', it: '✓ Appuntamento cancellato — essendo con meno di 48h di anticipo, non c\'è rimborso automatico. Scrivici su WhatsApp per qualsiasi dubbio.' },
+    cancelledBonoReturned: { es: '✓ Cita cancelada — la sesión vuelve a tu bono: puedes reservarla otro día cuando quieras desde aquí.', en: '✓ Appointment cancelled — the session goes back to your package: you can book it another day whenever you like from here.', it: '✓ Appuntamento cancellato — la seduta torna nel tuo pacchetto: puoi prenotarla un altro giorno quando vuoi da qui.' },
     cancelledNothingToRefund: { es: '✓ Cita cancelada.', en: '✓ Appointment cancelled.', it: '✓ Appuntamento cancellato.' },
     cancelledRefundFailed: { es: '✓ Cita cancelada — avisaste con tiempo suficiente, así que te corresponde el reembolso, pero ha habido un problema técnico al procesarlo automáticamente. Nuestro equipo lo revisará y te lo devolverá a mano en breve. Escríbenos por WhatsApp si tienes dudas.', en: '✓ Appointment cancelled — you gave enough notice so a refund applies, but there was a technical issue processing it automatically. Our team will review it and refund you by hand shortly. Message us on WhatsApp if you have questions.', it: '✓ Appuntamento cancellato — hai avvisato in tempo utile quindi ti spetta il rimborso, ma c\'è stato un problema tecnico nell\'elaborazione automatica. Il nostro team lo verificherà e te lo restituirà a mano a breve. Scrivici su WhatsApp per qualsiasi dubbio.' },
     cancel: { es: 'Cancelar cita', en: 'Cancel appointment', it: 'Cancella appuntamento' },
@@ -42,7 +43,9 @@
     noShowNoticeForgiven: { es: 'Falta sin penalización. (Has faltado a tu cita o no avisaste con 48h de antelación). La próxima falta sin aviso previo de 48h se descontará el importe de la reserva o la sesión del bono.', en: "No-show without penalty. (You missed your appointment or didn't give 48h notice). The next no-show without 48h notice will deduct the booking fee or the package session.", it: 'Assenza senza penalità. (Hai mancato il tuo appuntamento o non hai avvisato con 48h di anticipo). La prossima assenza senza preavviso di 48h comporterà lo scalo dell\'importo della prenotazione o della seduta del pacchetto.' },
     noShowNoticePenalized: { es: 'Falta con penalización — se ha descontado el importe de la reserva o la sesión del bono correspondiente. Para la próxima, te pedimos avisar con 48h de antelación.', en: 'No-show with penalty — the booking fee or package session has been deducted. For next time, please give us at least 48h notice.', it: 'Assenza con penalità — è stato scalato l\'importo della prenotazione o la seduta del pacchetto corrispondente. La prossima volta, ti chiediamo di avvisare con 48h di anticipo.' },
     pendingBonoTitle: { es: 'Sesiones de bono pendientes de reservar', en: 'Package sessions ready to book', it: 'Sedute del pacchetto da prenotare' },
-    pendingBonoGroupNote: { es: 'Marca las sesiones que quieras reservar juntas, en la misma visita.', en: 'Tick the sessions you want to book together, in the same visit.', it: 'Seleziona le sedute che vuoi prenotare insieme, nella stessa visita.' },
+    pendingBonoGroupNote: { es: 'Marca qué tratamiento(s) quieres hacerte en esta visita. Si marcas varios, se reservan juntos en la misma cita; los demás siguen aquí guardados para otro día.', en: 'Tick which treatment(s) you want in this visit. If you tick several, they are booked together in the same appointment; the rest stay saved here for another day.', it: 'Seleziona quale/i trattamento/i vuoi fare in questa visita. Se ne selezioni più di uno, si prenotano insieme nello stesso appuntamento; gli altri restano salvati qui per un altro giorno.' },
+    noSlotsGroup: { es: 'No hay un hueco ese día con tiempo para todos los tratamientos marcados juntos. Prueba otra fecha o marca menos tratamientos (los demás los puedes reservar otro día).', en: 'There is no slot that day with time for all the ticked treatments together. Try another date or tick fewer treatments (you can book the rest another day).', it: 'Quel giorno non c\'è un orario con tempo per tutti i trattamenti selezionati insieme. Prova un\'altra data o selezionane meno (gli altri puoi prenotarli un altro giorno).' },
+    noUpcomingButPending: { es: 'No tienes citas próximas — pero tienes sesiones pagadas pendientes de reservar (abajo).', en: "You have no upcoming appointments — but you have paid sessions ready to book (below).", it: 'Non hai appuntamenti in programma — ma hai sedute pagate da prenotare (qui sotto).' },
     pendingBonoSessionOf: { es: (used, total) => `Sesión ${used + 1} de ${total}`, en: (used, total) => `Session ${used + 1} of ${total}`, it: (used, total) => `Seduta ${used + 1} di ${total}` },
     pendingBonoSessionsLeft: { es: (n) => `Ya pagada — te queda${n === 1 ? '' : 'n'} ${n} ${n === 1 ? 'sesión' : 'sesiones'} en el bono`, en: (n) => `Already paid — ${n} session${n === 1 ? '' : 's'} left on your package`, it: (n) => `Già pagata — ti restano ${n} sedut${n === 1 ? 'a' : 'e'} nel pacchetto` },
     bookThisSession: { es: 'Reservar esta sesión', en: 'Book this session', it: 'Prenota questa seduta' },
@@ -468,6 +471,7 @@
         refunded: 'cancelledRefunded',
         not_eligible: 'cancelledNoRefund',
         nothing_to_refund: 'cancelledNothingToRefund',
+        bono_session_returned: 'cancelledBonoReturned',
         failed: 'cancelledRefundFailed',
       }[data.refundStatus] || (data.refunded ? 'cancelledRefunded' : 'cancelledNoRefund');
       card.innerHTML = `<p class="mybooking-status-note ok">${t(msgKey)}</p>`;
@@ -689,10 +693,13 @@
   // varias sesiones pendientes que siempre hace juntas en la misma visita
   // (p.ej. íntimo + axilas + piernas), las marca todas y se reservan como
   // UNA sola cita con la duración conjunta — no una por una. ──
-  function pendingBonoItemHtml(bo) {
+  // Ninguno marcado por defecto (salvo si solo hay uno): si venían todos
+  // marcados, al pulsar "Reservar" se buscaba hueco para TODO junto y muchas
+  // veces no había tiempo — la clienta elige qué quiere hacerse hoy.
+  function pendingBonoItemHtml(bo, checked) {
     return `
       <label class="mb-group-check-item">
-        <input type="checkbox" class="mb-pendingbono-check" value="${bo.bonoId}" checked>
+        <input type="checkbox" class="mb-pendingbono-check" value="${bo.bonoId}"${checked ? ' checked' : ''}>
         <span class="mb-pendingbono-info">
           <span class="mb-pendingbono-name">${escapeHtml(bo.serviceName)}</span>
           <span class="mb-pendingbono-meta">${t('pendingBonoSessionOf')(bo.sessionsUsed, bo.totalSessions)} · ${t('pendingBonoSessionsLeft')(bo.sessionsRemaining)}</span>
@@ -710,7 +717,7 @@
       <div class="mybooking-card mybooking-card-bono">
         <span class="mybooking-bono-badge">🎁 ${t('bonoBadge')}</span>
         <p class="mybooking-addtreatment-note" style="margin-top:26px;">${t('pendingBonoGroupNote')}</p>
-        <div class="mb-group-checklist">${list.map(pendingBonoItemHtml).join('')}</div>
+        <div class="mb-group-checklist">${list.map((bo) => pendingBonoItemHtml(bo, list.length === 1)).join('')}</div>
         <div class="mybooking-actions">
           <button type="button" class="mybooking-book-bono-btn">${t('bookThisSession')}</button>
         </div>
@@ -783,7 +790,7 @@
         if (!res.ok) throw new Error(data.error || t('genericError'));
         slotsEl.innerHTML = '';
         if (!data.slots || !data.slots.length) {
-          slotsEl.innerHTML = `<p class="booking-slot-message">${t('noSlots')}</p>`;
+          slotsEl.innerHTML = `<p class="booking-slot-message">${list.length > 1 ? t('noSlotsGroup') : t('noSlots')}</p>`;
           return;
         }
         data.slots.forEach((time) => {
@@ -867,6 +874,9 @@
       if (!res.ok) throw new Error(data.error || t('genericError'));
       renderBookings(data.bookings);
       renderPendingBonos(data.pendingBonoSessions);
+      if (!data.bookings.length && data.pendingBonoSessions && data.pendingBonoSessions.length) {
+        resultsEl.innerHTML = `<p class="mybooking-empty">${t('noUpcomingButPending')}</p>`;
+      }
       renderLoyalty(data.loyaltyBalance, data.loyaltyHistory);
       renderNoShowNotice(data.noShowNotice);
     } catch (e) {

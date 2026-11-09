@@ -510,3 +510,39 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ── Selector − / + de nº de sesiones (tratamiento principal y añadidos) ── */
+.booking-qty { display: inline-flex; align-items: center; border: 1px solid var(--line); background: var(--cream); border-radius: 999px; }
+.booking-qty-btn {
+  width: 34px; height: 34px; border: none; background: transparent; color: var(--txt);
+  font-size: 18px; line-height: 1; cursor: pointer; border-radius: 50%; font-family: inherit;
+}
+.booking-qty-btn:hover:not(:disabled) { color: var(--brown); }
+.booking-qty-btn:disabled { opacity: 0.3; cursor: default; }
+.booking-qty-value { min-width: 22px; text-align: center; font-weight: 700; font-size: 15px; color: var(--txt); }
+.booking-qty-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.booking-qty-label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(240,235,226,0.75); }
+.booking-qty-total { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.booking-qty-total .booking-bono-option-price { color: var(--cream2); font-size: 22px; }
+.booking-qty-per { font-size: 11px; color: rgba(240,235,226,0.6); }
+.booking-qty-packname { margin-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--gold); }
+.booking-qty-hint { margin-top: 10px; font-size: 12.5px; color: var(--gold); }
+.booking-addon-chip .booking-qty { border-color: var(--line); }
+.booking-addon-chip .booking-qty-btn { width: 24px; height: 24px; font-size: 15px; }
+.booking-addon-chip .booking-qty-value { min-width: 16px; font-size: 12.5px; }
+/* Selector − / + dentro de "Tu reserva" (solo en el paso 1) */
+.booking-summary-qty { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 8px 0 4px; }
+.booking-summary-qty-label { font-size: 10px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brown); }
+.booking-summary-qty .booking-qty { background: #fff; border-color: var(--brown); }
+.booking-summary-qty .booking-qty-btn { width: 30px; height: 30px; font-size: 17px; }
+.booking-shell:not([data-active-step="1"]) .booking-summary-qty { display: none; }
+
+/* Tic "Reservar cita hoy" (desmarcado = comprar ahora y agendar después) */
+.booking-later-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--txt-mid); cursor: pointer; user-select: none; }
+.booking-later-toggle input { accent-color: var(--brown); width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.booking-summary-later { margin: 2px 0 6px; }
+.booking-summary-later:empty { display: none; }
+.booking-shell:not([data-active-step="1"]) .booking-summary-later { display: none; }
+.booking-later-toggle-dark { margin-top: 14px; color: var(--cream2); font-size: 13px; }
+.booking-later-toggle-dark input { accent-color: var(--gold); width: 17px; height: 17px; }
+.booking-addon-chip .booking-later-toggle { font-size: 11px; padding-left: 4px; border-left: 1px solid var(--line); }
