@@ -50,4 +50,15 @@ function resolveBonoTier(serviceId, sessions) {
   };
 }
 
-module.exports = { resolveBonoTier, isMultiSessionEligible, isPromo, MAX_MULTI_SESSIONS };
+// Igual que resolveBonoTier, pero también admite 1 sesión (compra "para
+// agendar después" de un tratamiento suelto) — lo usa la comprobación de
+// códigos de descuento, que trata esas compras como bonos.
+function resolvePurchaseTier(serviceId, sessions) {
+  if (Number(sessions) === 1) {
+    const service = services.find((s) => s.id === serviceId);
+    return isMultiSessionEligible(service) ? { serviceId, sessions: 1, price: service.price, custom: true } : null;
+  }
+  return resolveBonoTier(serviceId, sessions);
+}
+
+module.exports = { resolveBonoTier, resolvePurchaseTier, isMultiSessionEligible, isPromo, MAX_MULTI_SESSIONS };

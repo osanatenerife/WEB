@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { firstSessionPaymentFields, closeFirstSessionIfFullyPaid } = require('../lib/bonoFirstSession');
 const {
   getAllBookings, findBookingById, updateBookingRow, appendBooking,
   getAllSessionBonos, findSessionBonoById, updateSessionBonoRow, appendSessionBono,
@@ -848,6 +849,7 @@ router.post('/panel/book-session', async (req, res) => {
     }
 
     const bookingId = crypto.randomUUID();
+    const carried = await firstSessionPaymentFields(bono, fromSession);
     await appendBooking({
       bookingId,
       createdAt: new Date().toISOString(),
@@ -873,7 +875,10 @@ router.post('/panel/book-session', async (req, res) => {
       bonoId,
       sessionNumber: useCount > 1 ? sessionLabel : fromSession,
       notes: notes || '',
+      // Bono comprado online sin la 1ª sesión agendada: esta hereda el pago.
+      ...(carried.paymentIntentId ? { ...carried, sessionNumber: 1 } : {}),
     });
+    await closeFirstSessionIfFullyPaid(bookingId, carried);
 
     const sessionsRemaining = remaining - useCount;
     await updateSessionBonoRow(bono._sheetRow, bono, {
@@ -3270,6 +3275,7 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
         const service = displayServices[i];
         const fromSession = (Number(bono.sessionsUsed) || 0) + 1;
         const bookingId = crypto.randomUUID();
+        const carried = await firstSessionPaymentFields(bono, fromSession);
         await appendBooking({
           bookingId,
           createdAt: new Date().toISOString(),
@@ -3295,7 +3301,9 @@ router.post('/panel/book-combined-sessions', async (req, res) => {
           bonoId: bono.bonoId,
           sessionNumber: fromSession,
           notes: notes || '',
+          ...carried,
         });
+        await closeFirstSessionIfFullyPaid(bookingId, carried);
         bookingIds.push(bookingId);
 
         const sessionsRemaining = Math.max(0, (Number(bono.sessionsRemaining) || 0) - 1);

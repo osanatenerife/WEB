@@ -8,7 +8,7 @@ const hours = require('../config/hours');
 const { createBookingEvent, deleteEvent } = require('../lib/googleCalendar');
 const { createCheckoutSession } = require('../lib/stripeClient');
 const { resolveOrigin } = require('../lib/origin');
-const { resolveBonoTier } = require('../lib/bonoTiers');
+const { resolvePurchaseTier } = require('../lib/bonoTiers');
 const { resolveDiscount } = require('../lib/discounts');
 const { handleBookingPayment } = require('./webhook');
 const { withLock } = require('../lib/asyncLock');
@@ -36,7 +36,7 @@ router.post('/discount-check', async (req, res) => {
         return res.status(400).json({ error: 'Indica el código y el bono elegido.' });
       }
       priceableItems = sels.map((sel) => {
-        const bono = resolveBonoTier(sel.serviceId, sel.sessions);
+        const bono = resolvePurchaseTier(sel.serviceId, sel.sessions);
         return bono ? { id: sel.serviceId, price: bono.price } : null;
       }).filter(Boolean);
       if (!priceableItems.length) return res.status(404).json({ error: 'Bono no encontrado.' });

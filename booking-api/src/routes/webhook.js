@@ -2,7 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const { constructWebhookEvent } = require('../lib/stripeClient');
 const { getEvent, updateEvent, deleteEvent } = require('../lib/googleCalendar');
-const { appendBooking, appendGift, getAllGifts, appendSessionBono, getAllBookings, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
+const { appendBooking, appendGift, getAllGifts, appendSessionBono, getAllSessionBonos, getAllBookings, getAllCustomQuotes, updateQuoteRow, appendLoyaltyMovement, getLoyaltyMovementsForPhone, findBookingById, updateBookingRow } = require('../lib/sheets');
 const { earnRateFor, computeLoyaltyBalance, currentExpiryDate, MIN_REDEEM_AMOUNT } = require('../config/loyalty');
 const { accountingCategoryFor } = require('../config/accountingCategories');
 const { normalizePhone, normalizeEmail } = require('../lib/clientId');
@@ -90,6 +90,13 @@ const BOOKING_EMAIL_STRINGS = {
     cancelNote: 'Puedes cancelar o reprogramar hasta 48h antes sin coste.',
     loyaltyTitle: 'Programa de fidelidad',
     subject: 'Reserva confirmada — Osana',
+    purchaseTitle: 'Compra confirmada', purchaseSubject: 'Compra confirmada — Osana',
+    purchaseThanks: 'gracias por tu compra. Aquí tienes el resumen:',
+    purchased: 'Has comprado',
+    pendingTitle: 'Sesiones pagadas pendientes de agendar',
+    pendingItem: (name, n) => `${name} — ${n} ${n === 1 ? 'sesión' : 'sesiones'}`,
+    pendingHelp: 'Resérvalas cuando quieras desde "Mis reservas" con tu teléfono y tu email: eliges el tratamiento, el día y la hora, sin volver a pagar. Tienes 12 meses para usarlas.',
+    bookSessionsBtn: 'Reservar mis sesiones',
     conditions: [
       'Se acumula un 4% de tus compras (tratamientos, bonos de sesiones o productos), un 6% si pagas en efectivo.',
       'Importe mínimo de canje: 10 €.',
@@ -109,6 +116,13 @@ const BOOKING_EMAIL_STRINGS = {
     cancelNote: 'Free cancellation or rescheduling up to 48h before.',
     loyaltyTitle: 'Loyalty program',
     subject: 'Booking confirmed — Osana',
+    purchaseTitle: 'Purchase confirmed', purchaseSubject: 'Purchase confirmed — Osana',
+    purchaseThanks: 'thank you for your purchase. Here is your summary:',
+    purchased: 'You bought',
+    pendingTitle: 'Paid sessions ready to book',
+    pendingItem: (name, n) => `${name} — ${n} session${n === 1 ? '' : 's'}`,
+    pendingHelp: 'Book them whenever you like from "My bookings" with your phone and email: choose the treatment, day and time, with nothing more to pay. You have 12 months to use them.',
+    bookSessionsBtn: 'Book my sessions',
     conditions: [
       'You earn 4% of your purchases (treatments, session packages or products), 6% if paid in cash.',
       'Minimum redemption amount: €10.',
@@ -128,6 +142,13 @@ const BOOKING_EMAIL_STRINGS = {
     cancelNote: 'Cancellazione o riprogrammazione gratuite fino a 48h prima.',
     loyaltyTitle: 'Programma fedeltà',
     subject: 'Prenotazione confermata — Osana',
+    purchaseTitle: 'Acquisto confermato', purchaseSubject: 'Acquisto confermato — Osana',
+    purchaseThanks: 'grazie per il tuo acquisto. Ecco il riepilogo:',
+    purchased: 'Hai acquistato',
+    pendingTitle: 'Sedute pagate da prenotare',
+    pendingItem: (name, n) => `${name} — ${n} sedut${n === 1 ? 'a' : 'e'}`,
+    pendingHelp: 'Prenotale quando vuoi da "Le mie prenotazioni" con il tuo telefono e la tua email: scegli il trattamento, il giorno e l\'ora, senza pagare di nuovo. Hai 12 mesi per usarle.',
+    bookSessionsBtn: 'Prenota le mie sedute',
     conditions: [
       'Accumuli il 4% dei tuoi acquisti (trattamenti, pacchetti di sedute o prodotti), il 6% se paghi in contanti.',
       'Importo minimo di utilizzo: 10 €.',
@@ -138,24 +159,31 @@ const BOOKING_EMAIL_STRINGS = {
   },
 };
 
-async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang, durationMinutes, bookingIds }) {
+// pendingSessions: [{ name, sessions }] — sesiones ya pagadas que quedan por
+// agendar (resto de un bono, o tratamientos comprados "para después"); se
+// explica en el email cómo reservarlas desde "Mis reservas".
+// noAppointment: compra sin cita (todo para agendar después).
+async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPhone, serviceName, primaryServiceId, date, time, employeeName, amountPaid, price, lang, durationMinutes, bookingIds, pendingSessions, noAppointment }) {
   if (!clientEmail) return false;
   const t = BOOKING_EMAIL_STRINGS[lang] || BOOKING_EMAIL_STRINGS.es;
+  const pendingList = Array.isArray(pendingSessions) ? pendingSessions.filter((p) => p && p.sessions > 0) : [];
   const total = Number(price) || 0;
   const paid = Number(amountPaid) || 0;
   const pending = Math.max(0, round2(total - paid));
   const dateLabel = formatDateLabel(date, lang);
   const manageUrl = t.manageUrl;
-  const calendarUrl = googleCalendarLink({
+  const calendarUrl = noAppointment ? '' : googleCalendarLink({
     title: serviceName || 'Cita Osana', dateStr: date, timeStr: time, durationMinutes,
     details: employeeName ? `${t.specialist}: ${employeeName}` : '',
   });
 
   const rows = [
-    [t.reason, escapeHtml(serviceName || '')],
-    [t.date, escapeHtml(dateLabel)],
-    [t.time, escapeHtml(time || '')],
-    [t.specialist, escapeHtml(employeeName || '')],
+    [noAppointment ? t.purchased : t.reason, escapeHtml(serviceName || '')],
+    ...(noAppointment ? [] : [
+      [t.date, escapeHtml(dateLabel)],
+      [t.time, escapeHtml(time || '')],
+      [t.specialist, escapeHtml(employeeName || '')],
+    ]),
     [t.paidOnline, `${paid.toFixed(2)} €`],
     ...(pending > 0 ? [[t.remaining, `${pending.toFixed(2)} €`]] : []),
   ];
@@ -172,16 +200,21 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;background:#f6eeda;">
     <div style="background:#1a1612;padding:30px 24px 26px;text-align:center;">
       <img src="https://osana.es/images/logo-full-blanco.png" alt="Osana" style="height:36px;width:auto;display:inline-block;margin:0 0 16px;border:0;">
-      <h1 style="margin:0;color:#f6eeda;font-size:20px;font-weight:600;">${t.title} ✓</h1>
+      <h1 style="margin:0;color:#f6eeda;font-size:20px;font-weight:600;">${noAppointment ? t.purchaseTitle : t.title} ✓</h1>
     </div>
     <div style="padding:28px 24px;">
-      <p style="margin:0 0 20px;color:#1a1612;font-size:15px;">${t.hi} ${escapeHtml(clientName || '')}, ${t.thanks}</p>
+      <p style="margin:0 0 20px;color:#1a1612;font-size:15px;">${t.hi} ${escapeHtml(clientName || '')}, ${noAppointment ? t.purchaseThanks : t.thanks}</p>
       <table style="width:100%;border-collapse:collapse;">${rowsHtml}</table>
+      ${pendingList.length ? `<div style="margin:24px 0 0;padding:16px 18px;background:#fff;border:1px solid #ac977e;">
+        <p style="margin:0 0 8px;color:#1a1612;font-size:13px;font-weight:700;">${t.pendingTitle}</p>
+        <ul style="margin:0 0 10px;padding:0 0 0 18px;color:#1a1612;font-size:13.5px;line-height:1.7;">${pendingList.map((p) => `<li>${escapeHtml(t.pendingItem(p.name, p.sessions))}</li>`).join('')}</ul>
+        <p style="margin:0;color:#5c544b;font-size:12.5px;line-height:1.6;">${t.pendingHelp}</p>
+      </div>` : ''}
       <div style="text-align:center;margin:28px 0 8px;">
-        <a href="${manageUrl}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${t.manageBtn}</a>
+        <a href="${manageUrl}" style="display:inline-block;background:#ac977e;color:#1a1612;text-decoration:none;padding:13px 32px;font-size:12px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">${pendingList.length ? t.bookSessionsBtn : t.manageBtn}</a>
       </div>
       ${calendarUrl ? `<div style="text-align:center;margin:0 0 20px;"><a href="${calendarUrl}" style="color:#ac977e;text-decoration:underline;font-size:12.5px;">${t.addToCalendar}</a></div>` : ''}
-      <p style="text-align:center;color:#8a8178;font-size:12px;margin:0;">${t.cancelNote}</p>
+      ${noAppointment ? '' : `<p style="text-align:center;color:#8a8178;font-size:12px;margin:0;">${t.cancelNote}</p>`}
     </div>
     <div style="background:#1a1612;padding:24px;text-align:center;">
       <p style="margin:0 0 10px;color:#ac977e;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;">${t.loyaltyTitle}</p>
@@ -192,7 +225,7 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
   </div>`;
 
   try {
-    await sendEmail({ to: clientEmail, subject: t.subject, html });
+    await sendEmail({ to: clientEmail, subject: noAppointment ? t.purchaseSubject : t.subject, html });
     // Marca cada fila de esta visita como "ya confirmada" — así la tarea
     // periódica de reintentos (ver reminders.js) no vuelve a intentarlo ni
     // manda una confirmación duplicada.
@@ -231,17 +264,21 @@ async function sendBookingConfirmationEmail({ clientEmail, clientName, clientPho
 // Aviso interno a Osana cada vez que se confirma una reserva/pago — antes
 // solo se veía en Google Calendar, así que si no se está mirando el
 // calendario en ese momento, una reserva nueva podía pasar desapercibida.
-async function notifySalonNewBooking({ clientName, clientPhone, clientEmail, serviceName, date, time, employeeName, amountPaid, price }) {
+async function notifySalonNewBooking({ clientName, clientPhone, clientEmail, serviceName, date, time, employeeName, amountPaid, price, laterNote }) {
   const total = Number(price) || 0;
   const paid = Number(amountPaid) || 0;
   const pending = Math.max(0, round2(total - paid));
+  const noAppointment = !date;
   try {
     await sendEmail({
       to: SALON_EMAIL,
-      subject: `📅 Nueva reserva: ${serviceName || ''} — ${date} ${time}`,
+      subject: noAppointment
+        ? `🛍️ Nueva compra sin cita: ${serviceName || ''}`
+        : `📅 Nueva reserva: ${serviceName || ''} — ${date} ${time}`,
       html: `
         <p><strong>${escapeHtml(serviceName || '')}</strong></p>
-        <p>${date} a las ${time} · con ${escapeHtml(employeeName || '')}</p>
+        <p>${noAppointment ? 'Sin cita — la clienta agendará las sesiones desde Mis reservas (o podéis agendárselas desde el panel).' : `${date} a las ${time} · con ${escapeHtml(employeeName || '')}`}</p>
+        ${laterNote ? `<p>${escapeHtml(laterNote)}</p>` : ''}
         <p>Clienta: ${escapeHtml(clientName || '')} · ${escapeHtml(clientPhone || '')}${clientEmail ? ` · ${escapeHtml(clientEmail)}` : ''}</p>
         <p>Pagado online: <strong>${paid.toFixed(2)} €</strong>${pending > 0 ? ` · Pendiente en el centro: <strong>${pending.toFixed(2)} €</strong>` : ' (pago completo)'}</p>
       `,
@@ -421,7 +458,11 @@ async function handleBonoSessionPayment(session) {
   // creada más abajo), así que comprobamos por el payment_intent, que es
   // único por cada pago realmente cobrado.
   if (session.payment_intent) {
-    const already = (await getAllBookings()).some((b) => b.paymentIntentId === session.payment_intent);
+    // Las compras "para agendar después" no crean reservas, solo bonos —
+    // por eso se mira también en BonosSesiones.
+    const [allBk, allBo] = await Promise.all([getAllBookings(), getAllSessionBonos()]);
+    const already = allBk.some((b) => b.paymentIntentId === session.payment_intent)
+      || allBo.some((bo) => bo.paymentIntentId === session.payment_intent);
     if (already) {
       console.log(`checkout.session.completed (bono) repetido para payment_intent ${session.payment_intent} — se omite.`);
       return;
@@ -491,7 +532,7 @@ async function handleBonoSessionPayment(session) {
     return { ...it, service: itemService, amountPaidOnline: Math.max(0, share) };
   });
 
-  const allNames = itemsWithShare.map((it) => (it.service ? it.service.name : it.serviceId)).join(' + ');
+  const allNames = itemsWithShare.filter((it) => !it.later).map((it) => (it.service ? it.service.name : it.serviceId)).join(' + ');
 
   if (calendarId && eventId) {
     const current = await getEvent(calendarId, eventId).catch(() => null);
@@ -533,8 +574,13 @@ async function handleBonoSessionPayment(session) {
       const totalSessions = Number(it.sessions) || 1;
       const bonoPrice = Number(it.price) || 0;
       const remainingAmount = Math.max(0, round2(bonoPrice - it.amountPaidOnline));
+      // "later": comprado para agendar después — ninguna sesión usada todavía,
+      // sin reserva ni cita. La 1ª sesión que se agende (desde Mis reservas
+      // o el panel) heredará el pago online (ver lib/bonoFirstSession.js).
+      const isLater = !!it.later;
 
       // 1) Registramos el bono en su propia pestaña, con la 1ª sesión ya usada
+      // (o ninguna, si es para agendar después)
       try {
         await appendSessionBono({
           bonoId: it.bonoId,
@@ -544,10 +590,10 @@ async function handleBonoSessionPayment(session) {
           clientEmail: clientEmail || '',
           serviceId: it.serviceId || '',
           serviceName: it.service ? it.service.name : '',
-          employeeId: employeeId || '',
+          employeeId: isLater ? '' : (employeeId || ''),
           totalSessions,
-          sessionsUsed: 1,
-          sessionsRemaining: totalSessions - 1,
+          sessionsUsed: isLater ? 0 : 1,
+          sessionsRemaining: isLater ? totalSessions : totalSessions - 1,
           totalPrice: bonoPrice,
           amountPaidOnline: it.amountPaidOnline,
           paymentType: paymentType || '',
@@ -561,6 +607,7 @@ async function handleBonoSessionPayment(session) {
       } catch (sheetErr) {
         console.error('No se pudo guardar el bono en la Sheet:', sheetErr);
       }
+      if (isLater) continue;
 
       // 2) Registramos la 1ª sesión como una reserva normal, enlazada al bono
       // — comparte la misma cita/hueco de calendario que el resto de
@@ -637,16 +684,33 @@ async function handleBonoSessionPayment(session) {
     }
   }
 
-  const combinedServiceName = itemsWithShare
+  const itemLang = lang === 'en' ? 'en' : lang === 'it' ? 'it' : 'es';
+  const nameFor = (it) => (it.service
+    ? (itemLang === 'en' ? (it.service.nameEn || it.service.name) : itemLang === 'it' ? (it.service.nameIt || it.service.name) : it.service.name)
+    : it.serviceId);
+  const scheduledItems = itemsWithShare.filter((it) => !it.later);
+  const laterItems = itemsWithShare.filter((it) => it.later);
+  const noAppointment = scheduledItems.length === 0;
+  const sessionsWord = (n) => (itemLang === 'en' ? `${n} session${n === 1 ? '' : 's'}` : itemLang === 'it' ? `${n} sedut${n === 1 ? 'a' : 'e'}` : `${n} ${n === 1 ? 'sesión' : 'sesiones'}`);
+  const combinedServiceName = (noAppointment ? itemsWithShare : scheduledItems)
     .map((it) => {
-      const name = it.service ? it.service.name : it.serviceId;
-      return it.isBono ? `${name} — bono de ${it.sessions} sesiones (1/${it.sessions})` : name;
+      const name = nameFor(it);
+      if (noAppointment) return `${name} — ${sessionsWord(Number(it.sessions) || 1)}`;
+      return it.isBono ? `${name} — ${sessionsWord(Number(it.sessions) || 1)} (1/${it.sessions})` : name;
     })
     .join(' + ');
-  const combinedDuration = itemsWithShare.reduce((sum, it) => sum + (it.service ? Number(it.service.durationMinutes) || 0 : 0), 0);
+  const combinedDuration = Number(session.metadata && session.metadata.durationMinutes)
+    || scheduledItems.reduce((sum, it) => sum + (it.service ? Number(it.service.durationMinutes) || 0 : 0), 0);
+  // Lo que queda pagado y por agendar: el resto de cada bono de la cita de
+  // hoy + todo lo comprado para después.
+  const pendingSessions = [
+    ...scheduledItems.filter((it) => it.isBono && Number(it.sessions) > 1).map((it) => ({ name: nameFor(it), sessions: Number(it.sessions) - 1 })),
+    ...laterItems.map((it) => ({ name: nameFor(it), sessions: Number(it.sessions) || 1 })),
+  ];
 
   await sendBookingConfirmationEmail({
     clientEmail, clientName, clientPhone,
+    pendingSessions, noAppointment,
     serviceName: combinedServiceName,
     primaryServiceId: itemsWithShare[0] ? itemsWithShare[0].serviceId : '',
     date, time,
@@ -657,9 +721,13 @@ async function handleBonoSessionPayment(session) {
 
   await notifySalonNewBooking({
     clientName, clientPhone, clientEmail,
-    serviceName: combinedServiceName, date, time,
+    serviceName: noAppointment ? combinedServiceName : itemsWithShare.map((it) => (it.service ? it.service.name : it.serviceId)).join(' + '),
+    date: noAppointment ? '' : date, time,
     employeeName: employee ? employee.name : '',
     amountPaid: realAmountPaid, price: combinedTotal,
+    laterNote: !noAppointment && laterItems.length
+      ? `Comprado para agendar después: ${laterItems.map((it) => `${it.service ? it.service.name : it.serviceId} (${it.sessions} ses.)`).join(', ')}`
+      : '',
   });
 }
 
@@ -1003,3 +1071,5 @@ module.exports.handleBookingPayment = handleBookingPayment;
 // esa vía no pasa por Stripe/webhook, así que sin esto la clienta no recibía
 // nunca ninguna confirmación por email.
 module.exports.sendBookingConfirmationEmail = sendBookingConfirmationEmail;
+// Exportada también para poder probarla sin pasar por Stripe.
+module.exports.handleBonoSessionPayment = handleBonoSessionPayment;

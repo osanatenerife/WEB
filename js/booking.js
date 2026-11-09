@@ -57,6 +57,14 @@
     bonoSaveNote: { es: (n) => `Ahorras ${n} €`, en: (n) => `Save €${n}`, it: (n) => `Risparmi ${n} €` },
     bonoSessionNote: { es: (n) => `Reservas hoy la sesión 1 de ${n}. ${n - 1 === 1 ? 'La otra queda guardada' : `Las otras ${n - 1} quedan guardadas`} en "Mis reservas" para que la${n - 1 === 1 ? '' : 's'} agendes cuando quieras.`, en: (n) => `Today you book session 1 of ${n}. The other ${n - 1 === 1 ? 'one is' : `${n - 1} are`} saved in "My bookings" so you can schedule ${n - 1 === 1 ? 'it' : 'them'} whenever you like.`, it: (n) => `Oggi prenoti la seduta 1 di ${n}. ${n - 1 === 1 ? "L'altra resta salvata" : `Le altre ${n - 1} restano salvate`} in "Le mie prenotazioni" per fissarl${n - 1 === 1 ? 'a' : 'e'} quando vuoi.` },
     multiSessionTitle: { es: '¿Vas a necesitar varias sesiones? Cómpralas ya y agéndalas cuando quieras', en: 'Need several sessions? Buy them now and schedule them whenever you like', it: 'Ti servono più sedute? Comprale ora e fissale quando vuoi' },
+    scheduleToday: { es: 'Reservar cita hoy', en: 'Book appointment now', it: 'Prenota ora' },
+    scheduleFirstToday: { es: 'Reservar ya la 1ª sesión', en: 'Book the 1st session now', it: 'Prenota ora la 1ª seduta' },
+    laterNote: { es: 'Lo compras ahora y todas las sesiones quedan guardadas en "Mis reservas" para que las agendes cuando quieras.', en: 'You buy it now and all sessions are saved in "My bookings" so you can schedule them whenever you like.', it: 'Lo compri ora e tutte le sedute restano salvate in "Le mie prenotazioni" per fissarle quando vuoi.' },
+    laterSummary: { es: (names) => `Para agendar después (desde "Mis reservas"): ${names}`, en: (names) => `To schedule later (from "My bookings"): ${names}`, it: (names) => `Da fissare più avanti (da "Le mie prenotazioni"): ${names}` },
+    noAppointmentNote: { es: 'Compra sin cita: lo agendas cuando quieras desde "Mis reservas".', en: 'Purchase without appointment: schedule it whenever you like from "My bookings".', it: 'Acquisto senza appuntamento: lo fissi quando vuoi da "Le mie prenotazioni".' },
+    purchasedTitle: { es: '¡Compra confirmada! ✓', en: 'Purchase confirmed! ✓', it: 'Acquisto confermato! ✓' },
+    purchasedText: { es: 'Te hemos enviado un email con el resumen. Tus sesiones ya están pagadas y guardadas: resérvalas cuando quieras desde "Mis reservas" con tu teléfono y tu email.', en: 'We have sent you an email with the summary. Your sessions are paid and saved: book them whenever you like from "My bookings" with your phone and email.', it: 'Ti abbiamo inviato un\'email con il riepilogo. Le tue sedute sono pagate e salvate: prenotale quando vuoi da "Le mie prenotazioni" con il tuo telefono e la tua email.' },
+    goMyBookings: { es: 'Ir a Mis reservas', en: 'Go to My bookings', it: 'Vai a Le mie prenotazioni' },
     qtyLabel: { es: 'Nº de sesiones', en: 'Number of sessions', it: 'N. di sedute' },
     qtyLess: { es: 'Una sesión menos', en: 'One session less', it: 'Una seduta in meno' },
     qtyMore: { es: 'Una sesión más', en: 'One more session', it: 'Una seduta in più' },
@@ -126,6 +134,7 @@
     loyaltyBalance: 0,
     redeemAmount: 0, // importe de saldo de fidelidad ya aplicado (confirmado con "Canjear")
     durationGroup: null, // si el servicio elegido es de un grupo con varias duraciones (p.ej. masajes), el array de opciones del grupo
+    laterIds: new Set(), // tratamientos del carrito que se compran ahora pero se agendan después (desde Mis reservas)
   };
 
   // "extras" son modificadores de zona/tiempo del tratamiento principal
@@ -143,18 +152,47 @@
   // de llegada solo hace falta una vez — se resta del total aquí también
   // para que la vista previa coincida con lo que de verdad se reserva.
   const COMBO_ARRIVAL_BUFFER_MINUTES = 15;
-  function totalDuration() {
-    const primary = state.service ? state.service.durationMinutes : 0;
-    const modifiers = state.wantsBono ? 0 : extrasDuration();
-    const naive = primary + modifiers + addonsDuration() + extraBonosDuration();
-    const extraServiceDurations = state.extraServices.map((s) => s.durationMinutes);
-    const extraBonoDurations = state.extraBonos.map((b) => (findServiceById(b.serviceId) || {}).durationMinutes || 0);
-    const itemCount = 1 + extraServiceDurations.length + extraBonoDurations.length;
-    if (itemCount < 2) return naive;
-    const longest = Math.max(primary, ...extraServiceDurations, ...extraBonoDurations);
-    return Math.max(longest, naive - COMBO_ARRIVAL_BUFFER_MINUTES);
+  // ── Líneas del carrito ──
+  // Cada tratamiento del carrito: cuántas sesiones se compran y si su 1ª
+  // sesión se reserva en la cita de hoy o se compra "para agendar después"
+  // (queda entero en Mis reservas). Solo los tratamientos que se agendan hoy
+  // cuentan para la duración, la profesional y los huecos libres.
+  function canBuyForLater(svc, sessions) {
+    return !!svc && (sessions > 1 || isMultiSessionEligible(svc));
   }
-  function hasAnyBono() { return state.wantsBono || state.extraBonos.length > 0; }
+  function cartLines() {
+    if (!state.service) return [];
+    const lines = [{
+      svc: state.service, primary: true,
+      sessions: state.wantsBono && state.bono ? state.bono.sessions : 1,
+      bono: state.wantsBono ? state.bono : null,
+    }];
+    state.extraServices.forEach((sv) => lines.push({ svc: sv, sessions: 1, bono: null }));
+    state.extraBonos.forEach((b) => {
+      const sv = findServiceById(b.serviceId);
+      if (sv) lines.push({ svc: sv, sessions: b.sessions, bono: b });
+    });
+    lines.forEach((l) => { l.later = state.laterIds.has(l.svc.id) && canBuyForLater(l.svc, l.sessions); });
+    return lines;
+  }
+  function scheduledLines() { return cartLines().filter((l) => !l.later); }
+  function hasAppointment() { return !state.service || scheduledLines().length > 0; }
+  function primaryScheduledSingle() {
+    const l = cartLines()[0];
+    return !!l && !l.later && l.sessions === 1;
+  }
+  function totalDuration() {
+    const lines = scheduledLines();
+    if (!lines.length) return 0;
+    const durations = lines.map((l) => l.svc.durationMinutes || 0);
+    const modifiers = primaryScheduledSingle() ? extrasDuration() : 0;
+    const naive = durations.reduce((a, b) => a + b, 0) + modifiers;
+    if (lines.length < 2) return naive;
+    return Math.max(Math.max(...durations), naive - COMBO_ARRIVAL_BUFFER_MINUTES);
+  }
+  // "Modo bono" (pago por bono-checkout): hay varias sesiones de algo, o
+  // algo comprado para agendar después.
+  function hasAnyBono() { return cartLines().some((l) => l.sessions > 1 || l.later); }
   // Un código de descuento puede estar restringido a sesiones sueltas, a
   // bonos, o a ambos (lo decide quien lo crea en el panel) — cuál de los dos
   // "modos" comprobar depende de si el carrito actual tiene algún bono.
@@ -171,10 +209,7 @@
   // añadidos), cada uno identificado por tratamiento + nº de sesiones —
   // el descuento se calcula sobre el precio del PAQUETE, no de una sesión.
   function currentBonoSelections() {
-    const sels = [];
-    if (state.wantsBono && state.bono && state.service) sels.push({ serviceId: state.service.id, sessions: state.bono.sessions });
-    state.extraBonos.forEach((b) => sels.push({ serviceId: b.serviceId, sessions: b.sessions }));
-    return sels;
+    return cartLines().filter((l) => l.sessions > 1 || l.later).map((l) => ({ serviceId: l.svc.id, sessions: l.sessions }));
   }
   function bonoSelectionsSignature(sels) {
     return sels.map((s) => `${s.serviceId}:${s.sessions}`).sort().join(',');
@@ -198,7 +233,7 @@
   // totalPrice (que sí resta ambos).
   function rawPrice() {
     const primary = state.wantsBono && state.bono ? state.bono.bonoPrice : (state.service ? state.service.price : 0);
-    const modifiers = state.wantsBono ? 0 : extrasPrice();
+    const modifiers = primaryScheduledSingle() ? extrasPrice() : 0;
     return primary + modifiers + addonsPrice() + extraBonosPrice();
   }
   // El saldo de fidelidad no se puede canjear en promociones (ofertas
@@ -221,6 +256,7 @@
   function totalPrice() {
     return rawPrice() - discountAmount() - redeemAmount();
   }
+  function scheduledServiceIds() { return scheduledLines().map((l) => l.svc.id); }
   function selectedServiceIds() {
     return [state.service.id, ...state.extraServices.map((s) => s.id), ...state.extraBonos.map((b) => b.serviceId)];
   }
@@ -287,7 +323,7 @@
   }
 
   document.querySelectorAll('.booking-back').forEach((btn) => {
-    btn.addEventListener('click', () => goToStep(Number(btn.dataset.back)));
+    btn.addEventListener('click', () => goToStep(Number(btn.dataset.back) === 3 && !hasAppointment() ? 1 : Number(btn.dataset.back)));
   });
 
   // ── Resumen persistente (panel lateral) ──
@@ -299,18 +335,18 @@
     }
     let html;
     if (state.wantsBono && state.bono) {
-      html = `<div class="booking-summary-row"><strong>${state.bono.custom ? t('multiSessionLabel')(state.bono.sessions) : t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div><div class="booking-summary-qty" data-qty-main></div>`;
+      html = `<div class="booking-summary-row"><strong>${state.bono.custom ? t('multiSessionLabel')(state.bono.sessions) : t('bonoPackLabel')(state.bono.sessions)} — ${service.name}</strong><span>${state.bono.bonoPrice.toFixed(0)} €</span></div><div class="booking-summary-qty" data-qty-main></div><div class="booking-summary-later" data-later="${service.id}"></div>`;
     } else {
-      html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div><div class="booking-summary-qty" data-qty-main></div>`;
-      extras.forEach((ex) => {
+      html = `<div class="booking-summary-row"><strong>${service.name}</strong><span>${service.price > 0 ? service.price.toFixed(0) + ' €' : t('free')}</span></div><div class="booking-summary-qty" data-qty-main></div><div class="booking-summary-later" data-later="${service.id}"></div>`;
+      if (primaryScheduledSingle()) extras.forEach((ex) => {
         html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${ex.name}</span><span>${ex.price > 0 ? ex.price.toFixed(0) + ' €' : t('free')}</span></div>`;
       });
     }
     extraServices.forEach((s) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div><div class="booking-summary-qty" data-qty-addon="${s.id}"></div>`;
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${s.name}</span><span>${s.price > 0 ? s.price.toFixed(0) + ' €' : t('free')}</span></div><div class="booking-summary-qty" data-qty-addon="${s.id}"></div><div class="booking-summary-later" data-later="${s.id}"></div>`;
     });
     extraBonos.forEach((b) => {
-      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div><div class="booking-summary-qty" data-qty-addon="${b.serviceId}"></div>`;
+      html += `<div class="booking-summary-row" style="margin-top:6px;"><span>+ ${b.custom ? t('multiSessionLabel')(b.sessions) : t('bonoPackLabel')(b.sessions)} — ${b.serviceName}</span><span>${b.bonoPrice.toFixed(0)} €</span></div><div class="booking-summary-qty" data-qty-addon="${b.serviceId}"></div><div class="booking-summary-later" data-later="${b.serviceId}"></div>`;
     });
     if (discountIsStillValid()) {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('discountLine')} (${state.discountCode})</span><span>-${state.discountAmount.toFixed(0)} €</span></div>`;
@@ -318,11 +354,19 @@
     if (redeemAmount() > 0) {
       html += `<div class="booking-summary-row" style="margin-top:6px;"><span>${t('loyaltyRedeemLine')}</span><span>-${redeemAmount().toFixed(0)} €</span></div>`;
     }
-    html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong>${state.wantsBono ? ` · ${t('bonoSessionNote')(state.bono.sessions)}` : ''}</div>`;
-    if (employee) {
+    const laterLines = cartLines().filter((l) => l.later);
+    if (hasAppointment()) {
+      html += `<div class="booking-summary-meta">${t('totalDuration')}: ${totalDuration()} min · <strong>${totalPrice().toFixed(0)} €</strong>${state.wantsBono && !laterLines.some((l) => l.primary) ? ` · ${t('bonoSessionNote')(state.bono.sessions)}` : ''}</div>`;
+    } else {
+      html += `<div class="booking-summary-meta"><strong>${totalPrice().toFixed(0)} €</strong> · ${t('noAppointmentNote')}</div>`;
+    }
+    if (laterLines.length && hasAppointment()) {
+      html += `<div class="booking-summary-meta">${t('laterSummary')(laterLines.map((l) => l.svc.name).join(', '))}</div>`;
+    }
+    if (employee && hasAppointment()) {
       html += `<div class="booking-summary-line">${t('withEmployee')} <strong>${employee.name}</strong></div>`;
     }
-    if (date && time) {
+    if (date && time && hasAppointment()) {
       const dateLabel = new Date(`${date}T12:00:00`).toLocaleDateString(DATE_LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
       html += `<div class="booking-summary-line">${dateLabel} ${t('at')} ${time}</div>`;
     }
@@ -341,6 +385,10 @@
         mainSlot.remove();
       }
     }
+    els.summary.querySelectorAll('[data-later]').forEach((slot) => {
+      const toggle = buildLaterToggle(slot.dataset.later);
+      if (toggle) slot.appendChild(toggle); else slot.remove();
+    });
     els.summary.querySelectorAll('[data-qty-addon]').forEach((slot) => {
       const svc = findServiceById(slot.dataset.qtyAddon);
       const qtys = sessionQuantitiesFor(svc);
@@ -784,6 +832,41 @@
     return wrap;
   }
 
+  // Tic "Reservar cita hoy" de cada tratamiento del carrito. Desmarcado =
+  // se compra igual, pero se agenda después desde Mis reservas (así quien
+  // compra varias cosas por la promoción no tiene que hacerlo todo el mismo
+  // día ni encontrar un hueco con tiempo para todo junto).
+  function buildLaterToggle(serviceId) {
+    const line = cartLines().find((l) => l.svc.id === serviceId);
+    if (!line || !canBuyForLater(line.svc, line.sessions)) return null;
+    const label = document.createElement('label');
+    label.className = 'booking-later-toggle';
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.checked = !line.later;
+    const text = document.createElement('span');
+    text.textContent = line.sessions > 1 ? t('scheduleFirstToday') : t('scheduleToday');
+    label.appendChild(input);
+    label.appendChild(text);
+    input.addEventListener('change', () => {
+      if (input.checked) state.laterIds.delete(serviceId); else state.laterIds.add(serviceId);
+      onCartScheduleChanged();
+    });
+    return label;
+  }
+  function onCartScheduleChanged() {
+    // Los extras de zona/tiempo solo tienen sentido si el principal se hace hoy.
+    if (!primaryScheduledSingle()) {
+      state.extras = [];
+      els.extrasSection.style.display = 'none';
+    } else if (!state.wantsBono) {
+      loadExtras();
+    }
+    renderBonoSection();
+    renderAddonsChips();
+    renderSummary();
+  }
+
   function renderBonoSection() {
     const svc = state.service;
     const qtys = sessionQuantitiesFor(svc);
@@ -822,6 +905,14 @@
       <p class="booking-bono-note">${state.wantsBono ? t('bonoSessionNote')(qty) : t('qtyNote')}</p>
     `;
     els.bonoSection.querySelector('.booking-qty-slot').appendChild(buildQtyStepper(qtys, qty, setMainQty));
+    const mainToggle = buildLaterToggle(svc.id);
+    if (mainToggle) {
+      mainToggle.classList.add('booking-later-toggle-dark');
+      els.bonoSection.appendChild(mainToggle);
+      if (state.laterIds.has(svc.id)) {
+        els.bonoSection.querySelector('.booking-bono-note').textContent = t('laterNote');
+      }
+    }
   }
 
   function setMainQty(n) {
@@ -854,6 +945,7 @@
       state.extraServices = [];
       state.extraBonos = [];
       addonOrder = [];
+      state.laterIds = new Set();
       state.wantsBono = false;
     }
     document.querySelectorAll('#booking-services .booking-service-card').forEach((c) => c.classList.remove('selected'));
@@ -903,6 +995,7 @@
     state.extraBonos = state.extraBonos.filter((x) => x.serviceId !== svc.id);
     if (n <= 0) {
       addonOrder = addonOrder.filter((id) => id !== svc.id);
+      state.laterIds.delete(svc.id);
     } else if (n === 1) {
       state.extraServices.push(svc);
     } else {
@@ -929,6 +1022,8 @@
       chip.appendChild(label);
       const qtys = sessionQuantitiesFor(svc);
       if (qtys.length > 1) chip.appendChild(buildQtyStepper(qtys, qty, (n) => setAddonQty(svc, n)));
+      const chipToggle = buildLaterToggle(svc.id);
+      if (chipToggle) chip.appendChild(chipToggle);
       const removeBtn = document.createElement('button');
       removeBtn.type = 'button';
       removeBtn.className = 'booking-addon-remove';
@@ -1012,10 +1107,21 @@
   // mismo en los 3 idiomas, así que comprobarlo así no depende del idioma.
   const LASER_AUTO_ASSIGN_EMPLOYEE_ID = 'vanessa';
   function hasLaserSelected() {
-    return selectedServiceIds().some((id) => id.startsWith('laser-'));
+    return scheduledServiceIds().some((id) => id.startsWith('laser-'));
   }
 
   els.continueStep1.addEventListener('click', () => {
+    // Todo comprado para agendar después: no hace falta profesional ni
+    // hora — directo a los datos y el pago.
+    if (!hasAppointment()) {
+      state.employee = null;
+      state.date = null;
+      state.time = null;
+      renderSummary();
+      renderPayOptions();
+      goToStep(4);
+      return;
+    }
     goToStep(2);
     if (hasLaserSelected()) {
       showLaserPhoneGate();
@@ -1049,7 +1155,7 @@
   async function loadEmployees() {
     els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
     try {
-      const ids = selectedServiceIds().join(',');
+      const ids = scheduledServiceIds().join(',');
       const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids)}`);
       const data = await res.json();
       renderEmployeeGrid(data.employees);
@@ -1065,7 +1171,7 @@
   async function loadEmployeesAutoAssign(employeeId) {
     els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
     try {
-      const ids = selectedServiceIds().join(',');
+      const ids = scheduledServiceIds().join(',');
       const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids)}`);
       const data = await res.json();
       const target = data.employees.find((e) => e.id === employeeId);
@@ -1220,12 +1326,15 @@
   async function loadSlotsForDate(dateStr) {
     els.slots.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
     try {
+      // Solo lo que se agenda hoy (incluidos los bonos añadidos, que antes
+      // no se mandaban y el calendario enseñaba huecos demasiado cortos).
+      const schedIds = scheduledServiceIds();
       const params = new URLSearchParams({
-        serviceId: state.service.id,
+        serviceId: schedIds[0],
         employeeId: state.employee.id,
         date: dateStr,
-        extraIds: state.extras.map((e) => e.id).join(','),
-        extraServiceIds: state.extraServices.map((s) => s.id).join(','),
+        extraIds: primaryScheduledSingle() ? state.extras.map((e) => e.id).join(',') : '',
+        extraServiceIds: schedIds.slice(1).join(','),
       });
       const res = await fetch(`${BOOKING_API_BASE}/availability?${params}`);
       if (!res.ok) throw new Error('availability request failed');
@@ -1282,7 +1391,7 @@
     // o uno añadido como extra — no solo cuando el tratamiento principal es
     // el bono. Si no, un bono comprado solo como "extra" nunca mostraría el
     // checkbox de condiciones y se compraría sin que la clienta lo aceptase.
-    if ((state.wantsBono && state.bono) || state.extraBonos.length > 0) {
+    if (hasAnyBono()) {
       const depositAmount = round2((price * (service.depositPercent || 30)) / 100);
       state.payChoice = 'deposit';
       els.payOptions.innerHTML = `
@@ -1351,11 +1460,11 @@
       showError(t('fillNamePhone'));
       return;
     }
-    if (!state.service || !state.employee || !state.date || !state.time) {
+    if (!state.service || (hasAppointment() && (!state.employee || !state.date || !state.time))) {
       showError(t('missingBookingData'));
       return;
     }
-    if (state.wantsBono || state.extraBonos.length > 0) {
+    if (hasAnyBono()) {
       const bonoTermsCheck = document.getElementById('booking-bono-terms-check');
       if (!bonoTermsCheck || !bonoTermsCheck.checked) {
         showError(t('bonoTermsRequired'));
@@ -1377,18 +1486,16 @@
     // añadido), se usa bono-checkout, que soporta cualquier mezcla de
     // sesiones sueltas y bonos. Si no hay ningún bono, sigue el checkout
     // normal de toda la vida.
-    const hasAnyBono = state.wantsBono || state.extraBonos.length > 0;
-    const endpoint = hasAnyBono ? 'bono-checkout' : 'checkout';
-    const body = hasAnyBono
+    const bonoMode = hasAnyBono();
+    const withAppointment = hasAppointment();
+    const endpoint = bonoMode ? 'bono-checkout' : 'checkout';
+    const body = bonoMode
       ? {
-          serviceId: state.service.id,
-          wantsBonoPrimary: state.wantsBono,
-          primaryBonoSessions: state.wantsBono && state.bono ? state.bono.sessions : undefined,
-          extraServiceIds: state.extraServices.map((s) => s.id),
-          extraBonoSelections: state.extraBonos.map((b) => ({ serviceId: b.serviceId, sessions: b.sessions })),
-          employeeId: state.employee.id,
-          date: state.date,
-          time: state.time,
+          items: cartLines().map((l) => ({ serviceId: l.svc.id, sessions: l.sessions, scheduleNow: !l.later })),
+          extraIds: primaryScheduledSingle() ? state.extras.map((e) => e.id) : [],
+          employeeId: withAppointment ? state.employee.id : undefined,
+          date: withAppointment ? state.date : undefined,
+          time: withAppointment ? state.time : undefined,
           clientName: name,
           clientPhone: phone,
           clientEmail: email || undefined,
@@ -1520,6 +1627,13 @@
         <h2>${t('confirmedTitle')}</h2>
         <p>${t('confirmedText')}</p>
         <a href="index.html" class="btn-primary">${t('backHome')}</a>
+      </div>`;
+  } else if (params.get('estado') === 'comprado') {
+    document.querySelector('.booking-shell').innerHTML = `
+      <div class="booking-confirm">
+        <h2>${t('purchasedTitle')}</h2>
+        <p>${t('purchasedText')}</p>
+        <a href="mis-reservas.html" class="btn-primary">${t('goMyBookings')}</a>
       </div>`;
   } else if (params.get('estado') === 'cancelado') {
     showError(t('cancelledPayment'));

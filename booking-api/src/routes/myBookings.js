@@ -1,5 +1,6 @@
 const express = require('express');
 const crypto = require('crypto');
+const { firstSessionPaymentFields, closeFirstSessionIfFullyPaid } = require('../lib/bonoFirstSession');
 const { getAllBookings, findBookingById, updateBookingRow, getLoyaltyMovementsForPhone, findSessionBonoById, updateSessionBonoRow, getAllSessionBonos, appendBooking, getAllStrikeRecords, upsertStrikeRecord } = require('../lib/sheets');
 const { deleteEvent, updateEvent, createBookingEvent, isEventUsable } = require('../lib/googleCalendar');
 const { refundPayment } = require('../lib/stripeClient');
@@ -353,6 +354,7 @@ router.post('/my-bookings/book-bono-session-group', async (req, res) => {
       const sessionLabel = `${fromSession}/${bono.totalSessions}`;
       const bookingId = crypto.randomUUID();
       bookingIds.push(bookingId);
+      const carried = await firstSessionPaymentFields(bono, fromSession);
       await appendBooking({
         bookingId,
         createdAt: new Date().toISOString(),
@@ -377,7 +379,9 @@ router.post('/my-bookings/book-bono-session-group', async (req, res) => {
         bonoId: bono.bonoId,
         sessionNumber: fromSession,
         notes: '',
+        ...carried,
       });
+      await closeFirstSessionIfFullyPaid(bookingId, carried);
       const sessionsRemaining = (Number(bono.sessionsRemaining) || 0) - 1;
       await updateSessionBonoRow(bono._sheetRow, bono, {
         sessionsUsed: fromSession,
@@ -420,7 +424,14 @@ router.post('/my-bookings/cancel', async (req, res) => {
     }
 
     const eligibleForRefund = hrs >= FREE_CANCEL_HOURS;
-    const hadOnlinePayment = !!booking.paymentIntentId && Number(booking.amountPaid) > 0;
+    // Sesión de un bono: avisando con tiempo, la sesión vuelve al bono (ver
+    // más abajo) para reservarla otro día — NO se reembolsa dinero. Antes,
+    // al cancelar la 1ª sesión de un bono pagado online, se devolvía todo lo
+    // pagado por el bono Y además la sesión volvía al bono (la clienta se
+    // quedaba el dinero y las sesiones). Si quiere su dinero, lo gestiona
+    // el centro a mano.
+    const isBonoSession = !!booking.bonoId;
+    const hadOnlinePayment = !isBonoSession && !!booking.paymentIntentId && Number(booking.amountPaid) > 0;
     let refunded = false;
     // 'not_eligible' | 'nothing_to_refund' | 'failed' | 'refunded' — el
     // frontend usa esto para no decir "menos de 48h" cuando en realidad sí
@@ -428,7 +439,7 @@ router.post('/my-bookings/cancel', async (req, res) => {
     // (p.ej. el pago se hizo con una cuenta de Stripe que ya no es la activa).
     let refundStatus = 'not_eligible';
     if (eligibleForRefund) {
-      refundStatus = hadOnlinePayment ? 'failed' : 'nothing_to_refund'; // se corrige abajo si el reembolso sale bien
+      refundStatus = isBonoSession ? 'bono_session_returned' : hadOnlinePayment ? 'failed' : 'nothing_to_refund'; // se corrige abajo si el reembolso sale bien
       if (hadOnlinePayment) {
         try {
           // Reembolsamos solo lo que esta fila dice haber cobrado online —
