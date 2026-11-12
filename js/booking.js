@@ -118,6 +118,7 @@
     extraServices: [], // otros tratamientos añadidos a la misma cita (sesión suelta)
     extraBonos: [], // otros bonos añadidos a la misma cita (misma cita, distinto bono cada uno)
     employee: null,
+    laserFallbackEmployee: null, // ver LASER_AUTO_ASSIGN_FALLBACK_ID: solo clientela nueva de láser, martes y miércoles por la mañana
     date: null,
     time: null,
     payChoice: 'deposit', // 'deposit' | 'full'
@@ -1143,6 +1144,12 @@
   // elección manual — ver showLaserPhoneGate(). El id de servicio es el
   // mismo en los 3 idiomas, así que comprobarlo así no depende del idioma.
   const LASER_AUTO_ASSIGN_EMPLOYEE_ID = 'vanessa';
+  // Vanessa no trabaja los martes, y los miércoles solo entra a las 14:00 —
+  // esos huecos (martes entero, miércoles antes de las 14:00) se cubren con
+  // Raquel en su lugar, solo para esta clientela nueva de láser. Ver
+  // loadEmployeesAutoAssignLaserDual() y loadSlotsForDate().
+  const LASER_AUTO_ASSIGN_FALLBACK_ID = 'raquel';
+  const LASER_FALLBACK_WEDNESDAY_CUTOFF = '14:00';
   function hasLaserSelected() {
     return scheduledServiceIds().some((id) => id.startsWith('laser-'));
   }
@@ -1176,6 +1183,7 @@
       card.textContent = emp.name;
       card.addEventListener('click', () => {
         state.employee = emp;
+        state.laserFallbackEmployee = null;
         document.querySelectorAll('#booking-employees .booking-employee-card').forEach((c) => c.classList.remove('selected'));
         card.classList.add('selected');
         renderSummary();
@@ -1214,6 +1222,32 @@
       const target = data.employees.find((e) => e.id === employeeId);
       if (target) {
         state.employee = target;
+        state.laserFallbackEmployee = null;
+        renderSummary();
+        setupCalendar();
+        goToStep(3);
+      } else {
+        renderEmployeeGrid(data.employees);
+      }
+    } catch (e) {
+      showError(t('loadEmployeesError'));
+    }
+  }
+
+  // Igual que loadEmployeesAutoAssign, pero además recuerda a Raquel como
+  // alternativa para los huecos en que la profesional por defecto no
+  // trabaja (ver LASER_AUTO_ASSIGN_FALLBACK_ID) — loadSlotsForDate() es quien
+  // decide, hueco a hueco, cuál de las dos ofrecer.
+  async function loadEmployeesAutoAssignLaserDual(employeeId, fallbackId) {
+    els.employees.innerHTML = `<p class="booking-loading">${t('loading')}</p>`;
+    try {
+      const ids = scheduledServiceIds().join(',');
+      const res = await fetch(`${BOOKING_API_BASE}/employees?serviceIds=${encodeURIComponent(ids)}`);
+      const data = await res.json();
+      const target = data.employees.find((e) => e.id === employeeId);
+      if (target) {
+        state.employee = target;
+        state.laserFallbackEmployee = data.employees.find((e) => e.id === fallbackId) || null;
         renderSummary();
         setupCalendar();
         goToStep(3);
@@ -1257,8 +1291,9 @@
         const res = await fetch(`${BOOKING_API_BASE}/client-status?phone=${encodeURIComponent(phone)}`);
         const data = await res.json();
         if (data.isNew) {
-          await loadEmployeesAutoAssign(LASER_AUTO_ASSIGN_EMPLOYEE_ID);
+          await loadEmployeesAutoAssignLaserDual(LASER_AUTO_ASSIGN_EMPLOYEE_ID, LASER_AUTO_ASSIGN_FALLBACK_ID);
         } else {
+          state.laserFallbackEmployee = null;
           await loadEmployees();
         }
       } catch (e) {
@@ -1318,7 +1353,10 @@
       cell.textContent = String(d);
       const empWeekly = state.employee && state.employee.weekly;
       const daySchedule = empWeekly && empWeekly[dateObj.getDay()];
-      const dayOff = empWeekly && (!daySchedule || daySchedule.closed);
+      // Martes: Vanessa no trabaja nunca, pero si hay alternativa (ver
+      // LASER_AUTO_ASSIGN_FALLBACK_ID) Raquel cubre ese día entero.
+      const fallbackCoversDay = state.laserFallbackEmployee && dateObj.getDay() === 2;
+      const dayOff = empWeekly && (!daySchedule || daySchedule.closed) && !fallbackCoversDay;
       const closures = (state.employee && state.employee.closures) || [];
       const isClosureDay = closures.some((c) => iso >= c.start && iso <= c.end);
       const disabled = dateObj < MIN_DATE || dayOff || isClosureDay;
@@ -1360,32 +1398,61 @@
     renderCalendar();
   });
 
+  async function fetchSlotsFor(employeeId, dateStr) {
+    // Solo lo que se agenda hoy (incluidos los bonos añadidos, que antes
+    // no se mandaban y el calendario enseñaba huecos demasiado cortos).
+    const schedIds = scheduledServiceIds();
+    const params = new URLSearchParams({
+      serviceId: schedIds[0],
+      employeeId,
+      date: dateStr,
+      extraIds: primaryScheduledSingle() ? state.extras.map((e) => e.id).join(',') : '',
+      extraServiceIds: schedIds.slice(1).join(','),
+    });
+    const res = await fetch(`${BOOKING_API_BASE}/availability?${params}`);
+    if (!res.ok) throw new Error('availability request failed');
+    const data = await res.json();
+    return data.slots || [];
+  }
+
   async function loadSlotsForDate(dateStr) {
     els.slots.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
     try {
-      // Solo lo que se agenda hoy (incluidos los bonos añadidos, que antes
-      // no se mandaban y el calendario enseñaba huecos demasiado cortos).
-      const schedIds = scheduledServiceIds();
-      const params = new URLSearchParams({
-        serviceId: schedIds[0],
-        employeeId: state.employee.id,
-        date: dateStr,
-        extraIds: primaryScheduledSingle() ? state.extras.map((e) => e.id).join(',') : '',
-        extraServiceIds: schedIds.slice(1).join(','),
-      });
-      const res = await fetch(`${BOOKING_API_BASE}/availability?${params}`);
-      if (!res.ok) throw new Error('availability request failed');
-      const data = await res.json();
+      const weekday = new Date(`${dateStr}T12:00:00`).getDay();
+      const useFallback = state.laserFallbackEmployee && (weekday === 2 || weekday === 3);
+      let entries; // [{ time, employeeId }]
+      if (useFallback) {
+        const [primarySlots, fallbackSlots] = await Promise.all([
+          fetchSlotsFor(state.employee.id, dateStr),
+          fetchSlotsFor(state.laserFallbackEmployee.id, dateStr),
+        ]);
+        // Martes: Vanessa no trabaja — el día entero es de Raquel. Miércoles:
+        // Raquel cubre la mañana (antes de las 14:00), Vanessa la tarde.
+        const fromPrimary = weekday === 2 ? [] : primarySlots;
+        const fromFallback = weekday === 2 ? fallbackSlots : fallbackSlots.filter((time) => time < LASER_FALLBACK_WEDNESDAY_CUTOFF);
+        entries = [
+          ...fromPrimary.map((time) => ({ time, employeeId: state.employee.id })),
+          ...fromFallback.map((time) => ({ time, employeeId: state.laserFallbackEmployee.id })),
+        ].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+      } else {
+        const slots = await fetchSlotsFor(state.employee.id, dateStr);
+        entries = slots.map((time) => ({ time, employeeId: state.employee.id }));
+      }
       els.slots.innerHTML = '';
-      if (!data.slots || !data.slots.length) {
+      if (!entries.length) {
         els.slots.innerHTML = `<p class="booking-slot-message">${t('noSlots')}</p>`;
         return;
       }
-      data.slots.forEach((time) => {
+      entries.forEach(({ time, employeeId }) => {
         const slot = document.createElement('div');
         slot.className = 'booking-slot';
         slot.textContent = time;
         slot.addEventListener('click', () => {
+          // El hueco puede pertenecer a la alternativa (Raquel) en vez de a
+          // la profesional por defecto — asignar a quien realmente da ese hueco.
+          if (state.laserFallbackEmployee && employeeId === state.laserFallbackEmployee.id) {
+            state.employee = state.laserFallbackEmployee;
+          }
           state.time = time;
           document.querySelectorAll('.booking-slot').forEach((s) => s.classList.remove('selected'));
           slot.classList.add('selected');
