@@ -1419,21 +1419,38 @@
     els.slots.innerHTML = `<p class="booking-slot-message">${t('searchingSlots')}</p>`;
     try {
       const weekday = new Date(`${dateStr}T12:00:00`).getDay();
-      const useFallback = state.laserFallbackEmployee && (weekday === 2 || weekday === 3);
       let entries; // [{ time, employeeId }]
-      if (useFallback) {
+      if (state.laserFallbackEmployee) {
+        const toPrimary = (time) => ({ time, employeeId: state.employee.id });
+        const toFallback = (time) => ({ time, employeeId: state.laserFallbackEmployee.id });
         const [primarySlots, fallbackSlots] = await Promise.all([
           fetchSlotsFor(state.employee.id, dateStr),
           fetchSlotsFor(state.laserFallbackEmployee.id, dateStr),
         ]);
-        // Martes: Vanessa no trabaja — el día entero es de Raquel. Miércoles:
-        // Raquel cubre la mañana (antes de las 14:00), Vanessa la tarde.
-        const fromPrimary = weekday === 2 ? [] : primarySlots;
-        const fromFallback = weekday === 2 ? fallbackSlots : fallbackSlots.filter((time) => time < LASER_FALLBACK_WEDNESDAY_CUTOFF);
-        entries = [
-          ...fromPrimary.map((time) => ({ time, employeeId: state.employee.id })),
-          ...fromFallback.map((time) => ({ time, employeeId: state.laserFallbackEmployee.id })),
-        ].sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+        if (weekday === 2) {
+          // Martes: Vanessa no trabaja — el día entero es de Raquel.
+          entries = fallbackSlots.map(toFallback);
+        } else if (weekday === 3) {
+          // Miércoles: Raquel cubre siempre la mañana (Vanessa no entra hasta
+          // las 14:00); si Vanessa está llena por la tarde, Raquel también
+          // cubre esas horas para que la clienta no se quede sin hueco.
+          const raquelMorning = fallbackSlots.filter((time) => time < LASER_FALLBACK_WEDNESDAY_CUTOFF);
+          const vanessaAfternoon = primarySlots;
+          const raquelAfternoonFallback = vanessaAfternoon.length
+            ? []
+            : fallbackSlots.filter((time) => time >= LASER_FALLBACK_WEDNESDAY_CUTOFF);
+          entries = [
+            ...raquelMorning.map(toFallback),
+            ...vanessaAfternoon.map(toPrimary),
+            ...raquelAfternoonFallback.map(toFallback),
+          ];
+        } else {
+          // Resto de días (jueves a sábado): se prioriza a Vanessa — solo si
+          // no le queda ningún hueco ese día (llena) se ofrece el día
+          // completo con Raquel en su lugar.
+          entries = primarySlots.length ? primarySlots.map(toPrimary) : fallbackSlots.map(toFallback);
+        }
+        entries.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
       } else {
         const slots = await fetchSlotsFor(state.employee.id, dateStr);
         entries = slots.map((time) => ({ time, employeeId: state.employee.id }));
