@@ -9,7 +9,8 @@
     chooseToStart: { es: 'Elige un tratamiento para empezar.', en: 'Choose a treatment to get started.', it: 'Scegli un trattamento per iniziare.' },
     free: { es: 'Gratis', en: 'Free', it: 'Gratis' },
     from: { es: 'Desde', en: 'From', it: 'Da' },
-    promoCategory: { es: 'Promociones', en: 'Promotions', it: 'Promozioni' },
+    // Temporal mientras dura el Black Friday — después se vuelve a "Promociones".
+    promoCategory: { es: 'BLACK FRIDAY', en: 'BLACK FRIDAY', it: 'BLACK FRIDAY' },
     promoGroupFacial: { es: 'Facial', en: 'Facial', it: 'Viso' },
     promoGroupCorporal: { es: 'Corporal', en: 'Body', it: 'Corpo' },
     promoGroupLaser: { es: 'Láser', en: 'Laser', it: 'Laser' },
@@ -633,12 +634,14 @@
         servicesByCategory[s.category] = servicesByCategory[s.category] || [];
         servicesByCategory[s.category].push(s);
       });
-      // "Promociones" se muestra siempre la última, aunque en ese momento no
-      // haya ninguna promoción activa (ver renderServiceGrid) — así siempre
-      // está en el mismo sitio y es fácil de encontrar.
+      // "Promociones" (ahora "BLACK FRIDAY", ver STR.promoCategory) se
+      // muestra siempre la primera —y por tanto ya abierta de entrada, ver
+      // "activeCategory = categories[0]" más abajo— aunque en ese momento no
+      // haya ninguna promoción activa (ver renderServiceGrid), para que sea
+      // lo primero que vea la clienta y así siempre está en el mismo sitio.
       const promoLabel = t('promoCategory');
       if (!servicesByCategory[promoLabel]) servicesByCategory[promoLabel] = [];
-      const categories = [...Object.keys(servicesByCategory).filter((c) => c !== promoLabel), promoLabel];
+      const categories = [promoLabel, ...Object.keys(servicesByCategory).filter((c) => c !== promoLabel)];
       activeCategory = categories[0];
       renderCatPills(categories);
       renderServiceGrid();
