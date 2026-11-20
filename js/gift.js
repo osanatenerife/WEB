@@ -81,6 +81,12 @@
         });
         els.serviceSelect.appendChild(group);
       });
+      // Si se llega aquí desde la página de reserva con un tratamiento ya
+      // elegido (ver "booking-gift-link" en booking.js), se preselecciona.
+      const preselectId = new URLSearchParams(window.location.search).get('service');
+      if (preselectId && els.serviceSelect.querySelector(`option[value="${CSS.escape(preselectId)}"]`)) {
+        els.serviceSelect.value = preselectId;
+      }
     } catch (e) {
       showError(t('loadServicesError'));
     }

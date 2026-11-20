@@ -336,6 +336,7 @@
     calNext: document.getElementById('cal-next'),
     slots: document.getElementById('booking-slots'),
     summary: document.getElementById('booking-summary'),
+    giftLink: document.getElementById('booking-gift-link'),
     payOptions: document.getElementById('booking-pay-options'),
     submit: document.getElementById('booking-submit'),
     error: document.getElementById('booking-error'),
@@ -374,6 +375,14 @@
   // ── Resumen persistente (panel lateral) ──
   function renderSummary() {
     const { service, extras, extraServices, extraBonos, employee, date, time } = state;
+    if (els.giftLink) {
+      if (service && service.price > 0) {
+        els.giftLink.style.display = 'block';
+        els.giftLink.querySelector('a').href = `bono-regalo.html?service=${encodeURIComponent(service.id)}`;
+      } else {
+        els.giftLink.style.display = 'none';
+      }
+    }
     if (!service) {
       els.summary.innerHTML = `<p class="booking-summary-empty">${t('chooseToStart')}</p>`;
       return;

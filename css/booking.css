@@ -231,6 +231,9 @@
   font-size: 13px; color: var(--txt-mid); padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--line);
 }
 
+.booking-gift-link { margin: 14px 0 0; font-size: 12.5px; }
+.booking-gift-link a { color: var(--brown); text-decoration: underline; }
+
 .booking-loyalty-box {
   margin-top: 20px; padding: 14px 16px; background: #fdfaf5; border: 1px solid var(--line);
 }
